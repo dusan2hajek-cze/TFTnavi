@@ -93,7 +93,7 @@ android {
         // silently does not arrive is worse than none, and there is no other way to see whether
         // a session was started, dropped or rejected: the SDK says nothing at all by default.
         buildConfigField("boolean", "SENTRY_DEBUG", sentryDebug.toString())
-        manifestPlaceholders["appLabel"] = "MOTO-HUB"
+        manifestPlaceholders["appLabel"] = "TFTnavi"
     }
 
     signingConfigs {
