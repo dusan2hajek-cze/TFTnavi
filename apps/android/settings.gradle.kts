@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MOTO-HUB Android"
+rootProject.name = "TFTnavi_Connector"
 include(":app", ":ipc-contract")
 

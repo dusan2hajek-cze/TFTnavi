@@ -50,9 +50,9 @@ val localSigningStore = localSigningProperties.getProperty("storeFile")?.let { c
     }
 }
 val hasLocalReleaseSigning = localSigningStore?.isFile == true &&
-    localSigningProperties.getProperty("storePassword") != null &&
-    localSigningProperties.getProperty("keyAlias") != null &&
-    localSigningProperties.getProperty("keyPassword") != null
+        localSigningProperties.getProperty("storePassword") != null &&
+        localSigningProperties.getProperty("keyAlias") != null &&
+        localSigningProperties.getProperty("keyPassword") != null
 
 val localSentryPropertiesFile = rootProject.projectDir.resolve("../../tooling/private/sentry.properties")
 val localSentryProperties = Properties().apply {
@@ -221,8 +221,8 @@ val prepareAndroidAutoIdentity by tasks.registering(Copy::class) {
     into(androidAutoIdentityOutputDir.map { it.dir("raw") })
     onlyIf {
         includeAndroidAutoIdentity.get() &&
-            androidAutoIdentityDir.resolve("aa_cert").isFile &&
-            androidAutoIdentityDir.resolve("aa_identity_data").isFile
+                androidAutoIdentityDir.resolve("aa_cert").isFile &&
+                androidAutoIdentityDir.resolve("aa_identity_data").isFile
     }
     doLast {
         val rawDir = androidAutoIdentityOutputDir.get().dir("raw").asFile
@@ -290,7 +290,7 @@ val exportPublicApk by tasks.registering(Copy::class) {
     dependsOn("assembleRelease")
     from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
     into(rootProject.projectDir.resolve("../../artifacts"))
-    rename { "MOTO-HUB-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}-public.apk" }
+    rename { "TFTnavi-Connector-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}-public.apk" }
     doFirst {
         check(hasLocalReleaseSigning) {
             "The persistent MOTO-HUB release keystore and release-signing.properties are required."
@@ -304,19 +304,19 @@ val exportPublicApk by tasks.registering(Copy::class) {
         // purpose is to be published. Refuse to export rather than trust the invocation.
         check(!includeAndroidAutoIdentity.get()) {
             "The public APK must be assembled WITHOUT -PincludeAndroidAutoIdentity: rerun " +
-                "'./gradlew exportPublicApk' with no identity flag so the release is rebuilt clean."
+                    "'./gradlew exportPublicApk' with no identity flag so the release is rebuilt clean."
         }
     }
     doLast {
         val exported = destinationDir.resolve(
-            "MOTO-HUB-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}-public.apk"
+            "TFTnavi-Connector-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}-public.apk"
         )
         // Belt and braces: verify the bytes that were actually copied, so a stale or
         // hand-placed APK can never be published with the identity inside it.
         val identityEntries = zipTree(exported).matching { include("res/raw/aa_cert", "res/raw/aa_identity_data") }
         check(identityEntries.isEmpty) {
             "${exported.name} contains the private Android Auto identity and must not be " +
-                "published. Delete it, then rerun the export without -PincludeAndroidAutoIdentity."
+                    "published. Delete it, then rerun the export without -PincludeAndroidAutoIdentity."
         }
     }
 }
@@ -325,7 +325,7 @@ val exportPrivateAndroidAutoApk by tasks.registering(Copy::class) {
     dependsOn("assembleRelease")
     from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
     into(rootProject.projectDir.resolve("../../artifacts"))
-    rename { "MOTO-HUB-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}-android-auto-private.apk" }
+    rename { "TFTnavi-Connector-${android.defaultConfig.versionName}-${android.defaultConfig.versionCode}-android-auto-private.apk" }
     doFirst {
         check(hasLocalReleaseSigning) {
             "The persistent MOTO-HUB release keystore and release-signing.properties are required."
@@ -338,7 +338,7 @@ val exportPrivateAndroidAutoApk by tasks.registering(Copy::class) {
         }
         check(
             androidAutoIdentityDir.resolve("aa_cert").isFile &&
-                androidAutoIdentityDir.resolve("aa_identity_data").isFile
+                    androidAutoIdentityDir.resolve("aa_identity_data").isFile
         ) {
             "The private Android Auto identity files are required."
         }
