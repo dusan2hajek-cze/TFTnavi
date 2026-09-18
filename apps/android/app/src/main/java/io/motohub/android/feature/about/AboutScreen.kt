@@ -107,7 +107,7 @@ fun AboutScreen(
                                 "pairs over EasyConn — the Carbit software several manufacturers ship, " +
                                 "CFMOTO among them. It supports screen and app mirroring, Android Auto " +
                                 "projection, saved motorcycle profiles, and on-device diagnostics."
-                    ),
+                    ).replace("MOTO-HUB", "TFTnavi Connector"),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -169,8 +169,9 @@ fun AboutScreen(
                                 text =
                                     "MOTO-HUB Core is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). " +
                                             "TFTnavi Connector contains modifications to the MOTO-HUB Core project made by Xixao s.r.o. " +
-                                            "The source code of TFTnavi Connector and the AGPL-3.0 license text will be made available " +
-                                            "in the public project repository. Original MOTO-HUB project: github.com/vincenzobpt/MOTO-HUB.",
+                                            "The complete corresponding source code for TFTnavi Connector is available at: " +
+                                            "https://github.com/dusan2hajek-cze/TFTnavi. " +
+                                            "Original MOTO-HUB project: https://github.com/vincenzobpt/MOTO-HUB.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -189,7 +190,7 @@ fun AboutScreen(
                             "or sponsored by Carbit, CFMOTO, any other manufacturer whose dashboard uses " +
                             "EasyConn, Google, or Android Auto. All product names and marks belong to " +
                             "their respective owners."
-                ),
+                ).replace("MOTO-HUB", "TFTnavi Connector"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -324,7 +325,7 @@ private fun DisclaimerCard() {
         ) {
             MonoLabel(motoHubText("EXPERIMENTAL SOFTWARE"))
             Text(
-                text = motoHubText("MOTO-HUB is an experimental proof-of-concept, not a production-grade product."),
+                text = motoHubText("MOTO-HUB is an experimental proof-of-concept, not a production-grade product.").replace("MOTO-HUB", "TFTnavi Connector"),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
