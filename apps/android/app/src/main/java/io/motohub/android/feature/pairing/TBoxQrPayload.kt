@@ -48,16 +48,45 @@ value class TBoxQrTopology(val bits: Int) {
     val wifiDirect: Boolean get() = bits and BIT_P2P != 0
     val phoneHostsHotspot: Boolean get() = bits and BIT_PHONE_HOTSPOT != 0
 
+    /**
+     * The claim in words, for a log a rider will mail in. `bits=0` is itself an answer - a code
+     * that made no claim at all - and is worth saying rather than printing an empty list.
+     */
+    fun describe(): String {
+        if (bits == 0) return "nothing (no action bitmask in the code)"
+        val claims = buildList {
+            if (bits and BIT_AP != 0) add("access point")
+            if (bits and BIT_AP_INTERNET != 0) add("access point with internet")
+            if (wifiDirect) add("Wi-Fi Direct")
+            if (phoneHostsHotspot) add("phone hosts the hotspot")
+        }
+        return if (claims.isEmpty()) "unknown (action=$bits)" else claims.joinToString() + " (action=$bits)"
+    }
+
     /** True only when the dash said something and none of it was an access point of its own. */
     val neverOffersAccessPoint: Boolean get() = bits != 0 && !accessPoint
 
     /**
-     * The transport this code implies, or null to leave the rider's saved choice alone. Only the
-     * phone-hotspot bit is decisive: a dash advertising an access point, Wi-Fi Direct, or both is
-     * exactly what [TBoxConnectionMode.AUTO] already resolves correctly from the SSID.
+     * The transport this code implies, or null to leave the rider's saved choice alone. A code
+     * that claims exactly one topology is decisive; one that claims several is not, because only
+     * the dash knows which it will actually be on, and [TBoxConnectionMode.AUTO] picks between
+     * them from the SSID at connect time.
+     *
+     * The Wi-Fi Direct case is not the same as an access point and AUTO cannot stand in for it.
+     * AUTO infers P2P from a `DIRECT-` SSID prefix ([io.motohub.android.tbox.TBoxLinkResolver]),
+     * but a P2P code does not carry the group name: `ssid=` is the dash's P2P *device* name, and
+     * the group Android will see is `DIRECT-xy-<that name>`. A QJ SRK921 RR (field log
+     * 6b345de4, 2026-08-28) scanned `ssid=qj5inch-0758 action=8` - Wi-Fi Direct and nothing else
+     * - fell to AUTO, failed the prefix test, and spent every attempt asking
+     * `WifiNetworkSpecifier` for an access point that does not exist and never appeared in a
+     * single scan. Three joins, three 30s timeouts, and the rider was then offered the phone
+     * hotspot - the one topology the code had explicitly ruled out.
      */
-    fun suggestedConnectionMode(): TBoxConnectionMode? =
-        if (phoneHostsHotspot && !accessPoint && !wifiDirect) TBoxConnectionMode.PHONE_HOTSPOT else null
+    fun suggestedConnectionMode(): TBoxConnectionMode? = when {
+        phoneHostsHotspot && !accessPoint && !wifiDirect -> TBoxConnectionMode.PHONE_HOTSPOT
+        wifiDirect && !accessPoint && !phoneHostsHotspot -> TBoxConnectionMode.WIFI_DIRECT
+        else -> null
+    }
 
     companion object {
         const val BIT_AP = 1
@@ -229,19 +258,39 @@ object TBoxQrParser {
 
         // A dash that wants the phone to host carries no network of its own to name, so this code
         // is complete without an SSID and rejecting it for the missing field would be wrong. The
-        // rider still has to type the credentials the dash prints on its own screen (Android does
-        // not let an app dictate them), but the profile, the transport and the MAC all come from
-        // here instead of from a guess.
+        // profile, the transport and the MAC all come from here instead of from a guess.
+        //
+        // Which of the two roads it takes cannot be read off the code, because both families print
+        // the same one. Some of these dashes dictate an SSID and password on their own screen for
+        // the rider to type into Android's tethering settings; others print nothing at all and hand
+        // the credentials over on Bluetooth instead (EC-BTP build-net, `EcBtpNetLink`). A dash
+        // photographed on 2026-09-06 sat inside its own WIFI CONNECTION page showing neither, which
+        // is the shape the old mapping had no answer for: it sent the rider to a form to type
+        // credentials that do not exist anywhere, and saved no profile at all, so the Bluetooth road
+        // could never be reached.
+        //
+        // So the code now picks the road that needs nothing from the rider, and
+        // [io.motohub.android.tbox.TBoxLinkResolver] falls back to the hosted network when no dash
+        // answers the scan - the mirror of the fallback that already ran the other way round. Either
+        // family connects; the choice here only decides which road is tried first.
         if (ssid.isEmpty() && topology.phoneHostsHotspot && dashMac != null) {
             val tail = dashMac.filter { it != ':' }.takeLast(6).uppercase()
+            // A profile is keyed by SSID and this dash has none, so it is keyed the way the opaque
+            // CARBIT token keys one: `EC` and the MAC's last four bytes. Nothing addresses the radio
+            // with it - EcBtpNetLink finds the dash by the service it advertises - it only has to be
+            // stable and unique, so a second bike in the garage does not collide on a blank SSID.
+            // Unlike the CARBIT token's dashes this one does not answer to that name in a Bluetooth
+            // scanner (the dash photographed on 2026-09-06 advertises `KY05E381`), which is why what
+            // the rider is shown is the display name below and never this key.
+            val dashName = "EC" + dashMac.filter { it != ':' }.takeLast(8).uppercase()
             return TBoxQrPayload(
-                ssid = "",
+                ssid = dashName,
                 password = "",
                 encryption = null,
                 modelId = parameters["modelid"],
                 displayName = "Phone hotspot ($tail)",
                 origin = origin,
-                suggestedConnectionMode = TBoxConnectionMode.PHONE_HOTSPOT,
+                suggestedConnectionMode = TBoxConnectionMode.BLE_PROVISIONED,
                 topology = topology,
                 dashMacAddress = dashMac
             )
@@ -330,7 +379,9 @@ object TBoxQrParser {
         if (!rawValue.startsWith(WIFI_SCHEME, ignoreCase = true)) return null
         val fields = splitWifiFields(rawValue.substring(WIFI_SCHEME.length))
         val ssid = fields["S"].orEmpty()
-        check(ssid.isNotEmpty()) { "The Wi-Fi QR code does not carry a network name." }
+        check(ssid.isNotEmpty()) {
+            "The Wi-Fi QR code does not carry a network name." + TRY_THE_IOS_CODE
+        }
 
         return TBoxQrPayload(
             ssid = ssid,
@@ -462,6 +513,33 @@ object TBoxQrParser {
     private val MOTO_FUN_PRODUCT_ID = Regex("""productid=([^&#\s]+)""", RegexOption.IGNORE_CASE)
 
     /**
+     * What to try when the remedy is "scan the other code on the dash".
+     *
+     * Dashes that print two codes label one for Android and one for iPhone/CarPlay, and on the
+     * Carbit/EasyConn family it is repeatedly the *iPhone* one that carries the credentials. What
+     * the Android-labelled code holds instead has never been captured - riders scan it, get
+     * nothing usable, and the thread ends once someone tells them to try the other one. Confirmed
+     * that way on Benelli, CFMOTO, QJ-Motor and Voge dashboards through August 2026.
+     *
+     * Said explicitly because nobody guesses it: an Android rider has no reason to scan the code
+     * marked for iPhone, and every rider who got there was told by someone in the community.
+     */
+    private const val TRY_THE_IOS_CODE =
+        " If the dash shows two codes, use the one marked for iPhone / CarPlay - despite the " +
+            "label, it pairs Android too."
+
+    /**
+     * What to add when the dash asked the phone to host, but may still host an AP of its own.
+     *
+     * The wording deliberately differs from [TRY_THE_IOS_CODE]: there the remedy is to scan the
+     * other code, here it is to change what the dash is doing. Scanning the iPhone code would give
+     * the same credentials again - what the rider needs is that screen's radio.
+     */
+    private const val OR_THE_IOS_ACCESS_POINT =
+        " If the dash also offers iPhone / CarPlay, picking that turns on an access point of its " +
+            "own - joining it is easier, and it pairs Android too."
+
+    /**
      * The QR decoded cleanly but carries no credentials. Naming the actual content is what lets a
      * rider recover on their own: the dash prints several codes and only one of them pairs, so
      * "unreadable" sends them polishing the screen instead of changing screens.
@@ -476,8 +554,11 @@ object TBoxQrParser {
                 ) ->
                 "That is the vehicle information code (VIN, engine, colour), not the Wi-Fi " +
                     "pairing code. Open the phone-connection screen on the dash and scan the " +
-                    "code shown there."
+                    "code shown there." + TRY_THE_IOS_CODE
 
+            // No iPhone hint here: this dash serves the MotoFun dialect from one screen, and the
+            // pairing code is the only code on it. Sending a Moto Morini rider hunting for a
+            // second code would replace one wrong screen with a search for a screen that has none.
             rawValue.contains("motomorini", ignoreCase = true) ||
                 rawValue.contains("motofun", ignoreCase = true) ->
                 "This Moto Morini code carries no Wifi= field, so it is not the pairing code. " +
@@ -489,17 +570,25 @@ object TBoxQrParser {
             // generic "scan the pairing code instead" advice sends the rider hunting for a code
             // that does not exist. Confirmed on a tester's dash 2026-08-02, whose screen reads
             // "Please open Android hotspot and set the following parameters".
+            //
+            // The iPhone hint used to be withheld here, on the grounds that this code is complete
+            // as it is. That holds only for a dash that can ONLY be a client: support case
+            // FD79-4FFB is a Benelli TRK 702X that does both, and the rider spent nine days on the
+            // hotspot before someone told him to pick iPhone/CarPlay on the dash, which raised an
+            // access point of its own. Hosting the hotspot stays the first instruction, because it
+            // is what the scanned code actually asks for; the access point is the easier road out
+            // where the dash offers one, so it is named second rather than not at all.
             hostOf(rawValue)?.lowercase()?.let(::isKnownProvisioningHost) == true ->
                 "This dash connects the other way round: it joins a hotspot your phone creates, " +
                     "so its code carries no network to join. On the dash, read the Ssid and " +
                     "Password it shows, set your Android hotspot to exactly those values, turn it " +
-                    "on, and the dash will connect by itself."
+                    "on, and the dash will connect by itself." + OR_THE_IOS_ACCESS_POINT
 
             rawValue.startsWith("http", ignoreCase = true) ->
                 "That is a web address with no network credentials in it. Scan the dash pairing " +
-                    "code instead (MotoPlay / EasyConnect / MotoFun)."
+                    "code instead (MotoPlay / EasyConnect / MotoFun)." + TRY_THE_IOS_CODE
 
-            else -> "The QR code does not carry a T-Box network name."
+            else -> "The QR code does not carry a T-Box network name." + TRY_THE_IOS_CODE
         }
     }
 }

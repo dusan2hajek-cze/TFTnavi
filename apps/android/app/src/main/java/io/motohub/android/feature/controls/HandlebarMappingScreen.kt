@@ -21,20 +21,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -81,7 +84,14 @@ import kotlinx.coroutines.delay
 @Composable
 fun HandlebarMappingScreen(
     onBack: () -> Unit,
-    backLabel: String = motoHubText("‹ Controls")
+    backLabel: String = motoHubText("‹ Controls"),
+    // The handlebar's own on/off belongs on this screen rather than on the page that opens
+    // it. Applying it to a running session is not something this screen can do on its own,
+    // though - which
+    // projection is live, and which side of the app owns its bridge, is known only to the
+    // caller. Null means the caller has no session to apply it to, and no switch is shown.
+    captureControl: ((Boolean) -> Boolean)? = null,
+    captureDetail: (@Composable (Boolean) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var revision by remember { mutableStateOf(0) }
@@ -106,9 +116,20 @@ fun HandlebarMappingScreen(
     val lastGesture by HandlebarGestureFeed.lastGesture.collectAsState()
     var litGesture by remember { mutableStateOf<HandlebarGesture?>(null) }
     LaunchedEffect(lastGesture?.atElapsedRealtimeMillis) {
-        val gesture = lastGesture?.gesture ?: return@LaunchedEffect
-        litGesture = gesture
-        delay(HIGHLIGHT_MILLIS)
+        // The feed keeps its last event forever, so without the age check re-opening this
+        // screen lights a button for a press the rider made minutes ago.
+        //
+        // Every path assigns the light, none of them returns leaving it as it was: the previous
+        // run is cancelled the moment a newer event arrives, so a bare return would strand
+        // whatever that run had switched on with nothing left to switch it off.
+        val event = lastGesture
+        val age = event?.let { SystemClock.elapsedRealtime() - it.atElapsedRealtimeMillis }
+        if (event == null || age == null || age >= HIGHLIGHT_MILLIS) {
+            litGesture = null
+            return@LaunchedEffect
+        }
+        litGesture = event.gesture
+        delay(HIGHLIGHT_MILLIS - age)
         litGesture = null
     }
 
@@ -134,16 +155,27 @@ fun HandlebarMappingScreen(
         modifier = Modifier.fillMaxSize()
     ) { shown ->
         when (shown) {
-            HandlebarScreenState.Calibrating -> HandlebarCalibrationScreen(
-                onDone = {
-                    revision++
-                    calibrating = false
-                    // The taught set may have just changed whether volume presses exist on this
-                    // handlebar — a live capture must re-decide the volume pin NOW, not at the
-                    // next session (stale pin = phone volume keys acting as handlebar presses).
-                    MediaButtonBridge.refreshVolumeGestureUse()
+            HandlebarScreenState.Calibrating -> {
+                // The pin has to be held for the whole wizard, not only while a step is on
+                // screen: an AVRCP volume rocker is invisible without it, so the volume steps
+                // looked dead and got skipped. Tied to the screen rather than to onDone so that
+                // leaving with Back releases it too.
+                DisposableEffect(Unit) {
+                    MediaButtonBridge.setCalibrating(true)
+                    onDispose { MediaButtonBridge.setCalibrating(false) }
                 }
-            )
+                HandlebarCalibrationScreen(
+                    onDone = {
+                        revision++
+                        calibrating = false
+                        // The taught set may have just changed whether volume presses exist on
+                        // this handlebar — a live capture must re-decide the volume pin NOW, not
+                        // at the next session (stale pin = phone volume keys acting as handlebar
+                        // presses).
+                        MediaButtonBridge.refreshVolumeGestureUse()
+                    }
+                )
+            }
             is HandlebarScreenState.Editing -> HandlebarActionPicker(
                 title = shown.press.label,
                 current = HandlebarControlStore.action(context, shown.gesture),
@@ -159,6 +191,8 @@ fun HandlebarMappingScreen(
                 onBack = { editing = null }
             )
             HandlebarScreenState.List -> HandlebarListContent(
+                captureControl = captureControl,
+                captureDetail = captureDetail,
                 context = context,
                 backLabel = backLabel,
                 onBack = onBack,
@@ -221,6 +255,8 @@ private sealed interface HandlebarScreenState {
 
 @Composable
 private fun HandlebarListContent(
+    captureControl: ((Boolean) -> Boolean)?,
+    captureDetail: (@Composable (Boolean) -> Unit)?,
     context: android.content.Context,
     backLabel: String,
     onBack: () -> Unit,
@@ -230,35 +266,58 @@ private fun HandlebarListContent(
     onEdit: (PhysicalPress) -> Unit,
     onReset: () -> Unit
 ) {
+    var captureEnabled by remember { mutableStateOf(HandlebarControlStore.isEnabled(context)) }
+    val handlebarTaught = HandlebarCalibration.isCalibrated(context)
+
     MotoHubDetailScreen(
         title = motoHubText("Handlebar"),
         backLabel = backLabel,
         onBack = onBack
     ) {
-        // Read so that every recorded change re-reads the stores below.
         val currentRevision = revision
         Text(
             motoHubText(
-                "One card per button, with what a press, a double press and a hold each do. " +
-                    "Teach the handlebar so the app knows which buttons yours actually has."
+                "Your motorcycle's own handlebar drives MOTO-HUB. Teach it once, then give " +
+                    "each button the action you want."
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
+        if (!captureEnabled) {
+            CaptureOffBanner(
+                managedByCompanion = HandlebarControlStore.isManagedByCompanion(context),
+                onEnable = captureControl?.let { control ->
+                    {
+                        captureEnabled = true
+                        HandlebarControlStore.setEnabled(context, true)
+                        control(true)
+                    }
+                }
+            )
+        }
+
+        MonoLabel(motoHubText("MOTORCYCLE HANDLEBAR"))
+        if (captureControl != null) {
+            HandlebarCaptureRow(
+                checked = captureEnabled,
+                onCheckedChange = { value ->
+                    captureEnabled = value
+                    HandlebarControlStore.setEnabled(context, value)
+                    captureControl(value)
+                }
+            )
+            captureDetail?.invoke(captureEnabled)
+        }
         BluetoothStatusCard()
-
         LiveCaptureBanner(litGesture)
-
         Button(
             onClick = onTeach,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                motoHubText(
-                    if (HandlebarCalibration.isCalibrated(context)) "Teach again" else "Teach my handlebar"
-                ),
+                motoHubText(if (handlebarTaught) "Teach again" else "Teach my handlebar"),
                 fontWeight = FontWeight.Bold
             )
         }
@@ -270,13 +329,94 @@ private fun HandlebarListContent(
                 onEdit = onEdit
             )
         }
-
         HandlebarTimingSection()
+        OutlinedButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) {
+            Text(motoHubText("Reset actions to defaults"))
+        }
+    }
+}
 
-        OutlinedButton(
-            onClick = onReset,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(motoHubText("Reset actions to defaults")) }
+/** The motorcycle's handlebar on/off, on the page that lists it as one of the sources. */
+@Composable
+private fun HandlebarCaptureRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                (if (checked) MotoHubLive else Color(0xFF8C93A0)).copy(alpha = 0.10f),
+                RoundedCornerShape(16.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                motoHubText("Handlebar controls"),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                motoHubText("Use the motorcycle buttons without looking down. The active projection receives the commands first."),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * The master switch, said where it is felt.
+ *
+ * A rider could teach every button, watch this page light up as presses arrived, and never
+ * see the one switch deciding that none of them would be performed.
+ */
+@Composable
+private fun CaptureOffBanner(managedByCompanion: Boolean, onEnable: (() -> Unit)?) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MotoHubManual.copy(alpha = 0.10f)),
+        border = BorderStroke(1.dp, MotoHubManual.copy(alpha = 0.45f)),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                motoHubText("BUTTON PRESSES ARE OFF"),
+                style = MaterialTheme.typography.labelMedium,
+                color = MotoHubManual,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                motoHubText(
+                    "Presses still arrive and still show up on this page - nothing is " +
+                        "performed with them."
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (managedByCompanion) {
+                Text(
+                    motoHubText(
+                        "MOTO-HUB ADVANCED owns this setting and writes its own over this one, " +
+                            "so turn it on there rather than here."
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            } else if (onEnable != null) {
+                OutlinedButton(
+                    onClick = onEnable,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(motoHubText("Turn presses back on"))
+                }
+            }
+        }
     }
 }
 
@@ -731,11 +871,25 @@ private fun HandlebarCalibrationScreen(onDone: () -> Unit) {
             OutlinedButton(
                 onClick = {
                     HandlebarCalibration.recordMissing(context, press)
+                    ProjectionEventLog.record(
+                        "CONTROLS",
+                        "Marked ${press.id} as absent from this handlebar."
+                    )
                     step++
                 },
                 modifier = Modifier.weight(1f)
             ) { Text(motoHubText("Not on my bike")) }
-            OutlinedButton(onClick = { step++ }, modifier = Modifier.weight(1f)) {
+            OutlinedButton(
+                onClick = {
+                    // Logged for the same reason the automatic skip above is: a wizard run to the
+                    // end teaches nothing if every step was skipped, and a support case cannot
+                    // tell that from a wizard whose presses never arrived. Support 0df154af read
+                    // as the second and may well have been the first.
+                    ProjectionEventLog.record("CONTROLS", "Skipped ${press.id}; rider tapped Skip.")
+                    step++
+                },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(motoHubText("Skip"))
             }
         }
@@ -912,6 +1066,20 @@ private fun HandlebarActionPicker(
             if (actions.isEmpty()) return@forEach
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MonoLabel(motoHubText(family.title))
+                if (family == ActionFamily.DASHBOARD) {
+                    // Chosen from here it looks like any other action, and the rider finds out it
+                    // is not one only by reading a log line. Field case, 2026-08-29: every front
+                    // button of an Xbox pad mapped to these, in an Android Auto session, every
+                    // press resolved and then dropped.
+                    Text(
+                        motoHubText(
+                            "These drive the Ride Dashboard, so they do nothing unless it is " +
+                                "running - an Android Auto session on its own is not enough."
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 actions.forEach { candidate ->
                     ActionOptionRow(
                         action = candidate,
@@ -971,6 +1139,8 @@ private fun HandlebarButton.accent(): Color = when (this) {
 /** Action families, each with its own colour so a glance at the list groups itself. */
 private enum class ActionFamily(val title: String, val color: Color) {
     CURSOR("MOVE THE CURSOR", MotoHubMirror),
+    DASHBOARD("RIDE DASHBOARD", MotoHubFavorite),
+    MUSIC("MUSIC", MotoHubMirror),
     SYSTEM("SYSTEM", MotoHubLive),
     NAVIGATION("NAVIGATE TO", MotoHubManual),
     OFF("OFF", Color(0xFF8C93A0))
@@ -984,6 +1154,11 @@ private fun HandlebarAction.family(): ActionFamily = when (this) {
     HandlebarAction.SELECT -> ActionFamily.CURSOR
     HandlebarAction.BACK, HandlebarAction.HOME, HandlebarAction.ASSISTANT -> ActionFamily.SYSTEM
     HandlebarAction.NAV_1, HandlebarAction.NAV_2, HandlebarAction.NAV_3 -> ActionFamily.NAVIGATION
+    HandlebarAction.DASH_NEXT_PANEL, HandlebarAction.DASH_FULLSCREEN_MAP,
+    HandlebarAction.DASH_MAP_ZOOM,
+    HandlebarAction.DASH_WIDGET_LEFT, HandlebarAction.DASH_WIDGET_RIGHT -> ActionFamily.DASHBOARD
+    HandlebarAction.MEDIA_PLAY_PAUSE, HandlebarAction.MEDIA_NEXT, HandlebarAction.MEDIA_PREVIOUS,
+    HandlebarAction.MEDIA_VOLUME_UP, HandlebarAction.MEDIA_VOLUME_DOWN -> ActionFamily.MUSIC
 }
 
 private fun HandlebarAction.glyph(): String = when (this) {
@@ -1001,6 +1176,16 @@ private fun HandlebarAction.glyph(): String = when (this) {
     HandlebarAction.NAV_1 -> "①"
     HandlebarAction.NAV_2 -> "②"
     HandlebarAction.NAV_3 -> "③"
+    HandlebarAction.DASH_NEXT_PANEL -> "⊞"
+    HandlebarAction.DASH_FULLSCREEN_MAP -> "⛶"
+    HandlebarAction.DASH_MAP_ZOOM -> "◎"
+    HandlebarAction.DASH_WIDGET_LEFT -> "◧"
+    HandlebarAction.DASH_WIDGET_RIGHT -> "◨"
+    HandlebarAction.MEDIA_PLAY_PAUSE -> "⏯"
+    HandlebarAction.MEDIA_NEXT -> "⏭"
+    HandlebarAction.MEDIA_PREVIOUS -> "⏮"
+    HandlebarAction.MEDIA_VOLUME_UP -> "🔊"
+    HandlebarAction.MEDIA_VOLUME_DOWN -> "🔉"
 }
 
 private fun HandlebarAction.shortLabel(): String = when (this) {
@@ -1018,6 +1203,16 @@ private fun HandlebarAction.shortLabel(): String = when (this) {
     HandlebarAction.NAV_1 -> "Place 1"
     HandlebarAction.NAV_2 -> "Place 2"
     HandlebarAction.NAV_3 -> "Place 3"
+    HandlebarAction.DASH_NEXT_PANEL -> "Panel +"
+    HandlebarAction.DASH_FULLSCREEN_MAP -> "Map full"
+    HandlebarAction.DASH_MAP_ZOOM -> "Zoom me"
+    HandlebarAction.DASH_WIDGET_LEFT -> "Widget L"
+    HandlebarAction.DASH_WIDGET_RIGHT -> "Widget R"
+    HandlebarAction.MEDIA_PLAY_PAUSE -> "Play"
+    HandlebarAction.MEDIA_NEXT -> "Next"
+    HandlebarAction.MEDIA_PREVIOUS -> "Previous"
+    HandlebarAction.MEDIA_VOLUME_UP -> "Vol +"
+    HandlebarAction.MEDIA_VOLUME_DOWN -> "Vol −"
 }
 
 private const val HIGHLIGHT_MILLIS = 1_400L

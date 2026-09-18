@@ -1,34 +1,39 @@
 # Generated dependency record. Update this file whenever hudlib.aar is rebuilt.
 source_repository=https://github.com/vincenzobpt/ridedaemon-lib
-source_commit=da7253b3c12f1a116d989d2ec89954b0e3d5bcdc
+source_commit=ee609e506980eab57b57aea171adaff1d5a7cbdd
 source_dirty=false
 source_checkout=refs/ridedaemon-lib-motohub
 gomobile_android_api=31
 artifact=apps/android/app/libs/hudlib.aar
-sha256=48c5f876880e5dac36f77f361b26aa8d0d2a6b34bf0d37a93cd0ed47ba558319
+sha256=89c9ba0a1107319c40c4aa34bf78e93e0c8e10ec1615ddb7e52bd998e1aa49a4
 license=GPL-3.0-only
 
-# Rebuilt 2026-08-18: the 0x10600 echo rule is now permissive. It used to hand
-# the dash its own timestamp back only when that stamp matched an exact 29-char
-# layout - anchored, space separator, precisely nine fractional digits - and
-# rewrote everything else with phone time. Firmware that formats the field even
-# slightly differently had a perfectly good clock overwritten; the reference
-# implementation measured that as clusters landing HOURS out on Voge, QJ,
-# X-Cape and Griffin, and dropped the strict check in their 2.0.10.
+# Rebuilt 2026-09-12: the phone now states its mirroring state to the head unit, and
+# the capture reply is the length the official app writes.
 #
-# Now: echo unless the dash sent nothing, sent epoch, or filled the field with
-# something that is not printable text of at least a date's length. That last
-# guard is ours and theirs lacks it - without it a short request carrying two
-# raw bytes echoes back as an all-but-empty body, which is the exact shape that
-# put Morini and Voge at 1970 to begin with. The old 18-byte regression test
-# still passes because of it.
+# Three changes, all read out of the CarbitRide APK rather than guessed:
 #
-# Built with -androidapi 31 to match this worktree's minSdk. CORE is minSdk 31
-# since "Run on Android 12 and 13"; pro-poc and the experiment worktree are
-# still 34, so they keep the 34 build. An AAR must never require a higher API
-# than the app's minSdk.
+#  1. ECP_P2C_APPSTATUS_BACKGROUND (0x20030). kh/b.java, sent by the official app twice
+#     per connection - mode 2 when PXC comes up (vf.s.b0()) and mode 1 when
+#     REQ_RV_DATA_START has been answered 113 (n0.setTrueMirror()). It is the only
+#     statement the app ever volunteers that a mirror exists. No reference
+#     implementation sends it and neither did this daemon. Opt-in per profile through
+#     MobileConfig.AppStatusNotifyEnabled, with the phone's display metrics supplied by
+#     the host in PhoneScreenWidth/Height/Rotation.
+#  2. RLY_RV_CONFIG_CAPTURE is 8 bytes when the dash declares supportExtendProtocol=0.
+#     Protocol.RlyConfigCapture.size() appends the framing byte only when it is
+#     non-zero; this daemon sent 9 either way, so every dashboard in that family was
+#     handed a trailing zero the official app never writes.
+#  3. supportFunction is stated in CLIENT_INFO_RLY. ECP_C2P_CLIENT_INFO.g0() always
+#     writes it and open-cflink's captured handshake carries it; this daemon computed
+#     the value and put it only in the MEDIA_CONTROL 0x60 reply, which firmware running
+#     without the extend protocol never asks for.
 #
-# Verified in the artifact by grepping the .so for the relaxed year pattern -
-# present here, absent in the previous AAR. Binding surface diffed against the
-# previous AAR: identical.
-source_note=clock-ack-echoes-any-plausible-dash-stamp
+# source_commit is on the public origin (pushed 2026-09-12), so anyone can fetch the
+# exact source this artifact was built from.
+#
+# Same build shape as the previous artifact: -androidapi 31, 4 ABIs. Binding surface
+# diffed against the old AAR with javap: purely additive, exactly
+# get/setAppStatusNotifyEnabled and get/setPhoneScreenWidth|Height|Rotation on
+# api.MobileConfig; api.MobileSession and api.Api byte-identical.
+source_note=app-status-notify-and-capture-reply-length

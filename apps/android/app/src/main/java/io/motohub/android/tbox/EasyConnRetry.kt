@@ -11,24 +11,44 @@ internal data class EasyConnRetryPolicy(
     val maxAttempts: Int = 3,
     val initialDelayMillis: Long = 750L,
     val maximumDelayMillis: Long = 2_000L,
-    val backoffMultiplier: Int = 2
+    val backoffMultiplier: Int = 2,
+    /**
+     * Wall-clock ceiling on the whole run, counted from the first attempt.
+     *
+     * An attempt count alone stopped being a budget once the native handshake moved inside this
+     * loop: three cheap `connection refused` attempts cost ~2 s, three that each burn the native
+     * startup timeout cost 75 s, and a rider stares at the same "Connecting" either way. Default
+     * is unbounded, which is the pre-existing behaviour for every caller that does not opt in.
+     */
+    val totalBudgetMillis: Long = Long.MAX_VALUE
 ) {
     init {
         require(maxAttempts > 0)
         require(initialDelayMillis >= 0)
         require(maximumDelayMillis >= initialDelayMillis)
         require(backoffMultiplier >= 1)
+        require(totalBudgetMillis > 0)
     }
 }
 
+/**
+ * @param onBudgetSpent called instead of [onRetry] when a retry is refused because
+ *   [EasyConnRetryPolicy.totalBudgetMillis] is gone. It exists so a rider log can tell that case
+ *   apart from "the failure was permanent" and from "the attempts ran out" - three different
+ *   reasons that otherwise all read as the same failure with nothing after it.
+ * @param elapsedMillis monotonic clock, injectable so the budget is testable without sleeping.
+ */
 internal suspend fun <T> retryEasyConnStart(
     policy: EasyConnRetryPolicy,
     shouldRetry: (Throwable) -> Boolean,
     onRetry: (failedAttempt: Int, delayMillis: Long, failure: Throwable) -> Unit = { _, _, _ -> },
+    onBudgetSpent: (failedAttempt: Int, elapsedMillis: Long, failure: Throwable) -> Unit = { _, _, _ -> },
     sleeper: suspend (Long) -> Unit = { delay(it) },
+    elapsedMillis: () -> Long = { System.nanoTime() / 1_000_000L },
     operation: suspend (attempt: Int) -> T
 ): T {
     var retryDelayMillis = policy.initialDelayMillis
+    val startedAt = elapsedMillis()
     for (attempt in 1..policy.maxAttempts) {
         try {
             return operation(attempt)
@@ -36,6 +56,13 @@ internal suspend fun <T> retryEasyConnStart(
             throw failure
         } catch (failure: Throwable) {
             if (attempt == policy.maxAttempts || !shouldRetry(failure)) throw failure
+            // Subtraction, not `elapsed + delay >= budget`: the default budget is Long.MAX_VALUE
+            // and the sum would overflow into a negative number that always allows the retry.
+            val spent = elapsedMillis() - startedAt
+            if (policy.totalBudgetMillis - spent <= retryDelayMillis) {
+                onBudgetSpent(attempt, spent, failure)
+                throw failure
+            }
             onRetry(attempt, retryDelayMillis, failure)
             sleeper(retryDelayMillis)
             retryDelayMillis = (retryDelayMillis * policy.backoffMultiplier)

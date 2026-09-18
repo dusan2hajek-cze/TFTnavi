@@ -18,15 +18,15 @@ import api.Api
 import api.MobileCallback
 import api.MobileSession
 import io.motohub.android.feature.settings.MotoHubSettings
+import io.motohub.android.session.MotorcycleProfile
 import io.motohub.android.session.ProjectionEventLog
+import io.motohub.android.session.ProjectionSourceHealth
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.io.IOException
-import java.net.ServerSocket
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.ArrayBlockingQueue
@@ -38,21 +38,24 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val MOTO_HUB_SIMULATOR_MODEL_ID = "MOTO-HUB-SIMULATOR"
 internal const val RIDE_DAEMON_STARTUP_TIMEOUT_SEC = 25L
-private const val REVERSE_PORT_WAIT_MS = 12_000L
-private const val REVERSE_PORT_POLL_MS = 400L
 private const val PXC_STALL_WARNING_MS = 6_000L
 /**
  * How long the dash may say nothing at all on the PXC control link, while we are still feeding it
@@ -88,10 +91,245 @@ private const val PUSH_FRAME_TIMEOUT_MS = 5_000L
 private const val PUSH_FRAME_SUBMIT_WAIT_MS = 1_000L
 private const val PUSH_FRAME_SUBMIT_RETRY_DELAY_MS = 5L
 private const val REJECTED_FRAME_LOG_INTERVAL = 100L
-private val REVERSE_PORTS = intArrayOf(10920, 10921, 10922)
 
 internal fun isCurrentRideDaemonSession(callbackGeneration: Long, activeGeneration: Long): Boolean =
     callbackGeneration != 0L && callbackGeneration == activeGeneration
+
+/**
+ * How long a sweep confirmation is held back to let an advertisement that is still in flight
+ * overtake it. Both roads go live in the same breath on a hosted network - the dash takes its
+ * lease, opens 10930 and starts advertising within a second of each other - and the sweep leads
+ * with the address the dash announced, so a 250ms connect can beat an mDNS resolve round-trip by
+ * a hair. An mDNS resolve on a quiet hotspot is tens of milliseconds, so a second is generous;
+ * it is paid only on the branch where the sweep won, after the rider has already waited at least
+ * [HOTSPOT_NSD_LAST_CALL_MS] worth of window, and it buys the port and the package name the dash
+ * publishes itself instead of the well-known port and a probe-ladder identity.
+ */
+internal const val HOTSPOT_NSD_GRACE_MS = 1_000L
+
+/**
+ * How long the advertisement listener is kept after the sweep has walked the whole subnet and
+ * found nothing. The same length as a standard discovery window, and it exists because of what
+ * rider 6e77dcf7 did next: his sweep gave up at 11:11:52, he pressed connect again, and at
+ * 11:12:06 the advertisement resolved in 180ms. That retry cost him more than this window does,
+ * and it proved the dash was on the hotspot the whole time - just not at an address the
+ * single-pass sweep had left to try.
+ */
+internal const val HOTSPOT_NSD_LAST_CALL_MS = 15_000L
+
+/** Which of the two roads on a phone-hosted network produced the endpoint. */
+internal enum class HotspotDiscoveryRoad {
+    /** The dash's own `_EasyConn._tcp.` advertisement, resolved over NSD. */
+    ADVERTISEMENT,
+
+    /** A completed CMD_MDNS_RESPOND handshake found by the hosted-subnet sweep. */
+    SWEEP
+}
+
+/**
+ * What either road can report back to [HotspotDiscoveryRace]. Timestamps are milliseconds since
+ * discovery started on this link, so the whole policy can be replayed from a field log's own
+ * relative times without a clock.
+ */
+internal sealed interface HotspotDiscoveryEvent {
+    val atMs: Long
+
+    /** NSD resolved an acceptable advertisement. */
+    data class NsdResolved(override val atMs: Long, val host: TBoxHost) : HotspotDiscoveryEvent
+
+    /**
+     * The listener itself died - a failed `startServiceDiscovery`, not silence. NSD is never
+     * timed out from the outside any more, so this is the only way it leaves the race early.
+     */
+    data class NsdStopped(override val atMs: Long, val cause: Throwable) : HotspotDiscoveryEvent
+
+    /** The sweep completed a full CMD_MDNS_RESPOND handshake with an address on the subnet. */
+    data class SweepConfirmed(override val atMs: Long, val host: TBoxHost) : HotspotDiscoveryEvent
+
+    /** The sweep walked every candidate address and none completed the handshake. */
+    data class SweepExhausted(override val atMs: Long) : HotspotDiscoveryEvent
+
+    /** The caller's timer reached the deadline the last verdict asked for. */
+    data class DeadlineReached(override val atMs: Long) : HotspotDiscoveryEvent
+}
+
+internal sealed interface HotspotDiscoveryVerdict {
+    /**
+     * Nothing decided yet. [startSweep] is set on the single verdict that must launch the sweep;
+     * [deadlineAtMs] is the instant (again, milliseconds since discovery started) at which the
+     * caller must feed a [HotspotDiscoveryEvent.DeadlineReached], or null when only the two roads
+     * can move the race on and no timer is needed.
+     */
+    data class KeepGoing(val startSweep: Boolean, val deadlineAtMs: Long?) : HotspotDiscoveryVerdict
+
+    data class Adopt(
+        val host: TBoxHost,
+        val road: HotspotDiscoveryRoad,
+        val atMs: Long
+    ) : HotspotDiscoveryVerdict
+
+    /** Neither road found the dash. [nsdStoppedBy] is null when the listener merely stayed silent. */
+    data class GiveUp(val listenedMs: Long, val nsdStoppedBy: Throwable?) : HotspotDiscoveryVerdict
+}
+
+/**
+ * The referee for the two roads to a dash on a phone-hosted network: the `_EasyConn._tcp.`
+ * advertisement listener and the hosted-subnet sweep. Kept free of Android, sockets and
+ * coroutines on purpose - the bug this exists to prevent is a scheduling one, and a scheduling
+ * rule that can only be exercised by putting a real motorcycle on a real hotspot is a rule that
+ * gets broken again.
+ *
+ * The order of business, and why:
+ *  - NSD listens alone for the first [sweepJoinsAtMs]. The sweep is 253 TCP connects; a dash that
+ *    is already on the hotspot answers the advertisement in a fraction of a second (180ms for
+ *    rider 6e77dcf7 on 2026-09-06), so the common case must not pay for the sweep at all, and the
+ *    sweep's traffic stays off the air during the window mDNS multicast needs.
+ *  - When the sweep joins, NSD is NOT torn down. That teardown is the whole defect: the sweep is
+ *    a single pass, so a dash that takes its lease after the sweep has already tried that address
+ *    is invisible to it forever, while a listener that is still registered hears the announcement
+ *    the instant it goes out.
+ *  - An advertisement wins whenever it arrives. It carries the port the dash actually advertises
+ *    and the package name it publishes; the sweep can only ever report the well-known port and an
+ *    identity from the probe ladder.
+ *  - A sweep confirmation is held for [nsdGraceMs] first, so that an advertisement already on the
+ *    wire still wins, and is adopted when that expires. It is not held longer than that: a
+ *    completed CMD_MDNS_RESPOND handshake is the same proof the Wi-Fi Direct path accepts as an
+ *    endpoint, so there is nothing to wait for beyond the richer metadata.
+ *  - When the sweep is exhausted the listener gets [nsdLastCallMs] on its own before the rider is
+ *    told nothing answered.
+ */
+internal class HotspotDiscoveryRace(
+    private val sweepJoinsAtMs: Long,
+    private val nsdGraceMs: Long = HOTSPOT_NSD_GRACE_MS,
+    private val nsdLastCallMs: Long = HOTSPOT_NSD_LAST_CALL_MS
+) {
+    private var nsdListening = true
+    private var nsdStoppedBy: Throwable? = null
+    private var sweepStarted = false
+    private var sweepRanToTheEnd = false
+    private var heldSweepHost: TBoxHost? = null
+    private var decided = false
+
+    /** The opening verdict: NSD alone, with the sweep queued behind the head start. */
+    fun begin(): HotspotDiscoveryVerdict =
+        HotspotDiscoveryVerdict.KeepGoing(startSweep = false, deadlineAtMs = sweepJoinsAtMs)
+
+    fun offer(event: HotspotDiscoveryEvent): HotspotDiscoveryVerdict {
+        check(!decided) { "The hotspot discovery race is already decided." }
+        return when (event) {
+            is HotspotDiscoveryEvent.NsdResolved ->
+                decide(
+                    HotspotDiscoveryVerdict.Adopt(
+                        event.host,
+                        HotspotDiscoveryRoad.ADVERTISEMENT,
+                        event.atMs
+                    )
+                )
+
+            is HotspotDiscoveryEvent.NsdStopped -> {
+                nsdListening = false
+                nsdStoppedBy = event.cause
+                val held = heldSweepHost
+                when {
+                    // Nothing left to prefer it over: adopt the handshake we were holding.
+                    held != null ->
+                        decide(
+                            HotspotDiscoveryVerdict.Adopt(held, HotspotDiscoveryRoad.SWEEP, event.atMs)
+                        )
+
+                    sweepRanToTheEnd ->
+                        decide(HotspotDiscoveryVerdict.GiveUp(event.atMs, event.cause))
+
+                    // A listener that could not start is not a listener that might still hear
+                    // something, so the head start has nothing left to protect: sweep now rather
+                    // than spend the rest of it in silence.
+                    else -> {
+                        val launchNow = !sweepStarted
+                        sweepStarted = true
+                        HotspotDiscoveryVerdict.KeepGoing(startSweep = launchNow, deadlineAtMs = null)
+                    }
+                }
+            }
+
+            is HotspotDiscoveryEvent.SweepConfirmed ->
+                if (!nsdListening) {
+                    decide(
+                        HotspotDiscoveryVerdict.Adopt(event.host, HotspotDiscoveryRoad.SWEEP, event.atMs)
+                    )
+                } else {
+                    heldSweepHost = event.host
+                    HotspotDiscoveryVerdict.KeepGoing(
+                        startSweep = false,
+                        deadlineAtMs = event.atMs + nsdGraceMs
+                    )
+                }
+
+            is HotspotDiscoveryEvent.SweepExhausted -> {
+                sweepRanToTheEnd = true
+                if (!nsdListening) {
+                    decide(HotspotDiscoveryVerdict.GiveUp(event.atMs, nsdStoppedBy))
+                } else {
+                    HotspotDiscoveryVerdict.KeepGoing(
+                        startSweep = false,
+                        deadlineAtMs = event.atMs + nsdLastCallMs
+                    )
+                }
+            }
+
+            is HotspotDiscoveryEvent.DeadlineReached -> {
+                val held = heldSweepHost
+                when {
+                    // The grace expired with no advertisement on the wire after all.
+                    held != null ->
+                        decide(
+                            HotspotDiscoveryVerdict.Adopt(held, HotspotDiscoveryRoad.SWEEP, event.atMs)
+                        )
+
+                    // The last call expired: both roads are spent.
+                    sweepRanToTheEnd ->
+                        decide(HotspotDiscoveryVerdict.GiveUp(event.atMs, nsdStoppedBy))
+
+                    // The head start expired: the sweep joins, the listener stays.
+                    !sweepStarted -> {
+                        sweepStarted = true
+                        HotspotDiscoveryVerdict.KeepGoing(startSweep = true, deadlineAtMs = null)
+                    }
+
+                    else -> HotspotDiscoveryVerdict.KeepGoing(startSweep = false, deadlineAtMs = null)
+                }
+            }
+        }
+    }
+
+    private fun decide(verdict: HotspotDiscoveryVerdict): HotspotDiscoveryVerdict {
+        decided = true
+        return verdict
+    }
+}
+
+/**
+ * The sentence the rider is shown when neither road found the dash. It has to name both, because
+ * they now run together: with the sweep behind the advertisement window there was a "sweeping"
+ * line in the log marking the exact moment NSD gave up, and there no longer is one to point at.
+ * A listener that could not be started at all is called out separately - that is a fault on this
+ * phone, not a dash that stayed quiet, and it sends the reader somewhere else entirely.
+ */
+internal fun describeHotspotDiscoveryFailure(verdict: HotspotDiscoveryVerdict.GiveUp): String {
+    val seconds = verdict.listenedMs / 1_000L
+    val advice = "Check that the dash shows it is connected, and that the hotspot Ssid and " +
+        "Password match exactly what the dash is asking for."
+    val stopped = verdict.nsdStoppedBy
+    return if (stopped != null) {
+        "No motorcycle answered on the hotspot your phone is hosting. This phone could not " +
+            "listen for the dash's announcement at all (${stopped.message ?: stopped::class.java.simpleName}), " +
+            "and in ${seconds}s no address on the hotspot subnet completed the EasyConn " +
+            "handshake either. $advice"
+    } else {
+        "No motorcycle answered on the hotspot your phone is hosting: nothing announced " +
+            "_EasyConn._tcp. in ${seconds}s of listening, and no address on the hotspot subnet " +
+            "completed the EasyConn handshake in that time. $advice"
+    }
+}
 
 /** Kotlin boundary around the GPL gomobile binding. Network selection stays outside this class. */
 class RideDaemonTransport(
@@ -127,6 +365,38 @@ class RideDaemonTransport(
     private var activeSessionGeneration = 0L
     @Volatile
     private var protocolProfile: TBoxModelProfile = TBoxModelProfile.GENERIC
+    /**
+     * The motorcycle this transport is serving, when the caller knows it. Only [TBoxWireLadder]
+     * needs it - the ladder's memory is per motorcycle - and a caller that has none (the capability
+     * inspector, a test) simply gets the profile's own wire.
+     */
+    @Volatile
+    private var motorcycleProfile: MotorcycleProfile? = null
+    /**
+     * The dashboard fingerprint this session's CLIENT_INFO produced, so a QUERY_TIME arriving
+     * later can be filed against the firmware that sent it. Null until CLIENT_INFO is decoded;
+     * QUERY_TIME always arrives after it, so by then this is set.
+     */
+    @Volatile
+    private var sessionDashFingerprint: String? = null
+    /**
+     * Whether the clock answer this session puts on the wire actually carries a time. With the
+     * rider's Wi-Fi clock switch off the daemon replies to QUERY_TIME with an empty body, and a
+     * dashboard that goes on counting after that has thrown nothing away - so the verdict in
+     * [TBoxClockAskRegistry] must not be drawn from such a session.
+     */
+    @Volatile
+    private var sessionAnswersClock: Boolean = false
+    /** Elapsed-time mark for the running session, so its length can be judged when it ends. */
+    private val sessionStartedElapsed = AtomicLong(0L)
+    /**
+     * Set the instant before the socket is handed to Go, cleared when the stop is recorded. It is
+     * the only reliable way to tell "our sockets are closing" from "we never opened any" - see
+     * [markNativeSessionStopped].
+     */
+    private val nativeStartAttempted = AtomicBoolean(false)
+    /** One ladder verdict per session, whoever ends it first. */
+    private val ladderVerdictFiled = AtomicBoolean(false)
     private val pxcEvents = AtomicLong(0L)
     private val mediaControlEvents = AtomicLong(0L)
     private val framesOffered = AtomicLong(0L)
@@ -138,6 +408,19 @@ class RideDaemonTransport(
     /** Streaming-time PXC beats seen so far (see [isStreamingPxcBeat]); the silence watchdog's
      *  fatal verdict is gated on this reaching [PXC_STREAMING_CADENCE_MIN_BEATS]. */
     private val pxcStreamingBeats = AtomicLong(0L)
+    /**
+     * How many video frames the DASHBOARD has asked for, reported by the daemon.
+     *
+     * The only counter in this class that describes the far end. [framesOffered],
+     * [framesTimedOut] and [framesRejected] all describe the pipe from the encoder into the
+     * daemon's ring buffer, and every one of them looks perfect while a dash sits there never
+     * asking for a byte - which is exactly the state several riders have reported for months as
+     * "it connects and the screen stays black". The daemon counts the 0x0072 pulls on :10920 and
+     * now forwards them; without this the two faults cannot be told apart from a rider's log.
+     */
+    private val dashVideoPulls = AtomicLong(0L)
+    /** Whether the dash ever opened the video socket at all - the case before the one above. */
+    private val dashVideoSocketOpened = AtomicBoolean(false)
     private val pxcWatchdogExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "MotoHubPxcWatchdog").apply { isDaemon = true }
     }
@@ -151,10 +434,135 @@ class RideDaemonTransport(
     /** Distinct (source, command) pairs already dumped this session for opcode identification. */
     private val unknownCommandsLogged =
         java.util.concurrent.ConcurrentHashMap.newKeySet<Pair<Long, Long>>()
+    /** Keeps a dash's keepalive traffic from spending the whole log ring on itself. */
+    private val beatCollapser = ProtocolBeatCollapser()
 
-    override fun configureProtocolProfile(profile: TBoxModelProfile) {
+    override fun configureProtocolProfile(profile: TBoxModelProfile, motorcycle: MotorcycleProfile?) {
         protocolProfile = profile
+        motorcycleProfile = motorcycle
     }
+
+    /**
+     * What this session should put on the wire: the profile's own settings when something
+     * recognised it, otherwise whichever rung [TBoxWireLadder] has reached for this motorcycle.
+     */
+    private fun wireConfigFor(profile: TBoxModelProfile): TBoxWireConfig {
+        val motorcycle = motorcycleProfile ?: return profile.wireConfig
+        return TBoxWireLadder.configFor(appContext, motorcycle, profile)
+    }
+
+    /**
+     * Whether this motorcycle's dashboard has been seen sending QUERY_TIME before. The fingerprint
+     * comes from the capabilities the last session stored, so a first-ever connection answers
+     * false and the dash is still offered the unsolicited push it may well need.
+     */
+    private fun dashKnownToAskForTime(): Boolean {
+        val motorcycle = motorcycleProfile ?: return false
+        val stored = TBoxCapabilityStore(appContext).load(motorcycle)?.capabilities
+        return TBoxClockAskRegistry.asksForTime(appContext, TBoxWireLadder.fingerprintOf(stored))
+    }
+
+    /**
+     * Narrate one step of the phone-to-car page experiment.
+     *
+     * The commands move the dashboard's own UI, so nothing on this side can observe whether
+     * they worked - only the rider looking at the panel can. These lines exist to put a
+     * timestamp on each command, so "it lit up" in a support note can be matched to the
+     * command that preceded it, and so a probe that never fired is distinguishable from one
+     * that fired and achieved nothing.
+     */
+    /**
+     * Narrate one `ECP_P2C_APPSTATUS_BACKGROUND` the phone put on the wire.
+     *
+     * This is the half we can see. The other half is the dashboard's `0x20031`, which arrives on
+     * the PXC event stream like any other response and is named in [PXC_COMMAND_NAMES] - so a
+     * rider's log answers, without anyone watching the panel, whether this firmware knows the
+     * command at all. That is the difference between this experiment and the page one.
+     */
+    private fun logAppStatusNotify(payload: ByteArray?) {
+        val mode = payload?.getOrNull(0)?.toInt() ?: -1
+        val delivered = payload?.getOrNull(1)?.toInt() == 1
+        when (mode) {
+            APP_STATUS_BACKGROUND -> ProjectionEventLog.record(
+                "TBOX",
+                "Told the dashboard the phone is connected but not yet mirroring " +
+                    "(ECP_P2C_APPSTATUS_BACKGROUND 0x20030, mode 2)" + probeOutcome(delivered) +
+                    " The official app sends this the moment PXC comes up; this app never has."
+            )
+            APP_STATUS_MIRROR_LIVE -> ProjectionEventLog.record(
+                "TBOX",
+                "Told the dashboard the mirror is now live " +
+                    "(ECP_P2C_APPSTATUS_BACKGROUND 0x20030, mode 1)" + probeOutcome(delivered) +
+                    " Watch for APP_STATUS_ACK (0x20031) in this log: if it comes back, this " +
+                    "firmware understands the command and a blank panel is not caused by " +
+                    "never having been told."
+            )
+            else -> ProjectionEventLog.warning(
+                "TBOX",
+                "Could not tell the dashboard the phone's mirroring state: there was no open " +
+                    "PXC connection to send ECP_P2C_APPSTATUS_BACKGROUND on."
+            )
+        }
+    }
+
+    /**
+     * The phone's own display, as the official app reads it: `Display.getRealSize()` and
+     * `getRotation()`, which is what goes inside the notification above. Falls back to zeroes
+     * rather than to a plausible-looking guess - the daemon sends what it is given, and a field
+     * log has to be able to tell a real measurement from a missing one.
+     */
+    private fun readPhoneScreen(): Triple<Int, Int, Int> {
+        val windowManager = appContext.getSystemService(android.view.WindowManager::class.java)
+            ?: return Triple(0, 0, 0)
+        val bounds = windowManager.maximumWindowMetrics.bounds
+        // An application context has no display of its own on some OEM builds; a rotation of
+        // 0 is then a guess, but a harmless one - the geometry beside it is measured, and 0 is
+        // what the official app reports for an upright phone, which is how a bike is ridden.
+        val rotation = appContext.display?.rotation ?: 0
+        return Triple(bounds.width(), bounds.height(), rotation)
+    }
+
+    private fun logPageSwitchProbe(payload: ByteArray?) {
+        val step = payload?.getOrNull(0)?.toInt() ?: -1
+        val delivered = payload?.getOrNull(1)?.toInt() == 1
+        val command = decodePageSwitchProbeCommand(payload)
+        val commandHex = "0x" + java.lang.Long.toHexString(command)
+        when (step) {
+            PAGE_PROBE_STARTED -> ProjectionEventLog.record(
+                "TBOX",
+                "Page-switch experiment starting: this dashboard reads the video stream but " +
+                    "has never been seen to display it, so the phone is about to ask its UI " +
+                    "to come to the front. Three commands, three seconds apart. If the panel " +
+                    "changes, note the time - that is the only way to tell which one worked."
+            )
+            PAGE_PROBE_PAGE_STATUS -> ProjectionEventLog.record(
+                "TBOX",
+                "Page-switch step 1/3: told the dashboard the mirroring page is now open " +
+                    "(ECP_P2C_PAGE_STATUS $commandHex)" + probeOutcome(delivered)
+            )
+            PAGE_PROBE_JUMP_TO_CAR_PAGE -> ProjectionEventLog.record(
+                "TBOX",
+                "Page-switch step 2/3: asked the dashboard to jump to the mirroring page " +
+                    "(ECP_P2C_JUMP_TO_CAR_PAGE $commandHex)" + probeOutcome(delivered)
+            )
+            PAGE_PROBE_SWITCH_TO_MAIN_PAGE -> ProjectionEventLog.record(
+                "TBOX",
+                "Page-switch step 3/3: asked the dashboard to show its own main page " +
+                    "(ECP_P2C_SWITCH_TO_SYSTEM_MAIN_PAGE $commandHex)" + probeOutcome(delivered) +
+                    " This one moves the dash AWAY from mirroring on purpose: if only this " +
+                    "step changes the panel, the commands work and the page number is wrong."
+            )
+            PAGE_PROBE_NO_CONTROL_CHANNEL -> ProjectionEventLog.warning(
+                "TBOX",
+                "Page-switch experiment could not run: there was no open PXC connection " +
+                    "left to send these commands on, so nothing was sent."
+            )
+        }
+    }
+
+    /** Whether the command reached the socket. Nothing here says the dashboard liked it. */
+    private fun probeOutcome(delivered: Boolean): String =
+        if (delivered) "." else "; the write failed and the experiment stopped here."
 
     override suspend fun discover(link: TBoxLink, expectedModelId: String?): Result<TBoxHost> = withContext(Dispatchers.IO) {
         ProjectionEventLog.record("DISCOVERY", "Starting Android NSD discovery on T-Box link (${link.label}).")
@@ -164,6 +572,7 @@ class RideDaemonTransport(
             val host = discoverWithRetry(link, expectedModelId)
             val profile = protocolProfile.takeIf { it != TBoxModelProfile.GENERIC }
                 ?: TBoxModelProfile.resolve(expectedModelId, null)
+            val wire = wireConfigFor(profile)
             val mobileConfig = Api.newMobileConfig(
                 ByteArray(0),
                 30L,
@@ -173,12 +582,34 @@ class RideDaemonTransport(
                 3L
             ).apply {
                 setSupportFunction(profile.advertisedSupportFunction.toLong())
-                setProactivePxcHeartbeatEnabled(profile.requiresProactivePxcHeartbeat)
+                setProactivePxcHeartbeatEnabled(wire.requiresProactivePxcHeartbeat)
                 // Only a dashboard that no profile claims - or a framing experiment the rider
                 // pinned by hand - is allowed to renegotiate the video frame format from its
                 // own supportExtendProtocol byte. Every recognised unit keeps the indexed
                 // framing it already displays.
-                setPlainVideoFramingAllowed(profile.allowsPlainVideoFraming)
+                setPlainVideoFramingAllowed(wire.allowsPlainVideoFraming)
+                // Read from the profile, not from [wire]: the ladder searches video formats,
+                // and this is not one. It asks the dash's own UI to come forward, which is a
+                // different question from what the picture looks like when it does.
+                setPageSwitchProbeEnabled(profile.sendsPageSwitchProbe)
+                // Read from the profile for the same reason as the line above: the ladder walks
+                // H.264 wire formats, and this is not one of them - it changes what the capture
+                // negotiation announces, so the dash is told JPEG before it opens the data socket.
+                // The session services read the same flag to build a still source instead of an
+                // encoder; if the two ever disagreed, one side would be putting JPEGs inside a
+                // frame the other negotiated as an access unit.
+                setJpegStillsEnabled(profile.easyConnJpegStills)
+                // The official app states the phone's mirroring state to the head unit and
+                // carries the phone's own display metrics inside it. Only Android can read
+                // those, and a wrong size stated confidently is worse than an honest zero,
+                // so they are measured here rather than guessed in the daemon.
+                setAppStatusNotifyEnabled(profile.announcesMirrorState)
+                if (profile.announcesMirrorState) {
+                    val screen = readPhoneScreen()
+                    setPhoneScreenWidth(screen.first.toLong())
+                    setPhoneScreenHeight(screen.second.toLong())
+                    setPhoneScreenRotation(screen.third.toLong())
+                }
                 // The dash asks for wall-clock time over PXC and the daemon answers it,
                 // but only Android knows the zone: Go's local location on a device is
                 // UTC and carries no usable name. The id alone was not enough - it only
@@ -194,6 +625,21 @@ class RideDaemonTransport(
                         .getOffset(System.currentTimeMillis())
                         .toLong() / 1000L
                 )
+                // One Voge panel class asks for the time, is answered, and shows 01.01.1970
+                // regardless; writing a clock into it can also overwrite one its rider set by
+                // hand on the dash. The rider's own switch is the only way to tell it apart -
+                // its firmware strings are identical to the panels the answer does fix. Read
+                // per session, so flipping the setting takes effect on the next connect.
+                sessionAnswersClock = MotoHubSettings.dashClockSync(appContext)
+                setSkipDashClockSync(!sessionAnswersClock)
+                // A dashboard that asked for the time in an earlier session must not be raced by
+                // the unsolicited push: it wins the grace period sometimes and loses it others,
+                // and losing hands it a second clock packet on top of the answer it asked for -
+                // which can overwrite a clock the rider set by hand on the dash. The grace period
+                // is a margin against a slow handshake; this is the fact that makes the margin
+                // unnecessary once we have met the firmware once. Read from the LAST session's
+                // stored CLIENT_INFO, because this one has not happened yet.
+                setDashAsksForTime(dashKnownToAskForTime())
             }
             // A companion-driven session pushes its settings only after this point, so the channel
             // re-evaluates itself again from IpcBridgeService; see EcBtpClockChannel.
@@ -216,8 +662,9 @@ class RideDaemonTransport(
                 "RideDaemon live-only session configured for ${host.ipAddress}:${host.port}; " +
                     "package=${host.packageName}; profile=${profile.key}; " +
                     "supportFunction=${profile.advertisedSupportFunction}; " +
-                    "proactivePxcHeartbeat=${profile.requiresProactivePxcHeartbeat}; " +
-                    "plainVideoFramingAllowed=${profile.allowsPlainVideoFraming}; " +
+                    "wire=${wire.signature}; " +
+                    "proactivePxcHeartbeat=${wire.requiresProactivePxcHeartbeat}; " +
+                    "plainVideoFramingAllowed=${wire.allowsPlainVideoFraming}; " +
                     "timeZone=${java.util.TimeZone.getDefault().id}."
             )
             host
@@ -239,14 +686,21 @@ class RideDaemonTransport(
                 )
             }
             runCatching {
-                ensureReversePortsAvailable()
+                // ensureReversePortsAvailable() is the first thing each attempt does now, inside
+                // startWithNetworkSocket - the ports an attempt needs are the ones the previous
+                // attempt's native session has just released.
                 ProjectionEventLog.record(
                     "TBOX",
                     "Starting EasyConn handshake to ${host.ipAddress}:${host.port}; " +
-                        "waiting for the TFT video area."
+                        "waiting for the TFT video area. This dash has " +
+                        "${RIDE_DAEMON_STARTUP_TIMEOUT_SEC}s to answer before the native session " +
+                        "gives up - the wait a rider sees here is that one, not any shorter " +
+                        "timeout named on the calling side."
                 )
                 startWithNetworkSocket(activeSession, host, activeLink)
                 ProjectionEventLog.record("TBOX", "RideDaemon startSessionWithSocketFd returned successfully.")
+                sessionStartedElapsed.set(SystemClock.elapsedRealtime())
+                ladderVerdictFiled.set(false)
                 armPxcWatchdog(activeSessionGeneration)
             }.onFailure {
                 // The native call may already have opened 10920/10921/10922 before it
@@ -255,6 +709,7 @@ class RideDaemonTransport(
                     .onFailure { stopFailure ->
                         ProjectionEventLog.warning("TBOX", "Failed to clean up the failed native session.", stopFailure)
                     }
+                markNativeSessionStopped()
                 ProjectionEventLog.error("TBOX", "EasyConn handshake failed.", it)
             }
         }
@@ -263,60 +718,110 @@ class RideDaemonTransport(
      * Waits for the phone-side EasyConn listeners before handing them to the native session.
      *
      * Failing on the first probe made a routine hand-off look like a hard conflict: a rider log
-     * showed the ports still held 10s after MOTO-HUB asked the official CFMOTO app to stop, the
+     * showed the ports still held 10s after MOTO-HUB asked the OEM companion app to stop, the
      * Android Auto hand-off aborted with EADDRINUSE, and the very next manual attempt ~20s later
      * connected normally. killBackgroundProcesses() cannot touch a foreground service and the
      * kernel releases the sockets asynchronously either way, so the only correct behaviour is to
      * wait a bounded time and only then report the conflict.
+     *
+     * How long that bounded time is, though, depends on who can possibly be holding them. The
+     * hand-off story above only applies when a native session of OURS was just stopped; when none
+     * was, the sockets belong to another app and no amount of waiting will change that. Support
+     * case 36A3-FD37-1DD7 is the proof: eight full waits in eight minutes, not one release, 86
+     * seconds spent re-learning something the first probe already knew.
      */
     private suspend fun ensureReversePortsAvailable() {
-        var busy = busyReversePorts()
+        var busy = ReversePortProbe.busyPorts()
         if (busy.isEmpty()) return
         // Nothing can close another app's sockets on Android 14+; the bounded wait below is the
         // part that actually resolves the routine hand-off case (kernel releases asynchronously).
+        // One clock reading for both, so the log line can never explain a budget it did not get.
+        val decidedAt = SystemClock.elapsedRealtime()
+        val budgetMs = ReversePortProbe.waitBudgetMs(decidedAt)
+        val because = if (ReversePortProbe.waitingOnOurOwnHandoff(decidedAt)) {
+            "a MOTO-HUB session was stopped moments ago, so these are probably its own sockets " +
+                "still closing"
+        } else {
+            "no MOTO-HUB session of ours has stopped recently, so another app is holding them " +
+                "and waiting cannot change that"
+        }
         ProjectionEventLog.warning(
             "TBOX",
-            "Local reverse ports ${busy.joinToString()} are still held; waiting up to " +
-                "${REVERSE_PORT_WAIT_MS}ms for them to be released."
+            "Local reverse ports ${busy.joinToString()} are still held; $because - waiting up to " +
+                "${budgetMs}ms for them to be released."
         )
-        val deadline = SystemClock.elapsedRealtime() + REVERSE_PORT_WAIT_MS
+        val deadline = SystemClock.elapsedRealtime() + budgetMs
         while (busy.isNotEmpty() && SystemClock.elapsedRealtime() < deadline) {
-            delay(REVERSE_PORT_POLL_MS)
-            busy = busyReversePorts()
+            delay(ReversePortProbe.POLL_MS)
+            busy = ReversePortProbe.busyPorts()
         }
         if (busy.isNotEmpty()) {
+            // Wording matters beyond the log: TBoxConflictDiagnostics.isPortConflict() reads this
+            // message to decide whether the rider gets the force-stop help, so "still holds",
+            // the port numbers and "address already in use" all have to survive any edit here.
             throw IllegalStateException(
                 "Another EasyConn session still holds local reverse ports " +
-                    "${busy.joinToString()} after ${REVERSE_PORT_WAIT_MS}ms " +
-                    "(address already in use). Force-stop the official CFMOTO app and retry."
+                    "${busy.joinToString()} after ${budgetMs}ms " +
+                    "(address already in use). Force-stop your motorcycle's own companion app " +
+                    "and retry."
             )
         }
         ProjectionEventLog.record("TBOX", "Local reverse ports 10920-10922 were released; continuing.")
     }
 
-    /** Probes 10920-10922 exactly as the native reverse server will bind them. */
-    private fun busyReversePorts(): List<Int> {
-        val probes = mutableListOf<ServerSocket>()
-        val busy = mutableListOf<Int>()
-        try {
-            REVERSE_PORTS.forEach { port ->
-                val probe = ServerSocket()
-                try {
-                    // SO_REUSEADDR before bind, like the Go listener: sockets the previous
-                    // session left in TIME_WAIT are ours to reuse and must not read as a
-                    // foreign conflict. A live listener in another process still fails here.
-                    probe.reuseAddress = true
-                    probe.bind(InetSocketAddress(port), 1)
-                    probes += probe
-                } catch (_: IOException) {
-                    runCatching { probe.close() }
-                    busy += port
-                }
-            }
-        } finally {
-            probes.forEach { runCatching { it.close() } }
+    /**
+     * Tells [ReversePortProbe] that a session which really did own the reverse ports has been
+     * asked to stop, so the next attempt gets the patient hand-off wait.
+     *
+     * Guarded by [nativeStartAttempted] because the failure paths that call this also run when
+     * [ensureReversePortsAvailable] itself threw - a handshake that never reached Go opened no
+     * ports, and marking that as a hand-off would re-arm the long wait for sockets that were
+     * never ours.
+     */
+    private fun markNativeSessionStopped() {
+        if (nativeStartAttempted.getAndSet(false)) {
+            ReversePortProbe.onNativeSessionStopped()
         }
-        return busy
+    }
+
+    /**
+     * Hands the dash one JPEG still, for the profile that negotiated `encoder=1`.
+     *
+     * The frame id is deliberately unused: it belongs to the Yunmo protocol, where the dash
+     * acknowledges stills by id. EasyConn has no such acknowledgement - the dash pulls, and what
+     * comes back is the pull itself - so the counters this path keeps are the same ones the
+     * encoded path keeps, and a rider's log reads identically either way.
+     */
+    override fun offerStillFrame(jpeg: ByteArray, frameId: Int): Boolean {
+        val activeSession = session ?: return false
+        if (!activeSession.isRunning) return false
+        val future = submitPushStill(activeSession, jpeg) ?: return false
+        return try {
+            future.get(PUSH_FRAME_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            framesOffered.incrementAndGet()
+            lastFrameOfferedElapsed.set(SystemClock.elapsedRealtime())
+            true
+        } catch (timeout: java.util.concurrent.TimeoutException) {
+            framesTimedOut.incrementAndGet()
+            ProjectionEventLog.warning(
+                "TBOX",
+                "JPEG still dropped: pushStill() exceeded ${PUSH_FRAME_TIMEOUT_MS}ms timeout. " +
+                    "The T-Box may be unresponsive. Timeouts: ${framesTimedOut.get()}"
+            )
+            false
+        } catch (failure: Throwable) {
+            Log.w(TAG, "Unable to offer a JPEG still", failure)
+            ProjectionEventLog.error("TBOX", "Unable to push a JPEG still to RideDaemon.", failure)
+            false
+        }
+    }
+
+    /** [submitPushFrame] for stills; the queue and its back-pressure rules are the same. */
+    private fun submitPushStill(
+        activeSession: MobileSession,
+        jpeg: ByteArray
+    ): java.util.concurrent.Future<*>? = submitToPushQueue("JPEG still") {
+        activeSession.pushStill(jpeg)
     }
 
     override fun offerAccessUnit(avcc: ByteArray): Boolean {
@@ -348,27 +853,39 @@ class RideDaemonTransport(
      * access unit. Only a queue that remains blocked for the grace period is reported as a
      * transport failure to the caller.
      */
-    private fun submitPushFrame(activeSession: MobileSession, avcc: ByteArray): java.util.concurrent.Future<*>? {
+    private fun submitPushFrame(activeSession: MobileSession, avcc: ByteArray): java.util.concurrent.Future<*>? =
+        submitToPushQueue("AVC frame") { activeSession.pushFrame(avcc) }
+
+    /**
+     * Puts one payload on the single-threaded push queue, waiting out a transient overlap.
+     *
+     * [label] names the payload in the two log lines this can produce, and is the only thing that
+     * differs between an access unit and a still: they share the queue, the grace period and the
+     * rejection counter because they are the same back-pressure - one native call at a time, and a
+     * caller that must be told when the previous one has not returned.
+     */
+    private fun submitToPushQueue(
+        label: String,
+        push: () -> Unit
+    ): java.util.concurrent.Future<*>? {
         val deadline = SystemClock.elapsedRealtime() + PUSH_FRAME_SUBMIT_WAIT_MS
         while (true) {
             try {
-                return pushFrameExecutor.submit {
-                    activeSession.pushFrame(avcc)
-                }
+                return pushFrameExecutor.submit(push)
             } catch (_: RejectedExecutionException) {
                 val rejections = framesRejected.incrementAndGet()
                 if (rejections == 1L || rejections % REJECTED_FRAME_LOG_INTERVAL == 0L) {
                     ProjectionEventLog.warning(
                         "TBOX",
-                        "AVC frame submission temporarily delayed; waiting for the previous " +
-                            "pushFrame() call. Rejections so far: $rejections."
+                        "$label submission temporarily delayed; waiting for the previous " +
+                            "push call. Rejections so far: $rejections."
                     )
                 }
                 val remaining = deadline - SystemClock.elapsedRealtime()
                 if (remaining <= 0L) {
                     ProjectionEventLog.error(
                         "TBOX",
-                        "AVC frame submission stayed blocked for ${PUSH_FRAME_SUBMIT_WAIT_MS}ms."
+                        "$label submission stayed blocked for ${PUSH_FRAME_SUBMIT_WAIT_MS}ms."
                     )
                     return null
                 }
@@ -400,9 +917,14 @@ class RideDaemonTransport(
         }
         if (sessionToStop != null) {
             ProjectionEventLog.record("TBOX", "Stopping RideDaemon session. ${protocolSnapshot()}")
+            // A ride the rider ended is the ladder's best evidence: it is the only way a rung
+            // that works reaches TBoxSessionOutcome.STREAMED, because a dashboard that is happy
+            // never stops anything. Ending it ourselves is not held against the wire.
+            fileLadderVerdict(endedByDashboard = false)
         }
         sessionToStop?.runCatching { stopSession() }
             ?.onFailure { ProjectionEventLog.warning("TBOX", "RideDaemon stopSession failed.", it) }
+        markNativeSessionStopped()
     }
 
     /**
@@ -451,14 +973,32 @@ class RideDaemonTransport(
         return refreshed
     }
 
-    /** Opens the EasyConn command socket over the established T-Box link. */
+    /**
+     * Opens the EasyConn command socket over the established T-Box link and hands it to the
+     * native session - both inside the retry, because both are what the retry was written for.
+     *
+     * The native handshake used to sit OUTSIDE this loop, so "EasyConn attempt 1/3" counted TCP
+     * connects and nothing else. [isTransientEasyConnFailure] gives that away: `context deadline
+     * exceeded`, `unsuccessful ec response`, `failed to decode response`, `initialize easyconn
+     * stream` are Go handshake errors, and not one of them could ever reach the classifier -
+     * `socket.connect` only ever throws `IOException`, which the chain check catches on its own.
+     * A handshake that failed fast was therefore never retried, and the log said 1/3 while
+     * promising three of something else.
+     *
+     * A handshake that fails SLOW still must not be retried here, and
+     * [EC_HANDSHAKE_TOTAL_BUDGET_MS] is what stops it: one attempt that burns the entire native
+     * startup budget is a dash that is not answering at all, and re-dialling it on the same
+     * session would only double the rider's wait. That case belongs to the caller's
+     * re-discover-and-retry, which is a genuinely different attempt - fresh discovery, fresh
+     * native session - not a louder version of this one.
+     */
     private suspend fun startWithNetworkSocket(
         activeSession: MobileSession,
         host: TBoxHost,
         link: TBoxLink
     ) {
-        val policy = EasyConnRetryPolicy()
-        val connectedSocket = retryEasyConnStart(
+        val policy = EasyConnRetryPolicy(totalBudgetMillis = EC_HANDSHAKE_TOTAL_BUDGET_MS)
+        val startedOnAttempt = retryEasyConnStart(
             policy = policy,
             shouldRetry = ::isTransientEasyConnFailure,
             onRetry = { failedAttempt, delayMillis, failure ->
@@ -467,9 +1007,35 @@ class RideDaemonTransport(
                     "EasyConn attempt $failedAttempt/${policy.maxAttempts} failed: " +
                         "${failure.message.orEmpty()}. Retrying in ${delayMillis}ms."
                 )
-            }
+                // The failed attempt may already have opened 10920/10921/10922. Without this the
+                // next one meets "already running", which this policy reads as permanent - the
+                // retry would end on an error that says nothing about the dash.
+                activeSession.runCatching { stopSession() }
+                    .onFailure { stopFailure ->
+                        ProjectionEventLog.warning(
+                            "TBOX",
+                            "Failed to clean up the native session before the next EasyConn attempt.",
+                            stopFailure
+                        )
+                    }
+                markNativeSessionStopped()
+            },
+            onBudgetSpent = { failedAttempt, spentMillis, _ ->
+                ProjectionEventLog.warning(
+                    "TBOX",
+                    "EasyConn attempt $failedAttempt/${policy.maxAttempts} used ${spentMillis}ms of " +
+                        "the ${EC_HANDSHAKE_TOTAL_BUDGET_MS}ms this handshake is allowed, so there " +
+                        "is no time for another one here. A dash that stays silent for the whole " +
+                        "${RIDE_DAEMON_STARTUP_TIMEOUT_SEC}s startup budget needs a fresh session, " +
+                        "not another dial on this one."
+                )
+            },
+            elapsedMillis = SystemClock::elapsedRealtime
         ) { attempt ->
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            // Re-checked per attempt now that a whole handshake precedes the next one: the ports
+            // this attempt needs are the ones the previous attempt's native session just gave back.
+            ensureReversePortsAvailable()
             val attemptLink = linkForThisAttempt(link)
             ProjectionEventLog.debug(
                 "TBOX",
@@ -480,26 +1046,32 @@ class RideDaemonTransport(
             try {
                 socket.connect(InetSocketAddress(host.ipAddress, host.port), EC_CONNECT_TIMEOUT_MS)
                 ProjectionEventLog.record("TBOX", "EasyConn TCP command socket connected.")
-                socket to attempt
+                socket.use { connected ->
+                    ParcelFileDescriptor.fromSocket(connected).use { descriptor ->
+                        val fd = descriptor.detachFd().toLong()
+                        // ParcelFileDescriptor duplicates the socket descriptor. Go owns and
+                        // closes the detached duplicate; the outer use{} closes the original
+                        // Java socket.
+                        // Marked before the call, not after: a start that times out may well have
+                        // opened the reverse ports before giving up, and that case is exactly the
+                        // hand-off the patient wait exists for.
+                        nativeStartAttempted.set(true)
+                        activeSession.startSessionWithSocketFd(fd)
+                    }
+                }
+                attempt
             } catch (failure: Throwable) {
-                socket.close()
+                // Socket.close() is idempotent, so the use{} above having already closed it is fine.
+                runCatching { socket.close() }
                 throw failure
             }
         }
-        if (connectedSocket.second > 1) {
+        if (startedOnAttempt > 1) {
             ProjectionEventLog.record(
                 "TBOX",
-                "EasyConn TCP connection recovered on attempt " +
-                    "${connectedSocket.second}/${policy.maxAttempts}."
+                "EasyConn handshake recovered on attempt " +
+                    "$startedOnAttempt/${policy.maxAttempts}."
             )
-        }
-        connectedSocket.first.use { socket ->
-            ParcelFileDescriptor.fromSocket(socket).use { descriptor ->
-                val fd = descriptor.detachFd().toLong()
-                // ParcelFileDescriptor duplicates the socket descriptor. Go owns and closes the
-                // detached duplicate; the outer use{} closes the original Java socket.
-                activeSession.startSessionWithSocketFd(fd)
-            }
         }
     }
 
@@ -542,13 +1114,30 @@ class RideDaemonTransport(
             )
         }
 
-        // Infrastructure fallback: a probe ACK on an AP link is preferably spent re-arming one more
-        // NSD window, because a resolved advertisement carries the package name too.
-        if (sendEasyConnWakeProbe(link) != null) {
+        // Infrastructure fallback: a probe ACK on an AP link is first spent re-arming one more
+        // NSD window, because a resolved advertisement carries the package name too. When that
+        // window stays empty as well, the ACK itself is the endpoint: a completed CMD_MDNS_RESPOND
+        // handshake is the same proof the Wi-Fi Direct and phone-hotspot paths accept, and the
+        // identity the dash acknowledged is the name the EC init command would carry anyway.
+        // Field case (Zontes 368G, 2026-09-03): the dash acknowledged 10930 five times out of five
+        // while never advertising, and the sweep below skips 10930 by construction - so a dash that
+        // had answered every single time was reported as "not found".
+        val peerIp = peerIpv4For(link)
+        val peerAddress = peerIp?.hostAddress
+        val acknowledged = sendEasyConnWakeProbe(link)
+        if (acknowledged != null) {
             try {
                 return withTimeout(DISCOVERY_TIMEOUT_MS) { discoverWithAndroidNsd(link, expectedModelId) }
             } catch (timeout: TimeoutCancellationException) {
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            }
+            if (peerAddress != null) {
+                ProjectionEventLog.record(
+                    "DISCOVERY",
+                    "EasyConn endpoint confirmed by the wake probe at $peerAddress:$WAKE_PROBE_PORT " +
+                        "(acknowledged as \"$acknowledged\") after NSD stayed empty; using it directly."
+                )
+                return TBoxHost(peerAddress, WAKE_PROBE_PORT, acknowledged)
             }
         }
 
@@ -559,8 +1148,6 @@ class RideDaemonTransport(
         // The endpoint is used ONLY when the full CMD_MDNS_RESPOND handshake completes on it - an
         // open TCP port alone is never promoted to an EC endpoint, so the "no invented port"
         // rule in TBOX_STREAMING_CONTRACT.md still holds.
-        val peerIp = peerIpv4For(link)
-        val peerAddress = peerIp?.hostAddress
         if (peerIp != null && peerAddress != null) {
             val fallback = probeFallbackEasyConnPort(link, peerIp)
             if (fallback != null) {
@@ -575,9 +1162,9 @@ class RideDaemonTransport(
         }
         throw IllegalStateException(
             "The EasyConn service was not advertised in $DISCOVERY_MAX_ATTEMPTS discovery windows of " +
-                "${DISCOVERY_TIMEOUT_MS / 1000}s each. This can happen when the official CFMOTO app is " +
-                "already connected to the motorcycle, or when the T-Box is still starting up after " +
-                "Wi-Fi association."
+                "${DISCOVERY_TIMEOUT_MS / 1000}s each. This can happen when your motorcycle's own " +
+                "companion app is already connected to it, or when the T-Box is still starting up " +
+                "after Wi-Fi association."
         )
     }
 
@@ -623,41 +1210,180 @@ class RideDaemonTransport(
     }
 
     /**
-     * Discovery when the phone hosts the network. NSD is given one window first - it costs a few
-     * seconds and would hand back the service package too, which the sweep cannot - then every
+     * Discovery when the phone hosts the network. Two roads to the same dash, refereed against one
+     * clock by [HotspotDiscoveryRace]: NSD listens for the dash's own `_EasyConn._tcp.`
+     * announcement, and - once NSD has had the first [DISCOVERY_TIMEOUT_MS] to itself - every
      * address on the tethering subnet is probed on the well-known port, nearest the phone first.
      *
-     * The endpoint is adopted only when the full CMD_MDNS_RESPOND handshake completes, exactly as
-     * on the other two transports: an open TCP port is never promoted on its own.
+     * They used to run one after the other, and that sequence cost rider 6e77dcf7 (samsung
+     * SM-S948B, MOTO-HUB 1.1.112, 2026-09-06) a whole connection. He switched his hotspot on at
+     * 11:10:21; NSD heard nothing by 11:10:36 and was torn down; the sweep then walked 253
+     * addresses until 11:11:52 and reported nothing. He pressed connect again at 11:12:06 and the
+     * advertisement resolved 180ms later. The dash had simply not associated during the first
+     * window - on a phone-hosted network it has to boot, see the hotspot, associate, take a lease
+     * and only then advertise, so arriving late is the normal case here, not the exception - and
+     * the sweep is a single pass, so the address the dash eventually took was one the sweep had
+     * already tried and would never look at again. A listener that was still registered would have
+     * ended those 75 seconds the moment the announcement went out.
+     *
+     * NSD keeps its privileges: it is the only road that reports the port the dash advertises and
+     * the package name it publishes, so its answer is taken whenever it arrives and a sweep
+     * confirmation is held [HOTSPOT_NSD_GRACE_MS] for it. The sweep's own guarantee is untouched:
+     * an open TCP port is never promoted on its own, the endpoint is adopted only when the full
+     * CMD_MDNS_RESPOND handshake completes.
      */
     private suspend fun discoverOverPhoneHotspot(
         link: TBoxLink.PhoneHotspot,
         expectedModelId: String?
-    ): TBoxHost {
-        try {
-            return withTimeout(DISCOVERY_TIMEOUT_MS) { discoverWithAndroidNsd(link, expectedModelId) }
-        } catch (timeout: TimeoutCancellationException) {
-            kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            ProjectionEventLog.record(
-                "DISCOVERY",
-                "No EasyConn advertisement on the hosted network; sweeping " +
-                    "${link.subnet.localAddress.hostAddress}/${link.subnet.prefixLength} for the dash."
-            )
-        }
-        val found = probeHostedSubnet(link)
-            ?: throw IllegalStateException(
-                "No motorcycle answered on the hotspot your phone is hosting. Check that the dash " +
-                    "shows it is connected, and that the hotspot Ssid and Password match exactly " +
-                    "what the dash is asking for."
-            )
-        val (host, identity) = found
-        val address = host.hostAddress
-            ?: throw IllegalStateException("The dash answered but its address could not be read.")
-        ProjectionEventLog.record(
-            "DISCOVERY",
-            "EasyConn endpoint confirmed on the hosted network at $address:$WAKE_PROBE_PORT."
+    ): TBoxHost = coroutineScope {
+        val startedAtMs = SystemClock.elapsedRealtime()
+        fun sinceStart(): Long = SystemClock.elapsedRealtime() - startedAtMs
+        // UNLIMITED, so that handing a result over can never suspend: a blocking send from inside
+        // the NSD continuation or the sweep's IO loop would be one more place a race being torn
+        // down could get stuck, and the multicast lock is held until that teardown runs.
+        val outcomes = Channel<HotspotDiscoveryEvent>(Channel.UNLIMITED)
+        val race = HotspotDiscoveryRace(
+            sweepJoinsAtMs = DISCOVERY_TIMEOUT_MS,
+            nsdGraceMs = HOTSPOT_NSD_GRACE_MS,
+            nsdLastCallMs = HOTSPOT_NSD_LAST_CALL_MS
         )
-        return TBoxHost(address, WAKE_PROBE_PORT, identity)
+
+        val nsdJob = launch {
+            val outcome = try {
+                // The host first, the timestamp second: argument order would otherwise stamp the
+                // event with the moment the listener was registered rather than the moment the
+                // dash announced itself, and how late the announcement was is the whole point of
+                // the line the rider ends up reading.
+                val resolved = discoverWithAndroidNsd(link, expectedModelId)
+                HotspotDiscoveryEvent.NsdResolved(sinceStart(), resolved)
+            } catch (cancellation: CancellationException) {
+                // The race is over, or the rider left MOTO-HUB. Either way
+                // discoverWithAndroidNsd's invokeOnCancellation has already unregistered the
+                // listener and released the multicast lock; there is nothing left to report.
+                throw cancellation
+            } catch (failure: Throwable) {
+                HotspotDiscoveryEvent.NsdStopped(sinceStart(), failure)
+            }
+            outcomes.trySend(outcome)
+        }
+
+        var sweepJob: Job? = null
+        fun joinSweepToTheRace() {
+            if (sweepJob != null) return
+            sweepJob = launch {
+                ProjectionEventLog.record(
+                    "DISCOVERY",
+                    "Still no EasyConn advertisement after ${DISCOVERY_TIMEOUT_MS / 1000}s; " +
+                        "sweeping ${link.subnet.localAddress.hostAddress}/" +
+                        "${link.subnet.prefixLength} for the dash. The advertisement listener " +
+                        "stays registered alongside the sweep - whichever road reaches the dash " +
+                        "first ends discovery."
+                )
+                val found = try {
+                    probeHostedSubnet(link)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (failure: Throwable) {
+                    ProjectionEventLog.warning(
+                        "DISCOVERY",
+                        "Hosted-network sweep ended in an error; the advertisement listener is " +
+                            "now the only road left.",
+                        failure
+                    )
+                    null
+                }
+                val address = found?.first?.hostAddress
+                if (found != null && address == null) {
+                    ProjectionEventLog.warning(
+                        "DISCOVERY",
+                        "The sweep completed the EasyConn handshake with a dash whose address " +
+                            "could not be read; leaving the advertisement listener to finish."
+                    )
+                }
+                outcomes.trySend(
+                    if (found != null && address != null) {
+                        HotspotDiscoveryEvent.SweepConfirmed(
+                            sinceStart(),
+                            TBoxHost(address, WAKE_PROBE_PORT, found.second)
+                        )
+                    } else {
+                        HotspotDiscoveryEvent.SweepExhausted(sinceStart())
+                    }
+                )
+            }
+        }
+
+        // Feeds the referee until it decides. Every exit from here - a host, the rider-facing
+        // failure, or the rider leaving - goes through the finally below, so neither road is ever
+        // left running.
+        suspend fun settle(): TBoxHost {
+            var verdict: HotspotDiscoveryVerdict = race.begin()
+            while (true) {
+                when (val current = verdict) {
+                    is HotspotDiscoveryVerdict.Adopt -> {
+                        ProjectionEventLog.record(
+                            "DISCOVERY",
+                            describeAdoptedHotspotHost(current, sweepWasRunning = sweepJob != null)
+                        )
+                        return current.host
+                    }
+
+                    is HotspotDiscoveryVerdict.GiveUp ->
+                        throw IllegalStateException(describeHotspotDiscoveryFailure(current))
+
+                    is HotspotDiscoveryVerdict.KeepGoing -> {
+                        if (current.startSweep) joinSweepToTheRace()
+                        val deadlineAtMs = current.deadlineAtMs
+                        verdict = race.offer(
+                            if (deadlineAtMs == null) {
+                                outcomes.receive()
+                            } else {
+                                withTimeoutOrNull(deadlineAtMs - sinceStart()) { outcomes.receive() }
+                                    ?: HotspotDiscoveryEvent.DeadlineReached(sinceStart())
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        try {
+            settle()
+        } finally {
+            // The loser is torn down here, and so is everything still running when the rider walks
+            // away. Cancelling the NSD job runs discoverWithAndroidNsd's invokeOnCancellation,
+            // which unregisters the listener and releases the multicast lock; the sweep is blocked
+            // in a socket, so it notices at its next ensureActive(): HOSTED_SWEEP_CONNECT_TIMEOUT_MS
+            // on the cheap first pass, but ~5.25s on the identity ladder, whose probe sets
+            // soTimeout = WAKE_PROBE_READ_TIMEOUT_MS on top of the connect. Harmless because what
+            // is being waited on is a socket, not a lock or a listener - the multicast lock and
+            // the NSD registration are already gone by then. coroutineScope waits for both before this
+            // function returns, which is the point: no listener outlives the discovery it belongs to.
+            nsdJob.cancel()
+            sweepJob?.cancel()
+        }
+    }
+
+    /**
+     * The one line that says which road won, and how far into discovery. Worth spelling out rather
+     * than logging "endpoint confirmed" for both: from a rider's log alone, "the dash advertised"
+     * and "the dash was found by walking the subnet" are two different stories about that dash's
+     * firmware, and now that the two roads overlap the timestamps no longer tell them apart.
+     */
+    private fun describeAdoptedHotspotHost(
+        adopted: HotspotDiscoveryVerdict.Adopt,
+        sweepWasRunning: Boolean
+    ): String = when (adopted.road) {
+        HotspotDiscoveryRoad.ADVERTISEMENT ->
+            "EasyConn advertisement resolved ${adopted.atMs}ms into discovery at " +
+                "${adopted.host.ipAddress}:${adopted.host.port}" +
+                (if (sweepWasRunning) ", with the hosted-network sweep still running" else "") +
+                "; the advertisement wins - it carries the dash's own port and package name."
+
+        HotspotDiscoveryRoad.SWEEP ->
+            "EasyConn endpoint confirmed on the hosted network at " +
+                "${adopted.host.ipAddress}:${adopted.host.port} by the sweep, " +
+                "${adopted.atMs}ms into discovery; nothing was advertised in that time."
     }
 
     /**
@@ -675,8 +1401,32 @@ class RideDaemonTransport(
             val candidates = listOfNotNull(announced) +
                 TBoxHotspotScan.candidateHosts(link.subnet).filterNot { it == announced }
             val reachable = mutableListOf<Inet4Address>()
-            for (candidate in candidates) {
+            // A sweep that announces its own length is a sweep a truncated log can still be read
+            // against. The 2026-08-23 QJ log stopped 44 seconds into this loop - the rider closed
+            // the app - and carried no line between "sweeping" and nothing at all, so it could not
+            // even be said how far it had got or whether it had been given time to finish.
+            val sweepStartedAtMs = SystemClock.elapsedRealtime()
+            ProjectionEventLog.record(
+                "DISCOVERY",
+                "Hosted-network sweep: ${candidates.size} addresses to try on port " +
+                    "$WAKE_PROBE_PORT, up to " +
+                    "${candidates.size * HOSTED_SWEEP_CONNECT_TIMEOUT_MS / 1000}s if every one of " +
+                    "them stays silent. Leaving MOTO-HUB now ends it."
+            )
+            for ((index, candidate) in candidates.withIndex()) {
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (index > 0 && index % HOSTED_SWEEP_PROGRESS_STRIDE == 0) {
+                    ProjectionEventLog.record(
+                        "DISCOVERY",
+                        "Hosted-network sweep: $index of ${candidates.size} addresses tried in " +
+                            "${SystemClock.elapsedRealtime() - sweepStartedAtMs}ms, " +
+                            if (reachable.isEmpty()) {
+                                "none answering so far."
+                            } else {
+                                "${reachable.size} answering so far."
+                            }
+                    )
+                }
                 val open = runCatching {
                     link.createSocket().use { socket ->
                         socket.connect(
@@ -717,12 +1467,22 @@ class RideDaemonTransport(
                 "DISCOVERY",
                 if (reachable.isEmpty()) {
                     "Hosted-network sweep: nothing answered $WAKE_PROBE_PORT on " +
-                        "${candidates.size} addresses. Either the dash has not joined the hotspot " +
-                        "yet, or it speaks on a port MOTO-HUB does not know."
+                        "${candidates.size} addresses in " +
+                        "${SystemClock.elapsedRealtime() - sweepStartedAtMs}ms. Either the dash " +
+                        "has not joined the hotspot yet, or it speaks on a port MOTO-HUB does " +
+                        "not know."
                 } else {
                     "Hosted-network sweep: ${reachable.joinToString { it.hostAddress.orEmpty() }} " +
                         "accepted $WAKE_PROBE_PORT but none completed the EasyConn handshake."
                 }
+            )
+            // Which of those two it was is decided by whether anything is on the subnet at all,
+            // so the neighbour table is read again here rather than only at link time: a dash
+            // that joins slowly is not on it when the hotspot comes up and is by the time the
+            // sweep gives up.
+            ProjectionEventLog.record(
+                "DISCOVERY",
+                TBoxHotspotScan.describeNeighbours(link.subnet.interfaceName)
             )
             null
         }
@@ -1223,6 +1983,54 @@ class RideDaemonTransport(
                 // The daemon's own decisions, not dash traffic. Logged at INFO because a field
                 // log must be able to say which video frame format was on the wire - a framing
                 // experiment whose outcome only exists in the daemon's stdout cannot be read.
+                if (command == TRANSPORT_VIDEO_PULLS_COMMAND) {
+                    val phase = payload?.getOrNull(0)?.toInt() ?: -1
+                    val pulls = decodeVideoPullCount(payload)
+                    dashVideoPulls.set(pulls)
+                    when (phase) {
+                        VIDEO_PULL_SOCKET_OPEN -> {
+                            dashVideoSocketOpened.set(true)
+                            ProjectionEventLog.record(
+                                "TBOX",
+                                "The dashboard opened the video socket."
+                            )
+                        }
+                        VIDEO_PULL_FIRST -> ProjectionEventLog.record(
+                            "TBOX",
+                            "The dashboard asked for its first video frame; it is consuming the " +
+                                "stream. Anything wrong from here is what it does with the " +
+                                "picture, not whether it is being sent one."
+                        )
+                        // Running totals only keep the counter fresh for [protocolSnapshot];
+                        // logging every one of them would spend the rider's whole log ring on a
+                        // number that is printed with every snapshot anyway.
+                        VIDEO_PULL_PROGRESS -> Unit
+                        VIDEO_PULL_SOCKET_CLOSED -> if (pulls == 0L) {
+                            ProjectionEventLog.warning(
+                                "TBOX",
+                                "The dashboard opened the video socket and closed it without " +
+                                    "ever asking for a single frame. Everything we send is being " +
+                                    "queued and dropped on this side, so no video format, " +
+                                    "bitrate or frame rate can change what the rider sees - the " +
+                                    "dash is not reading the stream at all."
+                            )
+                        } else {
+                            ProjectionEventLog.record(
+                                "TBOX",
+                                "The dashboard pulled $pulls video frames on this socket."
+                            )
+                        }
+                    }
+                    return
+                }
+                if (command == TRANSPORT_PAGE_SWITCH_PROBE_COMMAND) {
+                    logPageSwitchProbe(payload)
+                    return
+                }
+                if (command == TRANSPORT_APP_STATUS_COMMAND) {
+                    logAppStatusNotify(payload)
+                    return
+                }
                 if (command == TRANSPORT_VIDEO_FRAMING_COMMAND) {
                     val extendByte = payload?.getOrNull(0)?.toInt() ?: -1
                     val plainApplied = payload?.getOrNull(1)?.toInt() == 1
@@ -1267,13 +2075,20 @@ class RideDaemonTransport(
             }
             if (type == PXC_EVENT_SOURCE || type == MEDIA_CONTROL_EVENT_SOURCE) {
                 val commandName = protocolCommandName(type, command)
+                // A dash's keepalive beats are folded into one line a minute (see
+                // ProtocolBeatCollapser); everything else is written as it arrives, after any
+                // open run of beats has been reported.
+                val decision = beatCollapser.onEvent(type, commandName, payload?.size ?: 0, now)
+                decision.rollup?.let { ProjectionEventLog.debug("TBOX", it) }
                 // Lambda form: this is the single highest-volume log line in the app (one per
                 // protocol event, and a drag on the TFT is a stream of them), so the string is
                 // not built at all when logging is off.
-                ProjectionEventLog.debug("TBOX") {
-                    "${protocolSourceName(type)} RX #$sequence command=" +
-                        "0x${command.toString(16)} ($commandName) " +
-                        "bytes=${payload?.size ?: 0}."
+                if (decision is BeatDecision.Write) {
+                    ProjectionEventLog.debug("TBOX") {
+                        "${protocolSourceName(type)} RX #$sequence command=" +
+                            "0x${command.toString(16)} ($commandName) " +
+                            "bytes=${payload?.size ?: 0}."
+                    }
                 }
                 // Any control message that carries a body is worth dumping, named or not.
                 // This used to fire only on UNKNOWN opcodes, which tied the evidence to the
@@ -1308,9 +2123,20 @@ class RideDaemonTransport(
                     }
                 }
             }
-            if (type == PXC_EVENT_SOURCE) {
-                ProjectionEventLog.debug("TBOX") {
-                    "PXC event received: command=$command, bytes=${payload?.size ?: 0}."
+            if (type == PXC_EVENT_SOURCE && command == PXC_QUERY_TIME_COMMAND) {
+                // Filed against the firmware, not the bike, and only the first time: from the next
+                // session on, the daemon is told up front not to push the time unasked.
+                if (TBoxClockAskRegistry.recordAsked(appContext, sessionDashFingerprint)) {
+                    ProjectionEventLog.record(
+                        "TBOX",
+                        "This dashboard ($sessionDashFingerprint) asks for the time itself; from " +
+                            "the next connection MOTO-HUB will only answer, never offer."
+                    )
+                }
+                // The daemon answers this on its own, immediately; all that is kept here is that
+                // it did, so the next CLIENT_INFO can say whether the dashboard used the answer.
+                if (sessionAnswersClock) {
+                    TBoxClockAskRegistry.noteAnswered(appContext, sessionDashFingerprint)
                 }
             }
             if (type == PXC_EVENT_SOURCE && command == PXC_HUD_CONFIG_COMMAND) {
@@ -1343,7 +2169,7 @@ class RideDaemonTransport(
                     // handshake is fine, and a rider who turns verbose off still gets the
                     // whitelisted subset from the unrecognised-dashboard branch below.
                     if (verbose) {
-                        val rawJson = payload.toString(Charsets.UTF_8).trim().trimEnd(' ')
+                        val rawJson = payload.toString(Charsets.UTF_8).trim().trimEnd('\u0000')
                         ProjectionEventLog.debug("TBOX", "CLIENT_INFO raw (verbose): $rawJson")
                     }
                     ProjectionEventLog.record(
@@ -1391,6 +2217,37 @@ class RideDaemonTransport(
                             "TBOX",
                             "Profile scores: ${TBoxModelProfile.scoreBreakdown(capabilities)}."
                         )
+                    }
+                    sessionDashFingerprint = TBoxWireLadder.fingerprintOf(capabilities)
+                    // Filed against the firmware rather than the bike, and outside the block
+                    // below on purpose: a dashboard's answer to the clock question is the same
+                    // whether or not this transport was told which motorcycle it is serving.
+                    if (TBoxClockAskRegistry.onDashboardClockSeen(
+                            appContext,
+                            sessionDashFingerprint,
+                            capabilities.huUptimeMillis
+                        )
+                    ) {
+                        ProjectionEventLog.record(
+                            "TBOX",
+                            "This dashboard ($sessionDashFingerprint) discards the time it asks " +
+                                "for: it was answered with the phone's clock in the previous " +
+                                "handshake and still reports its own as " +
+                                "${capabilities.huUptimeMillis} ms since power-on, without having " +
+                                "restarted in between. Nothing this phone sends will set it, and " +
+                                "the Wi-Fi dash clock setting changes nothing on this firmware."
+                        )
+                    }
+                    motorcycleProfile?.let { motorcycle ->
+                        // Kept HERE, not only in the session services that observe this event:
+                        // when the companion app drives the session over the AIDL bridge none of
+                        // them is running, and CLIENT_INFO - the only thing that can identify a
+                        // dash whose QR carries no model id - was decoded and then dropped by
+                        // both processes. This is where it arrives, so this is where it is kept;
+                        // the observers' own write becomes a harmless second copy of the same
+                        // snapshot.
+                        TBoxCapabilityStore(appContext).recordCapabilities(motorcycle, capabilities)
+                        TBoxWireLadder.onDashboardIdentified(appContext, motorcycle, protocolProfile, capabilities)
                     }
                     mutableEvents.tryEmit(TBoxEvent.Capabilities(capabilities))
                 }
@@ -1452,6 +2309,7 @@ class RideDaemonTransport(
                 "TBOX",
                 "RideDaemon reported that the T-Box session stopped. ${protocolSnapshot()}"
             )
+            fileLadderVerdict(endedByDashboard = true)
             mutableEvents.tryEmit(TBoxEvent.Stopped)
         }
 
@@ -1553,9 +2411,57 @@ class RideDaemonTransport(
         lastMediaControlEventElapsed.set(0L)
         lastFrameOfferedElapsed.set(0L)
         pxcStreamingBeats.set(0L)
+        dashVideoPulls.set(0L)
+        dashVideoSocketOpened.set(false)
         pxcStallReported.set(false)
         pxcQuietDashReported.set(false)
+        // Cleared with the rest of the per-session state so a QUERY_TIME that somehow
+        // arrives before this session's CLIENT_INFO is never filed against the dashboard
+        // the last session met - a rider can change bikes between two connections.
+        sessionDashFingerprint = null
+        sessionAnswersClock = false
         unknownCommandsLogged.clear()
+        // The tally belongs to the session that produced it: reported before it is dropped, so a
+        // log does not end on beats that were counted and never mentioned, and so the next
+        // session writes each beat command's first occurrence again rather than folding it into
+        // a run the previous dash opened.
+        beatCollapser.close(SystemClock.elapsedRealtime())
+            ?.let { ProjectionEventLog.debug("TBOX", it) }
+        beatCollapser.reset()
+    }
+
+    /**
+     * Hands a finished session to [TBoxWireLadder], exactly once. Both ends of a session race to
+     * report it - the dashboard's own close callback and our teardown - and the second one through
+     * must not count as a second attempt.
+     */
+    private fun fileLadderVerdict(endedByDashboard: Boolean) {
+        val motorcycle = motorcycleProfile ?: return
+        val startedAt = sessionStartedElapsed.get()
+        if (startedAt <= 0L) return
+        if (!ladderVerdictFiled.compareAndSet(false, true)) return
+        // Only Android Auto runs the format the ladder chose. Ride Dashboard sends its own, so a
+        // mirroring session would otherwise promote or condemn a rung that never reached the wire
+        // - a rider testing through the Ride Dashboard would have silently ended the search on a
+        // format nobody tried.
+        if (!TBoxSessionRegistry.everClaimed(ANDROID_AUTO_CONSUMER)) {
+            TBoxWireLadder.onSessionIgnored(appContext, motorcycle, protocolProfile)
+            return
+        }
+        TBoxWireLadder.onSessionFinished(
+            context = appContext,
+            motorcycle = motorcycle,
+            modelProfile = protocolProfile,
+            facts = TBoxSessionFacts(
+                durationMillis = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+                mediaControlEvents = mediaControlEvents.get(),
+                framesOffered = framesOffered.get(),
+                frameTimeouts = framesTimedOut.get(),
+                frameRejections = framesRejected.get(),
+                endedByDashboard = endedByDashboard,
+                trouble = ProjectionSourceHealth.troubleSince(startedAt)
+            )
+        )
     }
 
     private fun protocolSnapshot(): String {
@@ -1568,10 +2474,16 @@ class RideDaemonTransport(
             "streamingBeats=${pxcStreamingBeats.get()}), " +
             "mediaCtrlRx=${mediaControlEvents.get()} (last=${age(lastMediaControlEventElapsed)}), " +
             "framesOffered=${framesOffered.get()} (last=${age(lastFrameOfferedElapsed)}), " +
-            "frameTimeouts=${framesTimedOut.get()}, frameRejections=${framesRejected.get()}"
+            "frameTimeouts=${framesTimedOut.get()}, frameRejections=${framesRejected.get()}, " +
+            // Last on purpose: it is the only number here the dashboard produced, so it is the
+            // one to read first when everything else looks healthy and the screen is black.
+            "dashPulls=${dashVideoPulls.get()}" +
+            if (dashVideoSocketOpened.get()) "" else " (the dash never opened the video socket)"
     }
 
     private companion object {
+        /** AndroidAutoSessionService's own consumer name in TBoxSessionRegistry. */
+        const val ANDROID_AUTO_CONSUMER = "android-auto"
         const val TAG = "RideDaemonTransport"
         const val SERVICE_TYPE = "_EasyConn._tcp."
         const val PACKAGE_ATTRIBUTE = "packagename"
@@ -1582,6 +2494,18 @@ class RideDaemonTransport(
         const val DISCOVERY_MAX_ATTEMPTS = 2
         const val DISCOVERY_RETRY_DELAY_MS = 500L
         const val EC_CONNECT_TIMEOUT_MS = 10_000
+
+        /**
+         * Wall clock the whole EasyConn handshake gets, retries included.
+         *
+         * Derived, not picked: one attempt that has already spent the entire native startup
+         * budget leaves, by definition, nothing for a second. That keeps every cheap failure
+         * retried exactly as before - three `connection refused` attempts cost ~2s, three
+         * connect timeouts ~22s, both comfortably inside - while a dash that simply says nothing
+         * fails once here, in the same 25s it always took, and is handed to the caller's
+         * re-discover-and-retry instead of being dialled again on a session it never answered.
+         */
+        const val EC_HANDSHAKE_TOTAL_BUDGET_MS = RIDE_DAEMON_STARTUP_TIMEOUT_SEC * 1_000L
         // Wake-probe fallback (see sendEasyConnWakeProbe): well-known port and frame layout
         // reverse-engineered by OpenCfMoto/OpenMoto, not part of the advertised EasyConn contract.
         const val WAKE_PROBE_PORT = 10930
@@ -1598,6 +2522,9 @@ class RideDaemonTransport(
         // short. Everything on it is one Wi-Fi hop away with no router in between, so a dash that
         // is going to answer answers well inside this; the budget is for the silent addresses.
         const val HOSTED_SWEEP_CONNECT_TIMEOUT_MS = 250
+        // Roughly every six seconds of a silent sweep, so a log that ends mid-sweep still says
+        // how far it got, and one that ran to the end shows it moving rather than hung.
+        const val HOSTED_SWEEP_PROGRESS_STRIDE = 24
         const val WAKE_PROBE_HEADER_SIZE = 16
         const val CMD_MDNS_RESPOND = 0x70000010
         const val CMD_MDNS_RESPOND_ACK = 0x70000011
@@ -1611,6 +2538,23 @@ class RideDaemonTransport(
         // its own decisions, currently only the negotiated video frame format.
         const val TRANSPORT_EVENT_SOURCE = 4L
         const val TRANSPORT_VIDEO_FRAMING_COMMAND = 1L
+        /** Payload: [phase, 8 bytes big-endian pull count]; phases below. */
+        const val TRANSPORT_VIDEO_PULLS_COMMAND = 2L
+        const val VIDEO_PULL_SOCKET_OPEN = 0
+        const val VIDEO_PULL_FIRST = 1
+        const val VIDEO_PULL_PROGRESS = 2
+        const val VIDEO_PULL_SOCKET_CLOSED = 3
+        /** Payload: [step, ok, 4 bytes big-endian command]; steps below. */
+        const val TRANSPORT_PAGE_SWITCH_PROBE_COMMAND = 3L
+        const val PAGE_PROBE_STARTED = 0
+        const val PAGE_PROBE_PAGE_STATUS = 1
+        const val PAGE_PROBE_JUMP_TO_CAR_PAGE = 2
+        const val PAGE_PROBE_SWITCH_TO_MAIN_PAGE = 3
+        const val PAGE_PROBE_NO_CONTROL_CHANNEL = 4
+        /** Payload: [mode, ok]; modes below, from kh.b.a(int) in the CarbitRide APK. */
+        const val TRANSPORT_APP_STATUS_COMMAND = 4L
+        const val APP_STATUS_MIRROR_LIVE = 1
+        const val APP_STATUS_BACKGROUND = 2
         /** Bounds for the always-on first-occurrence dump of unknown protocol commands. */
         const val UNKNOWN_COMMAND_LOG_LIMIT = 32
         const val UNKNOWN_COMMAND_PREVIEW_BYTES = 64
@@ -1619,6 +2563,7 @@ class RideDaemonTransport(
         const val PXC_CLOCK_KEEPALIVE_COMMAND = 0x10600L
         const val MEDIA_CONTROL_PING_COMMAND = 64L
         const val PXC_HUD_CONFIG_COMMAND = 65_552L
+        const val PXC_QUERY_TIME_COMMAND = 0x10450L
         const val MEDIA_CAPTURE_CONFIG_COMMAND = 16L
         const val MEDIA_TOUCH_COMMAND = 32L
         const val MEDIA_STREAM_START_COMMAND = 112L
@@ -1658,7 +2603,13 @@ class RideDaemonTransport(
             // Nothing should be gated on a particular opcode being "the" keepalive: the same log
             // carries zero 0x10600, while a CFDL16 sends six PXC messages in total and then stops.
             0x10630L to "PERIODIC_NOTIFY",
-            0x10430L to "PERIODIC_NOTIFY_ALT",
+            // 0x10430 is NOT a keepalive. It is ECP_C2P_QUERY_GPS (ih/m0.java, cmd 66608): the
+            // dash asking the phone where it is, and the official app answers it with
+            // {"status":true,"lit":lon,"lat":lat,"speed","altitude","course","time",...} or
+            // {"status":false} when it has no fix. This app answers with an empty body through
+            // the daemon's default even-command branch, which is a real gap - the dash asks a
+            // question and gets nothing back. Naming it is the first half of fixing it.
+            0x10430L to "QUERY_GPS",
             // Seen twice each in the same session, both empty; named only so a field log stops
             // reading as a wall of UNKNOWN. open-cfmoto's notes list 0x10450 as empty too, and
             // 0x10040 as carrying {maxNaviIcon, supportFunction}.
@@ -1670,7 +2621,14 @@ class RideDaemonTransport(
             0x10450L to "QUERY_TIME",
             0x10451L to "QUERY_TIME_ACK",
             0x104a0L to "NOTIFY_104A0",
-            0x10040L to "NAVI_CAPS"
+            // ECP_C2P_ENABLE_DOWNLOAD_PHONE_HUD (ih/t.java), not a navigation capability
+            // exchange - the name it carried before the CarbitRide APK settled it.
+            0x10040L to "ENABLE_DOWNLOAD_PHONE_HUD",
+            // The phone-to-car mirroring state and the acknowledgement it is owed. The command
+            // is ours; the ack is the dashboard's answer and the only readout this experiment
+            // has that does not depend on a rider watching the panel.
+            0x20030L to "APP_STATUS",
+            0x20031L to "APP_STATUS_ACK"
         )
 
         private val MEDIA_CONTROL_COMMAND_NAMES = mapOf(
@@ -1703,6 +2661,103 @@ internal fun isStreamingPxcBeat(
     lastFrameOfferedElapsed > 0L &&
         previousPxcEventElapsed > 0L &&
         now - previousPxcEventElapsed >= PXC_STREAMING_BEAT_MIN_GAP_MS
+
+/**
+ * The empty control-plane messages a dash repeats for as long as the link is up: its heartbeat
+ * and whichever keepalive dialect it speaks (see the opcode names in PXC_COMMAND_NAMES). Matched
+ * by name so this list stays readable, and so an opcode nobody has named yet is never folded -
+ * an UNKNOWN arriving every two seconds is a finding, not noise.
+ *
+ * Commands that carry a body are absent on purpose, touch included: a drag is bounded by the
+ * rider's finger, while these run for the whole ride.
+ */
+internal val PROTOCOL_BEAT_COMMAND_NAMES = setOf(
+    "HEARTBEAT",
+    "HEARTBEAT_ACK",
+    "CLOCK_KEEPALIVE",
+    "CLOCK_KEEPALIVE_ACK",
+    "PERIODIC_NOTIFY",
+    "PERIODIC_NOTIFY_ALT",
+    "PING"
+)
+
+/** How long a run of folded beats may stay unreported. */
+internal const val PROTOCOL_BEAT_ROLLUP_INTERVAL_MS = 60_000L
+
+internal sealed interface BeatDecision {
+    /** The line that reports a run of beats ending here, if one did; written before the event. */
+    val rollup: String?
+
+    /** Write this event's own line. */
+    data class Write(override val rollup: String?) : BeatDecision
+
+    /** Counted into the open run instead of written. */
+    data class Fold(override val rollup: String?) : BeatDecision
+}
+
+/**
+ * Folds a dash's repeating keepalive traffic into one line a minute.
+ *
+ * [RepeatCollapser] already folds consecutive identical lines, and cannot help here: these beats
+ * interleave (HEARTBEAT_ACK, PERIODIC_NOTIFY, PERIODIC_NOTIFY_ALT, round again) and each line
+ * carries its own sequence number, so no two in a row are ever equal. The result is a log that
+ * holds only its last few minutes - a VOGE rider's report (support 0df154af, 2026-08-27) spent
+ * all 1500 CORE entries on 8 minutes of beats, and the handlebar presses he was reporting had
+ * long since fallen out of the ring. Every rider with logging on has this, verbose or not: these
+ * lines are gated on the master switch alone.
+ *
+ * The first occurrence of each beat command is always written, so "did this dash ever send X"
+ * stays answerable from the log; the rest become a tally. A run is closed - and its line
+ * emitted - either when the interval elapses or when any other event arrives, so a rollup never
+ * separates an event from the traffic that preceded it.
+ *
+ * Free of Android types so the rule can be unit tested, and synchronized because the transport
+ * callback that drives it is not documented to be single-threaded (a field log shows PXC events
+ * arriving out of sequence order).
+ */
+internal class ProtocolBeatCollapser(
+    private val rollupIntervalMillis: Long = PROTOCOL_BEAT_ROLLUP_INTERVAL_MS
+) {
+    private val lock = Any()
+    private val writtenOnce = mutableSetOf<Pair<Long, String>>()
+    private val folded = LinkedHashMap<String, Int>()
+    private var runStartedAt = 0L
+
+    fun onEvent(type: Long, commandName: String, payloadSize: Int, now: Long): BeatDecision =
+        synchronized(lock) {
+            val isBeat = payloadSize == 0 && commandName in PROTOCOL_BEAT_COMMAND_NAMES
+            if (!isBeat || writtenOnce.add(type to commandName)) {
+                return BeatDecision.Write(closeRun(now))
+            }
+            if (runStartedAt == 0L) runStartedAt = now
+            folded[commandName] = (folded[commandName] ?: 0) + 1
+            val elapsed = now - runStartedAt
+            return BeatDecision.Fold(if (elapsed >= rollupIntervalMillis) closeRun(now) else null)
+        }
+
+    /** Ends the open run, for a teardown that would otherwise drop its tally unreported. */
+    fun close(now: Long): String? = synchronized(lock) { closeRun(now) }
+
+    fun reset() = synchronized(lock) {
+        writtenOnce.clear()
+        folded.clear()
+        runStartedAt = 0L
+    }
+
+    private fun closeRun(now: Long): String? {
+        if (folded.isEmpty()) {
+            runStartedAt = 0L
+            return null
+        }
+        val seconds = ((now - runStartedAt).coerceAtLeast(0L) + 500L) / 1000L
+        val total = folded.values.sum()
+        val breakdown = folded.entries.joinToString(", ") { "${it.key} ×${it.value}" }
+        folded.clear()
+        runStartedAt = 0L
+        return "$total keepalive beat${if (total == 1) "" else "s"} folded over ${seconds}s: " +
+            "$breakdown. Each was empty and identical to the first of its kind, logged above."
+    }
+}
 
 internal fun decodeEasyConnPackage(value: ByteArray?): String? = value
     ?.toString(Charsets.UTF_8)
@@ -1799,3 +2854,31 @@ internal fun isMotoHubSimulatorAdvertisement(serviceName: String?, modelId: Stri
 
 /** Space-separated lowercase hex, e.g. "7b 0a 20 20" - only ever used behind verbose logging. */
 private fun ByteArray.toDiagnosticHex(): String = joinToString(" ") { byte -> "%02x".format(byte) }
+
+/**
+ * Reads the daemon's 8-byte big-endian pull count, which follows the one-byte phase.
+ *
+ * Returns 0 for a payload that is too short rather than throwing: a truncated event must cost a
+ * number in a log line, never a live projection session.
+ */
+internal fun decodeVideoPullCount(payload: ByteArray?): Long {
+    if (payload == null || payload.size < 9) return 0L
+    var value = 0L
+    for (index in 1 until 9) {
+        value = (value shl 8) or (payload[index].toLong() and 0xFF)
+    }
+    return value
+}
+
+/**
+ * The 4-byte big-endian PXC command id a page-probe payload carries, or 0 when the step has
+ * none (the start marker and the "no control channel" marker both report 0).
+ */
+internal fun decodePageSwitchProbeCommand(payload: ByteArray?): Long {
+    if (payload == null || payload.size < 6) return 0L
+    var value = 0L
+    for (index in 2 until 6) {
+        value = (value shl 8) or (payload[index].toLong() and 0xFF)
+    }
+    return value
+}

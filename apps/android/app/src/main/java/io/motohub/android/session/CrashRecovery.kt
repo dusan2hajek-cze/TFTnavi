@@ -20,6 +20,10 @@ import java.util.Locale
 object CrashRecovery {
     private const val FILE_NAME = "moto-hub-last-crash.txt"
 
+    /** Whether this process started by recovering a crash report left by the previous one. */
+    @Volatile var previousCrashRecovered: Boolean = false
+        private set
+
     fun install(context: Context) {
         val appContext = context.applicationContext
         val previous = Thread.getDefaultUncaughtExceptionHandler()
@@ -38,6 +42,7 @@ object CrashRecovery {
             ?: return false
         ProjectionEventLog.error("CRASH", "Previous process ended unexpectedly.\n$report")
         file.runCatching { delete() }
+        previousCrashRecovered = true
         return true
     }
 

@@ -8,6 +8,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Restores the old debug pipeline - R8, resource shrinking and all four ABIs - for the rare
+// occasion something only misbehaves in an obfuscated build or on a non-arm64 emulator.
+val minifyDebug = providers.gradleProperty("minifyDebug").map(String::toBoolean).orElse(false).get()
+
 val noReleaseObfuscation = providers.gradleProperty("noReleaseObfuscation")
     .map(String::toBoolean)
     .orElse(false)
@@ -67,6 +71,16 @@ fun asBuildConfigString(value: String): String =
     "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 val coreSentryDsn = sentryDsn("sentryCoreDsn", "SENTRY_CORE_DSN")
+// The diagnostics collector (n8n webhook). Same private file as the DSNs, so a source build
+// without it simply never uploads - which is what every build from this repository does, because
+// the value lives in sentry.properties / an environment variable and never in the tree.
+//
+// The key is a shared secret the webhook checks, so it is readable by anyone who unpacks a
+// published APK. What it protects is the collector's tidiness, not a rider's data: every upload
+// is consent-gated in the app, and abuse of the endpoint is a server-side question (rate
+// limiting, rotation), not one a build flag can answer.
+val diagnosticsEndpoint = sentryDsn("diagnosticsEndpoint", "MOTOHUB_DIAGNOSTICS_ENDPOINT")
+val diagnosticsKey = sentryDsn("diagnosticsKey", "MOTOHUB_DIAGNOSTICS_KEY")
 val sentryDebug = providers.gradleProperty("sentryDebug")
     .map(String::toBoolean)
     .orElse(false)
@@ -85,15 +99,17 @@ android {
         // keep this identical to the PRO worktree's build.gradle.kts. They drifted after v1.1.4
         // (CORE reached 1.1.14/108 while ADVANCED sat at 1.1.6/100), which left a rider's
         // "MOTO-HUB 1.1.x" unable to identify which pair they actually had installed.
-        versionCode = 180
-        versionName = "1.1.86"
+        versionCode = 213
+        versionName = "1.1.119"
         buildConfigField("boolean", "IS_PRO", "false")
         buildConfigField("String", "SENTRY_DSN", asBuildConfigString(coreSentryDsn))
+        buildConfigField("String", "DIAGNOSTICS_ENDPOINT", asBuildConfigString(diagnosticsEndpoint))
+        buildConfigField("String", "DIAGNOSTICS_KEY", asBuildConfigString(diagnosticsKey))
         // -PsentryDebug=true makes the SDK narrate what it is doing to logcat. Telemetry that
         // silently does not arrive is worse than none, and there is no other way to see whether
         // a session was started, dropped or rejected: the SDK says nothing at all by default.
         buildConfigField("boolean", "SENTRY_DEBUG", sentryDebug.toString())
-        manifestPlaceholders["appLabel"] = "MOTO-HUB"
+        manifestPlaceholders["appLabel"] = "TFTnavi"
     }
 
     signingConfigs {
@@ -113,9 +129,30 @@ android {
             // release builds exclusively (exportPublicApk assembles the release variant).
             // Kept minified and non-debuggable so a local install behaves like the shipped
             // artifact; de-obfuscate stack traces with retrace + outputs/mapping/*/mapping.txt.
-            isDebuggable = false
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 and resource shrinking used to run here too, so that a debug install would
+            // behave like the shipped artifact. Measured 2026-08-30, that fidelity cost 69s of
+            // R8 and 39s of lint on a change whose Kotlin compile takes 1.5s - and nothing is
+            // ever installed from debug anyway: device tests and every published APK come from
+            // assembleRelease. -PminifyDebug=true brings the old behaviour back for the rare
+            // check that something only reproduces under R8.
+            //
+            // Debuggable for the same reason, and it buys more than a debugger: AGP treats a
+            // non-debuggable variant as release-grade and runs lintVital on it, which is another
+            // 39s on a build whose Kotlin compile is 1.5s. Lint still gates the release path,
+            // where it belongs and where it has already caught a real one.
+            isDebuggable = !minifyDebug
+            isMinifyEnabled = minifyDebug
+            isShrinkResources = minifyDebug
+            if (!minifyDebug) {
+                // hudlib.aar carries libgojni.so once per ABI (8.5-9.2MB each) and ML Kit adds
+                // another per-ABI library: four ABIs is 127MB of native libraries merged and
+                // stripped on every debug build, for hardware nobody here owns. The release
+                // variant has been arm64-only for the same reason.
+                ndk {
+                    abiFilters.clear()
+                    abiFilters.add("arm64-v8a")
+                }
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -169,6 +206,11 @@ val includeAndroidAutoIdentity = providers.gradleProperty("includeAndroidAutoIde
 
 val cleanAndroidAutoIdentity by tasks.registering(Delete::class) {
     delete(androidAutoIdentityOutputDir)
+    // A Delete with no declared output is never UP-TO-DATE, and this one sits in preBuild and
+    // deletes a res.srcDir - so every build dirtied a resource-merge input and could drag a full
+    // Kotlin recompile behind it with no source change at all. The purge still happens whenever
+    // there is anything to purge, which is all it was ever for.
+    onlyIf { androidAutoIdentityOutputDir.get().asFile.exists() }
 }
 
 val prepareAndroidAutoIdentity by tasks.registering(Copy::class) {
@@ -212,7 +254,11 @@ val syncTranslationResources by tasks.registering {
             "pt-PT" to "values-pt-rPT",
             "ko-KR" to "values-ko-rKR",
             "fr-FR" to "values-fr",
-            "es-ES" to "values-es"
+            "es-ES" to "values-es",
+            "de-DE" to "values-de",
+            "nl-NL" to "values-nl",
+            "cs-CZ" to "values-cs",
+            "tr-TR" to "values-tr"
         )
         sourceDir.listFiles()
             ?.filter { it.isFile && it.name.startsWith("strings-") && it.name.endsWith(".xml") }

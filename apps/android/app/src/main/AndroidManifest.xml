@@ -3,7 +3,7 @@
 
     <permission
         android:name="io.motohub.android.permission.BIND_CORE_SERVICE"
-        android:protectionLevel="signature" />
+        android:protectionLevel="normal" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.usb.accessory" android:required="false" />
@@ -41,7 +41,20 @@
     <queries>
         <package android:name="com.google.android.projection.gearhead" />
         <package android:name="com.google.android.gms" />
+        <!-- MOTO-HUB ADVANCED, still read by the diagnostics report. -->
+        <package android:name="io.motohub.android.pro" />
+        <!-- MOTO-HUB ADV-SOLO: Core offers it on Home, as a shortcut once installed; without this
+             entry getPackageInfo() hides it and the offer never turns into "Open". -->
+        <package android:name="io.motohub.android.solo" />
+        <!-- OEM companion apps that hold the EasyConn reverse ports; see
+             CompanionAppRegistry. Without a <package> entry Android hides the app from
+             getPackageInfo() and the rider gets no "force-stop it" help at all. -->
         <package android:name="com.cfmoto.cfmotointernational" />
+        <package android:name="com.cfmoto.motoplay" />
+        <package android:name="tayo.com.ZontesIntelligence" />
+        <package android:name="net.easyconn.carman" />
+        <package android:name="com.carbit.easyconnect" />
+        <package android:name="cz.motosvet.tctapp" />
     </queries>
 
     <application
@@ -58,9 +71,20 @@
         <meta-data
             android:name="io.sentry.auto-init"
             android:value="false" />
+        <!-- configChanges: without it a rotation tears this activity down, and every screen
+             that had drilled down goes back to its tab's root, because Compose state lives in the
+             activity that was just thrown away. Compose relayouts on a configuration change
+             perfectly well without being recreated, so the recreation is pure loss. This also
+             covers the QR scanner, which forces portrait and restores the previous orientation
+             afterwards.
+
+             `locale` and `uiMode` are deliberately absent. A language change has to re-resolve
+             resources, and entering car mode is a big enough shift that the old behaviour is the
+             safer one to keep. Kept in step with the ADVANCED manifest. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|density|fontScale"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

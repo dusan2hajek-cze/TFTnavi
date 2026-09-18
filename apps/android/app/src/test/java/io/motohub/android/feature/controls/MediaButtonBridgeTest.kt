@@ -159,6 +159,80 @@ class MediaButtonBridgeTest {
         )
     }
 
+    /**
+     * Regression: the eager marker used to promote ANY second press inside the double-tap
+     * window, so scrolling a list at the ordinary two clicks a second dispatched scroll,
+     * scroll, then the double gesture - HOME by default on the up rocker, BACK on the down
+     * one. Riders read that as the wheel throwing them out of the menu.
+     */
+    @Test
+    fun `a repeatable single is not promoted to a double by the eager marker`() {
+        assertEquals(
+            TapDispatch.SINGLE_NOW,
+            resolveTapDispatch(
+                forceDouble = false,
+                eagerSingle = true,
+                hasPending = true,
+                gapMillis = 200,
+                repeatableSingle = true
+            )
+        )
+    }
+
+    @Test
+    fun `a repeatable single still pairs into a double when the rider defers singles`() {
+        // Nothing has fired yet in deferred mode, so pairing runs exactly one command - which
+        // is what that switch is for.
+        assertEquals(
+            TapDispatch.DOUBLE,
+            resolveTapDispatch(
+                forceDouble = false,
+                eagerSingle = false,
+                hasPending = true,
+                gapMillis = 200,
+                repeatableSingle = true
+            )
+        )
+        // And a dash that coalesced two presses into one write is still saying "double", which
+        // is how BACK and HOME stay reachable from a volume-only handlebar.
+        assertEquals(
+            TapDispatch.DOUBLE,
+            resolveTapDispatch(
+                forceDouble = true,
+                eagerSingle = true,
+                hasPending = false,
+                gapMillis = 200,
+                repeatableSingle = true
+            )
+        )
+    }
+
+    @Test
+    fun `repeatable actions are the ones a rider performs in a row`() {
+        listOf(
+            HandlebarAction.SCROLL_FORWARD,
+            HandlebarAction.SCROLL_BACK,
+            HandlebarAction.DPAD_UP,
+            HandlebarAction.DPAD_DOWN,
+            HandlebarAction.DPAD_LEFT,
+            HandlebarAction.DPAD_RIGHT,
+            HandlebarAction.MEDIA_VOLUME_UP,
+            HandlebarAction.MEDIA_VOLUME_DOWN
+        ).forEach { assertTrue(it.name, isRepeatableAction(it)) }
+
+        // The one-shot verbs keep their doubles: pressing these twice quickly IS the idiom a
+        // double mapping exists for.
+        listOf(
+            HandlebarAction.NONE,
+            HandlebarAction.SELECT,
+            HandlebarAction.BACK,
+            HandlebarAction.HOME,
+            HandlebarAction.ASSISTANT,
+            HandlebarAction.MEDIA_PLAY_PAUSE,
+            HandlebarAction.DASH_NEXT_PANEL
+        ).forEach { assertFalse(it.name, isRepeatableAction(it)) }
+    }
+
     @Test
     fun `a same-press echo inside the refractory window is suppressed`() {
         assertEquals(
@@ -206,5 +280,38 @@ class MediaButtonBridgeTest {
             }
             assertEquals(press to HandlebarCalibration.MISSING, parseCalibrationEntry("${press.id}=${HandlebarCalibration.MISSING}"))
         }
+    }
+
+    @Test
+    fun `an AVRCP command with nothing connected cannot be a handlebar press`() {
+        // Field case a346ec76 (QJ 5", 2026-09-04): zero Bluetooth devices connected, and the
+        // bridge still pressed OK and scrolled inside Android Auto.
+        assertTrue(avrcpInputIsPhantom(peerConnected = false, hidMode = false))
+        // Unknown is not absent: while the profile proxies are still binding, behave as before.
+        assertFalse(avrcpInputIsPhantom(peerConnected = null, hidMode = false))
+        assertFalse(avrcpInputIsPhantom(peerConnected = true, hidMode = false))
+        // A HID remote never shows up in the audio profile lists this answer is built from.
+        assertFalse(avrcpInputIsPhantom(peerConnected = false, hidMode = true))
+    }
+
+    @Test
+    fun `a jump to silence is a mute, not a rocker step`() {
+        assertTrue(volumeChangeIsMute(observed = 0, pinned = 100))
+        assertFalse(volumeChangeIsMute(observed = 1, pinned = 100))
+        assertFalse(volumeChangeIsMute(observed = 99, pinned = 100))
+        // No pin held: there is no reference level to have been muted away from.
+        assertFalse(volumeChangeIsMute(observed = 0, pinned = -1))
+    }
+
+    @Test
+    fun `the mute that produced the phantom scroll would otherwise read as a confident tap`() {
+        // 100 -> 0 on a 0..150 stream: past the absolute-overwrite floor, so the delta alone
+        // is indistinguishable from a dash that writes its rocker as an absolute level.
+        assertEquals(
+            VolumeDeltaRead.Tap(HandlebarGesture.VOLUME_DOWN, HandlebarGesture.VOLUME_DOWN_DOUBLE, forceDouble = false),
+            interpretVolumeDelta(-100, HandlebarAction.SCROLL_FORWARD, streamMax = 150)
+        )
+        // Which is why the level, not the delta, is what settles it.
+        assertTrue(volumeChangeIsMute(observed = 0, pinned = 100))
     }
 }

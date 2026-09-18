@@ -4,6 +4,7 @@
 package io.motohub.android.androidauto
 
 import android.graphics.SurfaceTexture
+import io.motohub.android.feature.controls.HandlebarPressHud
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
@@ -43,7 +44,18 @@ class AaCompositor(
      * is ever non-zero: AUTO aspect matching advertises no screen margins, MANUAL computes no
      * aspect margins.
      */
-    private val contentMargins: AaAspectMargins = AaAspectMargins.NONE
+    private val contentMargins: AaAspectMargins = AaAspectMargins.NONE,
+    /**
+     * Whether the output target is something that can actually jam - the bike's video encoder,
+     * whose input queue backs up when the transport behind it stops writing.
+     *
+     * False for the phone's own preview panel, which [setOutput] also drives. That target's
+     * `eglSwapBuffers` blocks on the phone's vsync, so a healthy 30fps preview spends a real and
+     * substantial part of every window "blocked" - reported as back pressure it would accuse an
+     * encoder that is not there, and, worse, talk the decoder's stall watchdog out of a restart it
+     * genuinely needed.
+     */
+    private val outputAppliesBackPressure: Boolean = true
 ) {
     private val thread = HandlerThread("aa-compositor").apply { start() }
     private val handler = Handler(thread.looper)
@@ -53,7 +65,11 @@ class AaCompositor(
     private var eglConfig: EGLConfig? = null
     private var pbuffer: EGLSurface = EGL14.EGL_NO_SURFACE
     private var encoderWindowSurface: EGLSurface = EGL14.EGL_NO_SURFACE
+    /** The Surface [encoderWindowSurface] was created against, so a resize can keep it. */
+    private var attachedOutputSurface: Surface? = null
     private var previewWindowSurface: EGLSurface = EGL14.EGL_NO_SURFACE
+    /** The Surface [previewWindowSurface] was created against, so a resize can keep it. */
+    private var attachedPreviewSurface: Surface? = null
 
     private var program = 0
     private var aPosition = 0
@@ -61,6 +77,17 @@ class AaCompositor(
     private var uTexMatrix = 0
     private var uCropMatrix = 0
     private var textureId = 0
+
+    // The press banner: a second, much simpler program - a plain 2D texture with alpha, over the
+    // video. Separate from the one above because that one samples an external OES texture and
+    // carries the crop matrices; nothing here wants either.
+    private var bannerProgram = 0
+    private var bannerPosition = 0
+    private var bannerTexCoord = 0
+    private var bannerSampler = 0
+    private var bannerTextureId = 0
+    /** The press currently uploaded, so a second on screen costs one upload rather than thirty. */
+    private var bannerUploaded: HandlebarPressHud.Press? = null
     private lateinit var surfaceTexture: SurfaceTexture
 
     @Volatile
@@ -93,6 +120,35 @@ class AaCompositor(
     private var lastDrawMs = 0L
     @Volatile private var frameCap = DEFAULT_FRAME_CAP
     @Volatile private var lastSourceFrameNanos = 0L
+
+    /**
+     * Cumulative milliseconds this compositor has spent inside `eglSwapBuffers` on the encoder
+     * target, and the timestamp of the swap currently in flight.
+     *
+     * This is the number that tells a broken decoder from a jammed pipe, and not having it is why
+     * rider 4d8a4c5b's 2fps collapse (2026-08-26) could not be diagnosed from his log at all. The
+     * encoder's input surface is a bounded buffer queue: when the encoder stops draining - because
+     * the transport write behind it is not moving - `eglSwapBuffers` blocks here, this thread stops
+     * calling `updateTexImage`, the decoder runs out of output buffers, and it reports exactly what
+     * a dead decoder reports, "input flowing, no output". Restarting the decoder then fixes
+     * nothing, which is what his log shows seven times over.
+     *
+     * Monotonic on purpose: readers take deltas across a window they choose themselves
+     * ([downstreamBlockedMillis]), so no window has to be agreed on here.
+     */
+    @Volatile private var swapBlockedMs = 0L
+    @Volatile private var swapInFlightSinceMs = 0L
+
+    // One line per window, not per frame: at 30fps a per-frame counter is 1800 entries a minute in
+    // a ring that holds 1500 (see ProjectionEventLog's repeat folding for how that ends).
+    private val statsWindowMs = 30_000L
+    private var statsWindowStartedMs = 0L
+    private var statsWindowBlockedMs = 0L
+    private var framesIn = 0
+    private var framesDrawn = 0
+    private var framesCoalesced = 0
+    private var keepAliveRedraws = 0
+    private var worstSwapMs = 0L
 
     // The decoder may keep producing frames while Android Auto shows a static screen. Coalesce
     // those frames and use a slow redraw only as a transport keep-alive.
@@ -149,29 +205,63 @@ class AaCompositor(
     fun setOutput(encoderSurface: Surface, cw: Int, ch: Int, sw: Int, sh: Int) {
         handler.post {
             try {
-                encoderWindowSurface = replaceWindowSurface(encoderWindowSurface, encoderSurface, "encoder")
+                // In phone-only mode this entry point IS the preview panel
+                // (PhoneOnlyAndroidAutoBridge.attachPreview routes here), so it gets that panel's
+                // open/close animation - which is why it needs the same guard [setPreview] does.
+                val attaching = mustAttachWindowSurface(
+                    encoderSurface,
+                    attachedOutputSurface,
+                    encoderWindowSurface
+                )
+                if (attaching) {
+                    encoderWindowSurface =
+                        replaceWindowSurface(encoderWindowSurface, encoderSurface, "encoder")
+                    attachedOutputSurface =
+                        encoderSurface.takeIf { encoderWindowSurface != EGL14.EGL_NO_SURFACE }
+                    // A session does not inherit the previous one's counters.
+                    resetStatsWindow(android.os.SystemClock.uptimeMillis())
+                }
+                val resized = cw != canvasW || ch != canvasH || sw != srcW || sh != srcH
                 canvasW = cw
                 canvasH = ch
                 srcW = sw
                 srcH = sh
                 configureTftViewport()
-                log(
-                    "[COMPOSITOR] TFT=${cw}x$ch source=${sw}x$sh mode=$displayMode " +
-                        "viewport=${tftViewport?.width}x${tftViewport?.height} " +
-                        "@(${tftViewport?.x},${tftViewport?.y})" +
-                        if (contentMargins.any) {
-                            " content=${contentSource().width}x${contentSource().height}" +
-                                "@(${contentLeft()},${contentTop()}) " +
-                                "[AA margins ${contentMargins.width}x${contentMargins.height} cropped out]"
-                        } else {
-                            " (no AA content margins)"
-                        }
-                )
+                if (attaching || resized) {
+                    log(
+                        "[COMPOSITOR] TFT=${cw}x$ch source=${sw}x$sh mode=$displayMode " +
+                            "viewport=${tftViewport?.width}x${tftViewport?.height} " +
+                            "@(${tftViewport?.x},${tftViewport?.y})" +
+                            if (contentMargins.any) {
+                                " content=${contentSource().width}x${contentSource().height}" +
+                                    "@(${contentLeft()},${contentTop()}) " +
+                                    "[AA margins ${contentMargins.width}x${contentMargins.height} cropped out]"
+                            } else {
+                                " (no AA content margins)"
+                            }
+                    )
+                }
                 if (hasContent) drawFrame()
             } catch (failure: Throwable) {
                 log("[COMPOSITOR] setOutput failed: $failure")
             }
         }
+    }
+
+    /**
+     * Milliseconds spent blocked writing to the encoder target, including the swap in flight.
+     *
+     * Callable from any thread and never blocking: the stall watchdog that reads it is diagnosing
+     * a thread that is, by hypothesis, stuck - taking this compositor's lock to ask would hang the
+     * asker on the very condition it is asking about.
+     */
+    fun downstreamBlockedMillis(): Long {
+        if (!outputAppliesBackPressure) return 0L
+        val inFlightSince = swapInFlightSinceMs
+        val inFlight =
+            if (inFlightSince == 0L) 0L
+            else (android.os.SystemClock.uptimeMillis() - inFlightSince).coerceAtLeast(0L)
+        return swapBlockedMs + inFlight
     }
 
     /** Caps source redraws during thermal/link adaptation; keep-alive redraws remain enabled. */
@@ -210,14 +300,26 @@ class AaCompositor(
     fun setPreview(surface: Surface, width: Int, height: Int) {
         handler.post {
             try {
-                previewWindowSurface = replaceWindowSurface(previewWindowSurface, surface, "preview")
+                val attaching = mustAttachWindowSurface(
+                    surface,
+                    attachedPreviewSurface,
+                    previewWindowSurface
+                )
+                if (attaching) {
+                    previewWindowSurface = replaceWindowSurface(previewWindowSurface, surface, "preview")
+                    attachedPreviewSurface = surface.takeIf { previewWindowSurface != EGL14.EGL_NO_SURFACE }
+                }
                 previewCanvasW = width
                 previewCanvasH = height
                 computePreviewViewport()
-                log(
-                    "[COMPOSITOR] phone preview=${width}x$height rect=" +
-                        "${previewVpW}x$previewVpH @($previewVpX,$previewVpY)"
-                )
+                // Once per attach, not once per animation frame: the resize storm above also put
+                // 60-odd identical-looking lines into every support log for one preview opening.
+                if (attaching) {
+                    log(
+                        "[COMPOSITOR] phone preview=${width}x$height rect=" +
+                            "${previewVpW}x$previewVpH @($previewVpX,$previewVpY)"
+                    )
+                }
                 if (hasContent) drawFrame()
             } catch (failure: Throwable) {
                 log("[COMPOSITOR] preview attach failed: $failure")
@@ -228,6 +330,7 @@ class AaCompositor(
     fun clearPreview() {
         handler.post {
             previewWindowSurface = destroyWindowSurface(previewWindowSurface)
+            attachedPreviewSurface = null
             previewCanvasW = 0
             previewCanvasH = 0
             previewVpX = 0
@@ -244,6 +347,7 @@ class AaCompositor(
         handler.post {
             try {
                 encoderWindowSurface = destroyWindowSurface(encoderWindowSurface)
+                attachedOutputSurface = null
                 canvasW = 0
                 canvasH = 0
                 tftViewport = null
@@ -416,6 +520,7 @@ class AaCompositor(
             return
         }
         hasContent = true
+        framesIn++
         val now = System.nanoTime()
         val interval = 1_000_000_000L / frameCap.coerceAtLeast(1)
         val idleMs = android.os.SystemClock.uptimeMillis() - lastDrawMs
@@ -426,6 +531,7 @@ class AaCompositor(
         } else {
             // SurfaceTexture already contains the newest frame; flush it on the next pacing tick.
             pendingFrame = true
+            framesCoalesced++
         }
     }
 
@@ -438,11 +544,64 @@ class AaCompositor(
                     pendingFrame = false
                     drawFrame()
                 } else if (idleMs >= idleRedrawMs) {
+                    keepAliveRedraws++
                     drawFrame()
                 }
             }
+            reportWindowIfDue()
             handler.postDelayed(this, keepAliveTickMs)
         }
+    }
+
+    /**
+     * Summarises the window once per [statsWindowMs], while there is an encoder target to summarise.
+     *
+     * Every stage of the video path is on one line on purpose. Read alone, "the decoder produced
+     * 3fps" is the same sentence whether the decoder broke or whether nothing downstream was
+     * taking its frames - and picking the wrong one of those costs a fix that does nothing. Read
+     * together, `in` versus `blocked` separates them: frames that never arrived with an idle pipe
+     * is a decoder fault, frames that never arrived with a pipe blocked most of the window is not.
+     *
+     * This runs on the thread that does the blocking, so a pipe that never drains at all stops it
+     * from reporting - and the window it eventually prints is longer than [statsWindowMs], which
+     * is why the elapsed time is printed rather than assumed. That case is covered from the other
+     * end: [downstreamBlockedMillis] counts the swap in flight, so the decoder's own watchdog
+     * names the jam from a thread that is not stuck in it.
+     */
+    private fun reportWindowIfDue() {
+        if (encoderWindowSurface == EGL14.EGL_NO_SURFACE) return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (statsWindowStartedMs == 0L) {
+            resetStatsWindow(now)
+            return
+        }
+        val elapsedMs = now - statsWindowStartedMs
+        if (elapsedMs < statsWindowMs) return
+        val blockedMs = swapBlockedMs - statsWindowBlockedMs
+        log(
+            "[COMPOSITOR] ${elapsedMs / 1_000L}s: in=$framesIn drawn=$framesDrawn " +
+                "coalesced=$framesCoalesced keepalive=$keepAliveRedraws " +
+                "blocked=${blockedMs}ms (worst ${worstSwapMs}ms)" +
+                // Said in words as well as numbers: the reader of a support log is looking for
+                // which stage broke, and this line is the answer to that question.
+                if (outputAppliesBackPressure && blockedMs * 2 >= elapsedMs) {
+                    " - the encoder is not draining, so the video path is jammed downstream of " +
+                        "the decoder, not at it."
+                } else {
+                    ""
+                }
+        )
+        resetStatsWindow(now)
+    }
+
+    private fun resetStatsWindow(now: Long) {
+        statsWindowStartedMs = now
+        statsWindowBlockedMs = swapBlockedMs
+        framesIn = 0
+        framesDrawn = 0
+        framesCoalesced = 0
+        keepAliveRedraws = 0
+        worstSwapMs = 0L
     }
 
     private fun drawFrame() {
@@ -501,7 +660,14 @@ class AaCompositor(
             GLES20.glEnable(GLES20.GL_SCISSOR_TEST)
             GLES20.glScissor(clipX, framebufferHeight - clipY - clipHeight, clipWidth, clipHeight)
         }
-       GLES20.glViewport(viewportX, viewportY, viewportWidth, viewportHeight)
+        // Viewports are top-left like the touch path that shares them (mapCanvasToSource), but GL
+        // window coordinates grow upward - flip y exactly as the scissor above does. Centred
+        // viewports hid this: the flip is a no-op there, and asymmetric vertical screen margins
+        // were the first placement where the two conventions disagree (top margin moved the
+        // picture up, into the bezel, instead of down).
+        val glViewportY =
+            if (framebufferHeight > 0) framebufferHeight - viewportY - viewportHeight else viewportY
+        GLES20.glViewport(viewportX, glViewportY, viewportWidth, viewportHeight)
         GLES20.glUseProgram(program)
 
         quad.position(0)
@@ -517,12 +683,31 @@ class AaCompositor(
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
        GLES20.glDisableVertexAttribArray(aPosition)
        GLES20.glDisableVertexAttribArray(aTexCoord)
+        // Inside the scissor on purpose: the banner belongs on the picture, never in the bezel
+        // margins the motorcycle's furniture covers.
+        drawPressBanner(viewportWidth, viewportHeight)
         if (clipWidth > 0 && clipHeight > 0 && framebufferHeight > 0) {
             GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
         }
 
         if (recordable) {
             EGLExt.eglPresentationTimeANDROID(eglDisplay, target, System.nanoTime())
+            // Only the encoder target is timed. The preview target is a SurfaceView the phone's
+            // compositor consumes on its own; it cannot apply the back pressure being measured
+            // here, and counting it would put the phone's own vsync into the bike's number.
+            val startedMs = android.os.SystemClock.uptimeMillis()
+            swapInFlightSinceMs = startedMs
+            try {
+                EGL14.eglSwapBuffers(eglDisplay, target)
+            } finally {
+                val blockedMs =
+                    (android.os.SystemClock.uptimeMillis() - startedMs).coerceAtLeast(0L)
+                swapBlockedMs += blockedMs
+                swapInFlightSinceMs = 0L
+                if (blockedMs > worstSwapMs) worstSwapMs = blockedMs
+                framesDrawn++
+            }
+            return
         }
         EGL14.eglSwapBuffers(eglDisplay, target)
     }
@@ -535,6 +720,8 @@ class AaCompositor(
             runCatching { if (::surfaceTexture.isInitialized) surfaceTexture.release() }
             encoderWindowSurface = destroyWindowSurface(encoderWindowSurface)
             previewWindowSurface = destroyWindowSurface(previewWindowSurface)
+            attachedOutputSurface = null
+            attachedPreviewSurface = null
             if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
                 EGL14.eglMakeCurrent(
                     eglDisplay,
@@ -551,6 +738,33 @@ class AaCompositor(
         }
         thread.quitSafely()
     }
+
+    /**
+     * Whether [requested] needs an EGL window surface created for it, or the one already attached
+     * can be kept.
+     *
+     * A resize of the SAME Surface keeps its window surface: EGL follows the underlying buffer
+     * queue's size on its own. Destroying and recreating on every call instead makes
+     * eglCreateWindowSurface fail with EGL_BAD_ALLOC while the previous one is still being torn
+     * down, and both surfaces this compositor drives are resized in bursts by a panel animation -
+     * Android delivers one surfaceChanged per frame of it (1220x2712, x2710, x2707, ... over
+     * ~700ms).
+     *
+     * Both call sites go through here because fixing this in one of them is exactly what already
+     * happened: the preview path was guarded on 2026-08-24 after rider 315e0af3's log showed 65
+     * failures in 46 seconds, the encoder path was not, and rider 4d8a4c5b's log (2026-08-26) then
+     * showed it failing on three of the four times he opened the phone preview - which routes
+     * here. A failure leaves EGL_NO_SURFACE and the compositor draws NOTHING to that target until
+     * the next attach, so he sat tapping a black rectangle at 19:17:22.
+     *
+     * [attached] is left null by a failed attach, so the next call retries rather than treating a
+     * surface that was never created as already current.
+     */
+    private fun mustAttachWindowSurface(
+        requested: Surface,
+        attached: Surface?,
+        current: EGLSurface
+    ): Boolean = requested !== attached || current == EGL14.EGL_NO_SURFACE
 
     /**
      * Destroys [current] and creates [surface]'s replacement. Never throws: on create failure the
@@ -672,6 +886,77 @@ class AaCompositor(
         )
     }
 
+    /**
+     * Paints what the rider just pressed over the Android Auto picture, for one second.
+     *
+     * Android Auto composites in GL, so the banner cannot be drawn with a Canvas the way the Ride
+     * Dashboard draws its own: it is rendered to a bitmap once per press by [HandlebarPressHud] -
+     * the same bitmap both screens use, so the rider recognises the same thing on either - and put
+     * on screen here as a textured quad.
+     */
+    private fun drawPressBanner(viewportWidth: Int, viewportHeight: Int) {
+        val press = HandlebarPressHud.current()
+        if (press == null) {
+            bannerUploaded = null
+            return
+        }
+        if (viewportWidth <= 0 || viewportHeight <= 0) return
+        val bitmap = HandlebarPressHud.banner(press, viewportWidth) ?: return
+        if (bannerProgram == 0) {
+            bannerProgram = linkProgram(BANNER_VERTEX_SHADER, BANNER_FRAGMENT_SHADER)
+            bannerPosition = GLES20.glGetAttribLocation(bannerProgram, "aPosition")
+            bannerTexCoord = GLES20.glGetAttribLocation(bannerProgram, "aTexCoord")
+            bannerSampler = GLES20.glGetUniformLocation(bannerProgram, "uTexture")
+            val ids = IntArray(1)
+            GLES20.glGenTextures(1, ids, 0)
+            bannerTextureId = ids[0]
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bannerTextureId)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        }
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bannerTextureId)
+        if (bannerUploaded != press) {
+            android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
+            bannerUploaded = press
+        }
+
+        // Top centre, in the viewport's own normalised coordinates. The bitmap is already sized
+        // against the viewport width, so its height only has to be turned into the same units.
+        val halfWidth = HandlebarPressHud.bannerWidth(viewportWidth).toFloat() / viewportWidth
+        val height = 2f * bitmap.height / viewportHeight
+        val top = 0.90f
+        val bottom = top - height
+        val quad = floatArrayOf(
+            -halfWidth, bottom, 0f, 1f,
+            halfWidth, bottom, 1f, 1f,
+            -halfWidth, top, 0f, 0f,
+            halfWidth, top, 1f, 0f
+        )
+        val buffer = ByteBuffer.allocateDirect(quad.size * 4)
+            .order(ByteOrder.nativeOrder())
+            .asFloatBuffer()
+            .put(quad)
+
+        GLES20.glUseProgram(bannerProgram)
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        buffer.position(0)
+        GLES20.glVertexAttribPointer(bannerPosition, 2, GLES20.GL_FLOAT, false, 16, buffer)
+        GLES20.glEnableVertexAttribArray(bannerPosition)
+        buffer.position(2)
+        GLES20.glVertexAttribPointer(bannerTexCoord, 2, GLES20.GL_FLOAT, false, 16, buffer)
+        GLES20.glEnableVertexAttribArray(bannerTexCoord)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bannerTextureId)
+        GLES20.glUniform1i(bannerSampler, 0)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+        GLES20.glDisableVertexAttribArray(bannerPosition)
+        GLES20.glDisableVertexAttribArray(bannerTexCoord)
+        GLES20.glDisable(GLES20.GL_BLEND)
+    }
+
     private fun linkProgram(vertexSource: String, fragmentSource: String): Int {
         val vertex = compileShader(GLES20.GL_VERTEX_SHADER, vertexSource)
         val fragment = compileShader(GLES20.GL_FRAGMENT_SHADER, fragmentSource)
@@ -695,5 +980,24 @@ class AaCompositor(
 
     private companion object {
         const val DEFAULT_FRAME_CAP = 30
+
+        const val BANNER_VERTEX_SHADER = """
+            attribute vec2 aPosition;
+            attribute vec2 aTexCoord;
+            varying vec2 vTexCoord;
+            void main() {
+                vTexCoord = aTexCoord;
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+            }
+        """
+
+        const val BANNER_FRAGMENT_SHADER = """
+            precision mediump float;
+            varying vec2 vTexCoord;
+            uniform sampler2D uTexture;
+            void main() {
+                gl_FragColor = texture2D(uTexture, vTexCoord);
+            }
+        """
     }
 }

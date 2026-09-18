@@ -36,7 +36,7 @@ class TBoxVideoNegotiationTest {
         val result = transport.negotiateVideoConfiguration(
             HOST,
             savedArea = TBoxEvent.VideoArea(1024, 601),
-            timeoutMillis = 10
+            videoAreaTimeoutMillis = 10
         )
 
         assertEquals(TBoxVideoAreaSource.SAVED, result.getOrThrow().source)
@@ -50,7 +50,7 @@ class TBoxVideoNegotiationTest {
         val result = transport.negotiateVideoConfiguration(
             HOST,
             savedArea = null,
-            timeoutMillis = 10,
+            videoAreaTimeoutMillis = 10,
             fallbackArea = TBoxEvent.VideoArea(800, 480)
         )
 

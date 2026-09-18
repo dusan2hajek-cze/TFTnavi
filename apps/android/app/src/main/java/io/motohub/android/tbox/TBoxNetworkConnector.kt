@@ -3,6 +3,7 @@
 // Part of MOTO-HUB. Free software under the GNU AGPL v3; see LICENSE.
 package io.motohub.android.tbox
 
+import io.motohub.android.i18n.MotoHubStrings
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
@@ -33,6 +34,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import java.net.DatagramSocket
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -42,11 +44,43 @@ import kotlinx.coroutines.launch
 sealed interface TBoxNetworkEvent {
     data class Lost(val network: Network) : TBoxNetworkEvent
     data class Reacquired(val network: Network) : TBoxNetworkEvent
+
+    /**
+     * Android granted the requested network AFTER [TBoxNetworkConnector.awaitRequestedNetwork]
+     * had already reported the join as failed. The request outlives the wait on purpose, so this
+     * is not an edge case: the wait's budget runs from the moment the specifier was submitted,
+     * while Android's own runs from the moment the rider approves the picker, and a rider who
+     * takes a few seconds to find that dialog spends them inside our budget rather than theirs.
+     *
+     * Field log 6662-E47B-06D0 (samsung SM-A556B, CFMOTO8436, 2026-08-21): the wait gave up at
+     * 21:56:01.292 and Android granted the network at 21:56:03.235 - 1.9s later. The phone was
+     * then associated, validated and process-bound to the dash's access point at -28dBm while
+     * the app showed "the phone never joined". Nothing re-drove the connection, and the rider
+     * went off to change his profile to a transport his bike does not use.
+     */
+    data class ArrivedLate(val network: Network, val ssid: String) : TBoxNetworkEvent
 }
 
 /** What the T-Box Wi-Fi rejoin ladder does next. */
 internal sealed interface TBoxRejoinStep {
+    /**
+     * Serve this attempt's backoff, then come back here and decide again.
+     *
+     * Deciding again is the point, and it is not free bookkeeping: the wait is a suspension of up
+     * to [TBoxNetworkConnector.REJOIN_MAX_DELAY_MS], and the process can leave the foreground
+     * inside it. This step used to mean "wait, then submit", so the submission was authorised by
+     * an importance reading up to fifteen seconds stale - see [nextTBoxRejoinStep].
+     */
     data class WaitThenRetry(val delayMillis: Long) : TBoxRejoinStep
+
+    /**
+     * Android would drop a specifier request made from where this process currently sits, so the
+     * ladder waits instead of spending an attempt on a refusal that never reaches the radio.
+     */
+    data class WaitForForeground(val delayMillis: Long) : TBoxRejoinStep
+
+    /** The backoff is served and this process may ask: submit, and spend the attempt. */
+    data object SubmitNow : TBoxRejoinStep
     data object GiveUp : TBoxRejoinStep
 }
 
@@ -56,6 +90,27 @@ internal sealed interface TBoxRejoinStep {
  *
  * The budget is what stops a bike that was simply switched off from leaving an exclusive
  * WifiNetworkSpecifier request open for as long as the app lives.
+ *
+ * [submissionWouldBeRefused] is the difference between a rejoin that could work and one that
+ * cannot: `WifiNetworkFactory` drops a specifier request from a process past
+ * `IMPORTANCE_FOREGROUND_SERVICE` without ever looking for the AP. A session teardown destroys
+ * its foreground service *before* the ladder starts (support 87bc5a7c, 2026-08-25: the Android
+ * Auto service's onDestroy at 16:36:03.653, the first rejoin submission 261ms later at 400 =
+ * cached), so all four attempts were refused in 11-28ms each and the ladder surrendered three
+ * minutes later having never once asked the radio. Waiting spends the same budget on the only
+ * thing that can change the answer - the rider opening the app.
+ *
+ * [backoffElapsed] is why a submission is a step of its own rather than something the caller does
+ * after sleeping on [TBoxRejoinStep.WaitThenRetry]. The caller sleeps and comes back, so the
+ * background rule above is re-applied to a *fresh* reading immediately before the submission it
+ * governs. When it was applied once and then slept on, the ladder could - and for rider 4d8a4c5b
+ * on 2026-08-26 did - announce "back in the foreground; resuming", wait ten seconds, drop to the
+ * background inside them, and submit anyway, logging "Android will refuse this request" as it did
+ * so. That refusal came back in 19ms and was counted as the fifth and last attempt.
+ *
+ * A backoff already served is not served again: it is spent, and any foreground wait stacks on
+ * top of it. Making the rider who has just opened the app sit through the backoff a second time
+ * would punish exactly the action being waited for.
  */
 internal fun nextTBoxRejoinStep(
     attempt: Int,
@@ -63,9 +118,19 @@ internal fun nextTBoxRejoinStep(
     budgetMillis: Long,
     firstDelayMillis: Long,
     baseDelayMillis: Long,
-    maxDelayMillis: Long
+    maxDelayMillis: Long,
+    submissionWouldBeRefused: Boolean = false,
+    backgroundPollMillis: Long = 0L,
+    backoffElapsed: Boolean = false
 ): TBoxRejoinStep {
+    // Checked before the background rule on purpose: a phone that stays in the rider's pocket
+    // must still let the ladder go, or the exclusive request outlives every session it could
+    // have served.
     if (elapsedMillis >= budgetMillis) return TBoxRejoinStep.GiveUp
+    // Above the submission on purpose: this is the reading that authorises it, and it is only
+    // worth anything because nothing suspends between here and the submission itself.
+    if (submissionWouldBeRefused) return TBoxRejoinStep.WaitForForeground(backgroundPollMillis)
+    if (backoffElapsed) return TBoxRejoinStep.SubmitNow
     val delay = if (attempt <= 1) {
         firstDelayMillis
     } else {
@@ -192,6 +257,47 @@ class TBoxNetworkConnector(context: Context) {
     @Volatile
     private var specifierSubmitImportance = 0
 
+    /**
+     * When Android first said the network was AVAILABLE for the live request, so the join can be
+     * split into "the phone associated" and "the phone got an address". They are different
+     * failures and, on a slow join, different suspects.
+     */
+    @Volatile
+    private var specifierAssociatedAt = 0L
+
+    /**
+     * SSID whose join [awaitRequestedNetwork] reported as failed while its specifier request was
+     * still registered - so Android can still answer it, and [markConnected] has to say so
+     * instead of connecting in silence behind a failure banner. Null whenever nothing has been
+     * abandoned: set on give-up, cleared the moment it is announced or a new wait begins.
+     */
+    @Volatile
+    private var abandonedJoinSsid: String? = null
+
+    /**
+     * Whether the join this request produced has already been timed. Link properties change again
+     * during a session (DHCP renewals, an IPv6 address arriving late) and every one of them
+     * re-enters the same branch: without this the log would carry a fresh "joined in" line, each
+     * measuring from the same old submit, for a network that joined once.
+     */
+    @Volatile
+    private var joinTimingReported = false
+
+    /**
+     * Who held the network request when the specifier was submitted - the interest ledger's own
+     * words, e.g. "hub-ui, pro-establisher" for a join this app's screen asked for, or a list
+     * containing "aidl-bridge" for one the companion app asked for over IPC.
+     *
+     * The whole point of recording it: in the pair, EVERY specifier request is submitted by CORE,
+     * so a log cannot otherwise tell a join the rider started here from one ADVANCED delegated -
+     * and a tester reporting "CORE connects instantly, ADVANCED takes forever" (2026-08-25) is a
+     * claim about exactly that difference, with nothing in any log to weigh it against. Read
+     * before taking [requestLock]: TBoxNetworkConnectors.release() holds its own lock while
+     * calling in here, so asking it anything from under [requestLock] would close the cycle.
+     */
+    @Volatile
+    private var specifierRequestedBy = ""
+
     /** Terminal failure produced by the registered callback, observed by [awaitRequestedNetwork]. */
     @Volatile
     private var pendingFailure: Throwable? = null
@@ -220,7 +326,7 @@ class TBoxNetworkConnector(context: Context) {
                 ProjectionEventLog.record(
                     "NETWORK",
                     "Simulator profile detected for SSID ${profile.ssid}; reusing the phone's existing Wi-Fi " +
-                        "instead of requesting a WifiNetworkSpecifier."
+                            "instead of requesting a WifiNetworkSpecifier."
                 )
                 val network = withTimeout(CONNECTION_TIMEOUT_MS) { findExistingWifi(profile.ssid) }
                 connectedOnce = true
@@ -232,7 +338,7 @@ class TBoxNetworkConnector(context: Context) {
                 Result.failure(
                     IllegalStateException(
                         "The simulator requires the phone and Mac to be connected to the same Wi-Fi network " +
-                            "with a usable IPv4 address."
+                                "with a usable IPv4 address."
                     )
                 )
             } catch (cancelled: CancellationException) {
@@ -268,7 +374,7 @@ class TBoxNetworkConnector(context: Context) {
                         ProjectionEventLog.warning(
                             "NETWORK",
                             "Reusing the active T-Box network $existing unbound: Android refused to " +
-                                "restore the process binding."
+                                    "restore the process binding."
                         )
                     }
                 }
@@ -293,7 +399,9 @@ class TBoxNetworkConnector(context: Context) {
         processBindingSuspended = false
         ProjectionEventLog.record(
             "NETWORK",
-            "Requesting Android Wi-Fi network for SSID ${profile.ssid}; passwordPresent=${profile.password.isNotEmpty()}."
+            "Requesting Android Wi-Fi network for SSID ${profile.ssid}; " +
+                    "passwordPresent=${profile.password.isNotEmpty()}; " +
+                    "the phone is currently ${currentWifiDescription(profile.ssid)}."
         )
         submitSpecifierRequest(profile)
         return awaitRequestedNetwork(profile)
@@ -322,13 +430,14 @@ class TBoxNetworkConnector(context: Context) {
         ProjectionEventLog.debug(
             "NETWORK",
             "Disconnect requested; callbacks=${registeredCallbacks.size}, " +
-                "activeNetwork=$activeNetwork, processBound=$processBoundNetwork."
+                    "activeNetwork=$activeNetwork, processBound=$processBoundNetwork."
         )
         callback = null
         pendingRequestSsid?.let { TBoxRequestGiveUpAlarm.disarm(appContext, it) }
         pendingRequestSsid = null
         pendingFailure = null
         networkGranted = false
+        abandonedJoinSsid = null
         pendingGiveUpJob?.cancel()
         pendingGiveUpJob = null
         if (processBoundNetwork != null) {
@@ -392,9 +501,9 @@ class TBoxNetworkConnector(context: Context) {
             ProjectionEventLog.record(
                 "NETWORK",
                 "$live T-Box network connectors now hold a Wi-Fi request at the same time. They " +
-                    "compete for the same association and releasing one drops the others, so " +
-                    "expect connections that are granted and lost within a second. This is a " +
-                    "MOTO-HUB fault, not the dash.",
+                        "compete for the same association and releasing one drops the others, so " +
+                        "expect connections that are granted and lost within a second. This is a " +
+                        "MOTO-HUB fault, not the dash.",
                 LogLevel.ERROR,
                 reportToTelemetry = firstInProcess
             )
@@ -460,7 +569,7 @@ class TBoxNetworkConnector(context: Context) {
             ProjectionEventLog.warning(
                 "NETWORK",
                 "Android refused to rebind the process to T-Box network=$network; carrying on with " +
-                    "network-bound sockets."
+                        "network-bound sockets."
             )
         }
         network
@@ -532,12 +641,12 @@ class TBoxNetworkConnector(context: Context) {
         if (rssi <= INVALID_RSSI_DBM) return
         val now = SystemClock.elapsedRealtime()
         val moved = lastSampledRssi != UNSAMPLED_RSSI &&
-            kotlin.math.abs(rssi - lastSampledRssi) >= LINK_SAMPLE_RSSI_STEP_DBM
+                kotlin.math.abs(rssi - lastSampledRssi) >= LINK_SAMPLE_RSSI_STEP_DBM
         val due = lastLinkSampleAtMs == 0L ||
-            now - lastLinkSampleAtMs >= LINK_SAMPLE_INTERVAL_MS
+                now - lastLinkSampleAtMs >= LINK_SAMPLE_INTERVAL_MS
         lastSampledRssi = rssi
         lastSampleDescription = "rssi=${rssi}dBm, frequency=${wifiInfo.frequency}MHz, " +
-            "linkSpeed=${wifiInfo.linkSpeed}Mbps"
+                "linkSpeed=${wifiInfo.linkSpeed}Mbps"
         lastSampleTakenAtMs = now
         if (!due && !moved) return
         lastLinkSampleAtMs = now
@@ -558,16 +667,127 @@ class TBoxNetworkConnector(context: Context) {
             return
         }
         val age = SystemClock.elapsedRealtime() - lastSampleTakenAtMs
+        if (age > LINK_SAMPLE_STALE_AGE_MS) {
+            // Rider dc735158 lost a session with a 39-minute-old -39dBm sample on the books:
+            // Android delivers capability callbacks only when the signal moves, so a rock-steady
+            // link goes unmeasured for as long as it stays put. An old sample cannot separate a
+            // fade from a vanish, but the silence itself can - a fade would have produced
+            // callbacks, so a long-unmeasured link was steady until it went.
+            ProjectionEventLog.warning(
+                "NETWORK",
+                "The T-Box link went unmeasured for the ${age}ms before the loss - Android " +
+                        "samples only on change, so the link held steady ($description) until it " +
+                        "vanished outright."
+            )
+            return
+        }
         ProjectionEventLog.warning(
             "NETWORK",
             "Last T-Box link measurement before the loss: $description, taken ${age}ms earlier."
         )
     }
 
+    /**
+     * What the phone is associated to RIGHT NOW, for the line that submits the specifier.
+     *
+     * A phone with one Wi-Fi radio has to leave whatever it is on before it can honour a
+     * [WifiNetworkSpecifier], and "I was still on my home Wi-Fi" is a completely different
+     * failure from "the dash was not broadcasting" - yet both print as a 30s timeout. Rider
+     * 36a3fd37 had to tell us in words which of the two it was, because no log line in two days
+     * of reports carried it.
+     *
+     * The SSID needs location permission and CORE does not hold it, so the name is often
+     * withheld. Whether the phone is on SOME Wi-Fi is the half that matters and
+     * [ConnectivityManager] answers it without any permission at all.
+     *
+     * ONE name is printed and only one: [target], when the phone turns out to be on it already.
+     * That is a fact about the motorcycle, it is already written on the line above this one, and
+     * it changes what happens next - being on the dash's own access point is why a connect can
+     * succeed with no join at all. Any OTHER network is named "another Wi-Fi" and nothing more.
+     *
+     * Rider 6e77dcf7's log printed "on Wi-Fi Sztik" four times: his home network, in a file
+     * riders paste into public threads, on a value that public wardriving databases map back to
+     * a street. It bought nothing - the diagnosis this line exists for is "was the phone on some
+     * other Wi-Fi", not which one - and it is the same argument this file already makes for
+     * BSSIDs a few hundred lines down: stable identifiers do not go in a shared log.
+     */
+    @SuppressLint("MissingPermission")
+    private fun currentWifiDescription(target: String): String {
+        val onWifi = connectivityManager.activeNetwork
+            ?.let { connectivityManager.getNetworkCapabilities(it) }
+            ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        if (!onWifi) return "not on any Wi-Fi"
+        val ssid = runCatching { normalizeSsid(wifiManager.connectionInfo?.ssid.orEmpty()) }
+            .getOrDefault("")
+        val normalizedTarget = normalizeSsid(target)
+        return when {
+            ssid.isBlank() || ssid == "<unknown ssid>" ->
+                "on another Wi-Fi whose name Android withholds - Android has to leave it first"
+            ssid.equals(normalizedTarget, ignoreCase = true) ->
+                "already on $ssid - no join is needed unless Android has handed it to someone else"
+            else -> "on another Wi-Fi - Android has to leave it first"
+        }
+    }
+
+    /**
+     * Whether this phone is associated to [profile]'s access point RIGHT NOW.
+     *
+     * The third rung of [io.motohub.android.tbox.AccessPointEvidence], and the one that answers
+     * the case the other two cannot. [isHuntingFor] only knows about networks THIS connector
+     * asked for, so a dash the rider joined from Android's own Wi-Fi settings is invisible to it,
+     * and [isDashBroadcasting] goes through `getScanResults`, which Android throttles to nothing
+     * for minutes at a time. The current association goes through neither: it is a property of
+     * the link the phone is holding, and it is true precisely when the access-point road is open.
+     *
+     * Rider f27f3825 (samsung SM-S938B, Benelli TRK 702X, bj5G2266, 2026-09-07) is the case.
+     * Hotspot up and Wi-Fi associated at the same time - both icons in the screenshots he sent -
+     * an `_EasyConn._tcp.` advertisement resolved within 150ms of every discovery start and
+     * discarded as "the wrong network (345)", a 253-address sweep of the hotspot subnet finding
+     * nothing, and four fallbacks declined with "no usable scan at all". The dash was on its own
+     * access point, the phone was on it too, and nothing in the ladder could say so.
+     *
+     * Returns false, never true, when Android withholds the name: a redacted SSID is not evidence
+     * of anything, and the hotspot message is still the right answer for a dash that really is a
+     * Wi-Fi client. The name is read and compared, never logged - see [currentWifiDescription]
+     * for why a rider's other network never reaches a file people paste into public threads.
+     */
+    @SuppressLint("MissingPermission")
+    fun isAssociatedTo(profile: MotorcycleProfile): Boolean {
+        val target = normalizeSsid(profile.ssid)
+        if (target.isEmpty()) return false
+        val onWifi = connectivityManager.activeNetwork
+            ?.let { connectivityManager.getNetworkCapabilities(it) }
+            ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        if (!onWifi) return false
+        val ssid = runCatching { normalizeSsid(wifiManager.connectionInfo?.ssid.orEmpty()) }
+            .getOrDefault("")
+        if (ssid.isBlank() || ssid == "<unknown ssid>") return false
+        return ssid.equals(target, ignoreCase = true)
+    }
+
     private fun ScanResult.ssidText(): String =
         (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) wifiSsid?.toString() else null)
             ?.removeSurrounding("\"")
             ?: @Suppress("DEPRECATION") SSID.orEmpty().removeSurrounding("\"")
+
+    /**
+     * Every network name in the phone's latest usable scan, for asking a question about a name a
+     * rider typed rather than about one dash - see
+     * [io.motohub.android.feature.pairing.manualSsidVerdict].
+     *
+     * Empty means "nothing to say", never "nothing is there". Same freshness rule as
+     * [isDashBroadcasting]: a list taken before the dash was switched on has already cost one
+     * rider his ride (36a3fd37), and here it would put a stale name into a question, which is
+     * worse than asking nothing.
+     */
+    @SuppressLint("MissingPermission")
+    fun visibleSsids(): List<String> {
+        val results = runCatching { wifiManager.scanResults }.getOrNull() ?: return emptyList()
+        if (results.isEmpty()) return emptyList()
+        val newest = results.maxOf { it.timestamp }
+        if (!scanEvidenceIsFresh(newest, SystemClock.elapsedRealtime())) return emptyList()
+        return results.map { it.ssidText() }.filter { it.isNotBlank() }.distinct()
+    }
 
     /**
      * Whether the dash is broadcasting its own SSID right now - **null when that cannot be said**.
@@ -585,11 +805,25 @@ class TBoxNetworkConnector(context: Context) {
         if (target.isEmpty()) return null
         val results = runCatching { wifiManager.scanResults }.getOrNull() ?: return null
         if (results.isEmpty()) return null
+        // AGE is the fourth way this list lies, and the one that cost a rider his ride
+        // (36a3fd37, 2026-09-01). Android throttles getScanResults hard and nothing in the app
+        // refreshes it, so the list can predate the moment the dash was switched on. That rider
+        // pressed start while still on his home Wi-Fi, then powered the dash up and came back to
+        // MOTO-HUB twice - 13:32:46 and 13:33:18 - and both times the retry was vetoed by a list
+        // that had been taken before the dash existed. Ten minutes later the same dash joined in
+        // 5110ms at -40dBm. A list too old to have seen the dash come up says nothing about it.
+        val newest = results.maxOf { it.timestamp }
+        if (!scanEvidenceIsFresh(newest, SystemClock.elapsedRealtime())) return null
         return results.any { it.ssidText().equals(target, ignoreCase = true) }
     }
 
+    /**
+     * Internal rather than private because the phone-hosted road needs it too: when that mode
+     * declines the access-point fallback, this snapshot is the only record of why - see
+     * [TBoxLinkResolver.accessPointFallback].
+     */
     @SuppressLint("MissingPermission")
-    private fun logVisibleApSnapshot(profile: MotorcycleProfile) {
+    internal fun logVisibleApSnapshot(profile: MotorcycleProfile) {
         val target = profile.ssid.trim().removeSurrounding("\"")
         val results = runCatching { wifiManager.scanResults }.getOrNull()
         if (results == null) {
@@ -608,10 +842,14 @@ class TBoxNetworkConnector(context: Context) {
         // 2026-07-30) printed that verdict four times while the same dash measured -50dBm on
         // 5180MHz two minutes later.
         if (results.isEmpty()) {
+            // WHY it is empty, not just that it is. The neutral version of this line appeared ~60
+            // times in one log and four investigations had to guess at the cause from the code;
+            // see TBoxScanPermissions.emptyScanCause. A missing grant is permanent, and reads
+            // exactly like a throttled scan from here.
             ProjectionEventLog.debug(
                 "NETWORK",
                 "The phone's Wi-Fi scan came back empty (0 networks), so it says nothing about " +
-                    "whether $target is in range."
+                        "whether $target is in range - ${TBoxScanPermissions.emptyScanCause(appContext)}."
             )
             publishScanFacts(visibility = "scan_empty")
             return
@@ -641,12 +879,12 @@ class TBoxNetworkConnector(context: Context) {
             ProjectionEventLog.warning(
                 "NETWORK",
                 "$target is NOT in the phone's latest Wi-Fi scan (${results.size} networks seen: " +
-                    "$bandSummary$reach). Either the dash is not broadcasting it right now, the " +
-                    "phone cannot see that channel, or this dash never broadcasts at all and " +
-                    "expects your phone to HOST the network - check whether its pairing screen " +
-                    "says \"open Android hotspot\", and if so pair it again with the " +
-                    "\"My phone hosts the hotspot\" mode." +
-                    scanBlindSpotHint(target, topFiveGhzMhz, results.size)
+                        "$bandSummary$reach). Either the dash is not broadcasting it right now, the " +
+                        "phone cannot see that channel, or this dash never broadcasts at all and " +
+                        "expects your phone to HOST the network - check whether its pairing screen " +
+                        "says \"open Android hotspot\", and if so pair it again with the " +
+                        "\"My phone hosts the hotspot\" mode." +
+                        scanBlindSpotHint(target, topFiveGhzMhz, results.size)
             )
         } else {
             // The security line is the one that can convict us rather than the dash. The specifier
@@ -657,7 +895,7 @@ class TBoxNetworkConnector(context: Context) {
             ProjectionEventLog.record(
                 "NETWORK",
                 "$target is in range: ${bandName(match.frequency)} (${match.frequency}MHz), " +
-                    "rssi=${match.level}dBm, security=${securityName(match.capabilities)}."
+                        "rssi=${match.level}dBm, security=${securityName(match.capabilities)}."
             )
         }
         // A twin on the other band shares the dash's serial-looking last token.
@@ -669,8 +907,8 @@ class TBoxNetworkConnector(context: Context) {
                 .map { it.ssidText() to it.frequency }
                 .filter { (ssid, _) ->
                     ssid.isNotEmpty() &&
-                        !ssid.equals(target, ignoreCase = true) &&
-                        ssid.endsWith(tail, ignoreCase = true)
+                            !ssid.equals(target, ignoreCase = true) &&
+                            ssid.endsWith(tail, ignoreCase = true)
                 }
                 .distinctBy { it.first }
                 .take(SIBLING_AP_LOG_LIMIT)
@@ -679,8 +917,8 @@ class TBoxNetworkConnector(context: Context) {
             ProjectionEventLog.record(
                 "NETWORK",
                 "The same dash also broadcasts: " +
-                    siblings.joinToString { (ssid, frequency) -> "$ssid on ${bandName(frequency)}" } +
-                    ". If $target will not join, one of these may."
+                        siblings.joinToString { (ssid, frequency) -> "$ssid on ${bandName(frequency)}" } +
+                        ". If $target will not join, one of these may."
             )
         }
         publishScanFacts(
@@ -725,6 +963,36 @@ class TBoxNetworkConnector(context: Context) {
      * caller's patience, because Android keeps matching a live request against every later Wi-Fi
      * scan — that background hunt is exactly what a screen-off recovery needs.
      */
+    /**
+     * How long this join actually took, once, in one line - or null when there is nothing new to
+     * measure (already reported, or a network reused rather than requested).
+     *
+     * Written because "ADVANCED is slower to connect than CORE" could not be checked. Every
+     * specifier request in the pair is submitted by CORE, whether the rider tapped Connect in CORE
+     * or in ADVANCED, so a report's log shows the same lines either way and the only evidence was
+     * an impression. This says which of the two asked ([specifierRequestedBy]), at what process
+     * importance, and splits the wait into association and address - so the two paths can be
+     * compared as numbers, and a slow join can be blamed on the right half of it.
+     *
+     * Deliberately not an average or a verdict: one line per join, and the reader does the
+     * arithmetic. A single sample is not a claim about a build.
+     */
+    private fun joinTimingSummary(profile: MotorcycleProfile): String? {
+        if (joinTimingReported) return null
+        val submittedAt = specifierSubmittedAt.takeIf { it > 0L } ?: return null
+        joinTimingReported = true
+        val now = SystemClock.elapsedRealtime()
+        val total = now - submittedAt
+        val associated = specifierAssociatedAt.takeIf { it > 0L }?.let { it - submittedAt }
+        return joinTimingLine(
+            ssid = profile.ssid,
+            totalMs = total,
+            associatedMs = associated,
+            askedBy = specifierRequestedBy,
+            importance = specifierSubmitImportance
+        )
+    }
+
     private fun submitSpecifierRequest(profile: MotorcycleProfile) {
         logVisibleApSnapshot(profile)
         lateinit var networkCallback: ConnectivityManager.NetworkCallback
@@ -734,6 +1002,7 @@ class TBoxNetworkConnector(context: Context) {
                 // one signal that separates "never joined the AP" from "joined it and got no IP",
                 // and its absence across a whole rider log is itself the diagnosis.
                 networkGranted = true
+                if (specifierAssociatedAt == 0L) specifierAssociatedAt = SystemClock.elapsedRealtime()
                 ProjectionEventLog.debug(
                     "NETWORK",
                     "Android granted network=$network for ${profile.ssid}; awaiting a usable IPv4 address."
@@ -758,7 +1027,7 @@ class TBoxNetworkConnector(context: Context) {
                 ProjectionEventLog.debug(
                     "NETWORK",
                     "Link properties changed: network=$network, interface=${linkProperties.interfaceName}, " +
-                        "addresses=$addresses, gateways=$gateways."
+                            "addresses=$addresses, gateways=$gateways."
                 )
                 val isTBoxNetwork = linkProperties.linkAddresses
                     .any { isUsableTBoxIpv4Address(it.address) }
@@ -772,7 +1041,7 @@ class TBoxNetworkConnector(context: Context) {
                         ProjectionEventLog.debug(
                             "NETWORK",
                             "T-Box link update accepted without re-binding: the process " +
-                                "binding is deliberately released."
+                                    "binding is deliberately released."
                         )
                         return
                     }
@@ -781,6 +1050,20 @@ class TBoxNetworkConnector(context: Context) {
                             "Android cannot bind MOTO-HUB to the T-Box network."
                         }
                     }.exceptionOrNull()
+                    // bindProcessToNetwork answers a bare false, so the failure above is a
+                    // sentence this file wrote - it carries no errno and therefore no evidence of
+                    // WHY. Under a VPN in lockdown the reason is knowable right here, and knowing
+                    // it now is the difference between a diagnosis and three EasyConn retries
+                    // ending in a stack trace: bind an unconnected datagram socket, which is the
+                    // same netd operation every socket to the dash will attempt, and read the
+                    // errno. Nothing is sent and nothing is connected, so a phone where this
+                    // works pays a socket open and close for it.
+                    val bindEvidence = bindFailure?.let { refusal ->
+                        runCatching { DatagramSocket().use { probe -> network.bindSocket(probe) } }
+                            .exceptionOrNull()
+                            ?.takeIf { TBoxVpnDiagnostics.isVpnBindBlocked(it) }
+                            ?: refusal
+                    }
                     if (bindFailure != null) {
                         // NOT fatal, and this used to be. The process binding only moves this
                         // process's DEFAULT route; every socket that actually talks to the dash is
@@ -795,16 +1078,29 @@ class TBoxNetworkConnector(context: Context) {
                         // is in the way - with LAN access allowed, it is not.
                         val routing = TBoxVpnDiagnostics.inspect(connectivityManager, firstIpv4Gateway(linkProperties))
                         processBoundNetwork = null
+                        // No `takeIf { capturesTBox }` any more, and that guard is exactly what
+                        // cost 2026-08-26: it was added so a VPN would not be blamed for merely
+                        // existing, and it also threw away the case where the ERROR is the
+                        // evidence rather than the routes. userFacingMessage already refuses to
+                        // answer without one or the other, so the guard only ever removed true
+                        // diagnoses.
                         processBindingRefusal = TBoxVpnDiagnostics
-                            .userFacingMessage(bindFailure, routing)
-                            ?.takeIf { routing?.capturesTBox == true }
+                            .userFacingMessage(bindEvidence, routing)
                         Log.w(TAG, "T-Box process binding rejected; continuing unbound", bindFailure)
+                        val boundSocketsRefused = TBoxVpnDiagnostics.isVpnBindBlocked(bindEvidence)
                         ProjectionEventLog.warning(
                             "NETWORK",
                             "Process binding rejected for network=$network (${bindFailure.message}); " +
-                                "vpn=${routing?.describe() ?: "none"}. Continuing with " +
-                                "network-bound sockets instead - this is only fatal if the dash " +
-                                "turns out to be unreachable."
+                                    "vpn=${routing?.describe() ?: "none"}. " +
+                                    if (boundSocketsRefused) {
+                                        "Network-bound sockets are refused too " +
+                                                "(${bindEvidence?.message}) - a VPN in lockdown blocks " +
+                                                "every socket to this link, so the dash is unreachable " +
+                                                "until it is turned off."
+                                    } else {
+                                        "Continuing with network-bound sockets instead - this is " +
+                                                "only fatal if the dash turns out to be unreachable."
+                                    }
                         )
                         markConnected(network)
                         return
@@ -817,12 +1113,13 @@ class TBoxNetworkConnector(context: Context) {
                         "NETWORK",
                         "T-Box Wi-Fi validated and process-bound: ssid=${profile.ssid}, network=$network, addresses=$addresses."
                     )
+                    joinTimingSummary(profile)?.let { ProjectionEventLog.record("NETWORK", it) }
                     if (MotoHubSettings.verboseTBoxLogging(appContext)) {
                         runCatching { wifiManager.connectionInfo }.getOrNull()?.let { info ->
                             ProjectionEventLog.debug(
                                 "NETWORK",
                                 "Wi-Fi link (verbose): frequency=${info.frequency}MHz, " +
-                                    "rssi=${info.rssi}dBm, linkSpeed=${info.linkSpeed}Mbps."
+                                        "rssi=${info.rssi}dBm, linkSpeed=${info.linkSpeed}Mbps."
                             )
                         }
                     }
@@ -833,7 +1130,7 @@ class TBoxNetworkConnector(context: Context) {
                     ProjectionEventLog.warning(
                         "NETWORK",
                         "Active T-Box network temporarily has no usable IPv4 address; " +
-                            "waiting for onLost before disconnecting."
+                                "waiting for onLost before disconnecting."
                     )
                 }
             }
@@ -863,11 +1160,11 @@ class TBoxNetworkConnector(context: Context) {
                 // Refused for being in the background, not for anything about the dash: telling
                 // this rider to rescan the QR code sends them to fix a profile that is fine.
                 val refusedAsBackground = !networkGranted &&
-                    specifierSubmitImportance > FOREGROUND_SERVICE_IMPORTANCE
+                        specifierSubmitImportance > FOREGROUND_SERVICE_IMPORTANCE
                 ProjectionEventLog.error(
                     "NETWORK",
                     "Android reported the requested T-Box Wi-Fi as unavailable $elapsed; " +
-                        "granted=$networkGranted, importanceAtRequest=$specifierSubmitImportance."
+                            "granted=$networkGranted, importanceAtRequest=$specifierSubmitImportance."
                 )
                 pendingFailure = IllegalStateException(
                     when {
@@ -875,13 +1172,13 @@ class TBoxNetworkConnector(context: Context) {
                             "Android dropped the ${profile.ssid} network before it became usable."
                         refusedAsBackground ->
                             "Android refused the request for ${profile.ssid} without trying it: " +
-                                "MOTO-HUB was in the background when it was made. Open MOTO-HUB " +
-                                "and tap Connect again."
+                                    "MOTO-HUB was in the background when it was made. Open MOTO-HUB " +
+                                    "and tap Connect again."
                         else ->
                             "Android gave up connecting to ${profile.ssid}: either the dash was " +
-                                "not broadcasting it, the saved password no longer matches, or " +
-                                "the connection dialog was dismissed. Rescan the dash QR code " +
-                                "and retry."
+                                    "not broadcasting it, the saved password no longer matches, or " +
+                                    "the connection dialog was dismissed. Rescan the dash QR code " +
+                                    "and retry."
                     }
                 )
                 releaseCallback(networkCallback)
@@ -900,15 +1197,17 @@ class TBoxNetworkConnector(context: Context) {
             .build()
 
         val importanceNow = processImportance()
+        // Outside the lock on purpose - see specifierRequestedBy.
+        val requestedBy = TBoxNetworkConnectors.describeOwners()
         ProjectionEventLog.debug(
             "NETWORK",
             "Submitting WifiNetworkSpecifier request for ${profile.ssid} without INTERNET " +
-                "capability; process importance=$importanceNow" +
-                if (importanceNow > FOREGROUND_SERVICE_IMPORTANCE) {
-                    " (background - Android will refuse this request)."
-                } else {
-                    "."
-                }
+                    "capability; process importance=$importanceNow" +
+                    if (importanceNow > FOREGROUND_SERVICE_IMPORTANCE) {
+                        " (background - Android will refuse this request)."
+                    } else {
+                        "."
+                    }
         )
 
         // Drop the previous registration, reset this attempt's shared state, take ownership and
@@ -929,6 +1228,9 @@ class TBoxNetworkConnector(context: Context) {
             lastSampledRssi = UNSAMPLED_RSSI
             lastSampleDescription = null
             specifierSubmittedAt = SystemClock.elapsedRealtime()
+            specifierAssociatedAt = 0L
+            joinTimingReported = false
+            specifierRequestedBy = requestedBy
             specifierSubmitImportance = importanceNow
             callback = networkCallback
             registeredCallbacks += networkCallback
@@ -964,6 +1266,10 @@ class TBoxNetworkConnector(context: Context) {
 
     /** Success bookkeeping shared by both callback paths (bound and deliberately unbound). */
     private fun markConnected(network: Network) {
+        // Read and cleared before anything else: this runs again on every routine link update of
+        // an already-connected network, and the announcement below must happen exactly once.
+        val abandoned = abandonedJoinSsid
+        abandonedJoinSsid = null
         activeNetwork = network
         connectedOnce = true
         pendingFailure = null
@@ -972,6 +1278,19 @@ class TBoxNetworkConnector(context: Context) {
         // The registration deliberately outlives the join, but nothing needs to give it up any
         // more - and an alarm left armed would fire mid-ride.
         pendingRequestSsid?.let { TBoxRequestGiveUpAlarm.disarm(appContext, it) }
+        if (abandoned != null) {
+            val late = specifierSubmittedAt
+                .takeIf { it > 0L }
+                ?.let { " ${SystemClock.elapsedRealtime() - it}ms after the request was submitted" }
+                .orEmpty()
+            ProjectionEventLog.record(
+                "NETWORK",
+                "Android granted $abandoned$late, after this app had already reported the join " +
+                        "as failed. The phone is on the motorcycle network now; resuming the " +
+                        "connection instead of leaving the failure on screen."
+            )
+            mutableEvents.tryEmit(TBoxNetworkEvent.ArrivedLate(network, abandoned))
+        }
     }
 
     /**
@@ -985,13 +1304,16 @@ class TBoxNetworkConnector(context: Context) {
      * nothing has been granted - the window exists to catch Android's own late verdict.
      */
     private suspend fun awaitRequestedNetwork(profile: MotorcycleProfile): Result<Network> {
+        // A wait that is starting owns the outcome; whatever an earlier one abandoned is answered
+        // by this one, and leaving the flag set would make its success read as a late arrival.
+        abandonedJoinSsid = null
         try {
             pollForOutcome(SystemClock.elapsedRealtime() + CONNECTION_TIMEOUT_MS)?.let { return it }
             if (!networkGranted) {
                 ProjectionEventLog.debug(
                     "NETWORK",
                     "Nothing granted for ${profile.ssid} within ${CONNECTION_TIMEOUT_MS}ms; waiting up " +
-                        "to ${UNAVAILABLE_GRACE_MS}ms for Android's own verdict."
+                            "to ${UNAVAILABLE_GRACE_MS}ms for Android's own verdict."
                 )
                 pollForOutcome(SystemClock.elapsedRealtime() + UNAVAILABLE_GRACE_MS)?.let { return it }
             }
@@ -1014,17 +1336,20 @@ class TBoxNetworkConnector(context: Context) {
             ?.let { SystemClock.elapsedRealtime() - it }
         val frozen = elapsed != null && elapsed > (CONNECTION_TIMEOUT_MS + UNAVAILABLE_GRACE_MS) * 2
         ProjectionEventLog.setTelemetryFacts(mapOf("tbox.wait_frozen" to if (frozen) "yes" else "no"))
+        // Only while the registration survives. A released request can never be answered, so
+        // arming the late-arrival path for it would leave a flag nothing ever clears.
+        abandonedJoinSsid = profile.ssid.takeIf { stillPending }
         ProjectionEventLog.error(
             "NETWORK",
             "Wi-Fi setup timed out after ${CONNECTION_TIMEOUT_MS}ms with " +
-                (if (networkGranted) "the network granted but no usable IPv4 address" else "no network granted") +
-                "; " +
-                (if (stillPending) {
-                    "the request stays pending for the next attempt."
-                } else {
-                    "the request has already been released."
-                }) +
-                (if (frozen) " The wait itself took ${elapsed}ms: this process was frozen while it ran." else "")
+                    (if (networkGranted) "the network granted but no usable IPv4 address" else "no network granted") +
+                    "; " +
+                    (if (stillPending) {
+                        "the request stays pending for the next attempt."
+                    } else {
+                        "the request has already been released."
+                    }) +
+                    (if (frozen) " The wait itself took ${elapsed}ms: this process was frozen while it ran." else "")
         )
         return Result.failure(IllegalStateException(setupTimeoutMessage(profile)))
     }
@@ -1054,13 +1379,17 @@ class TBoxNetworkConnector(context: Context) {
      * an IP address *from the AP*, which points at the bike when the AP was never reached.
      */
     private fun setupTimeoutMessage(profile: MotorcycleProfile): String = if (networkGranted) {
-        "The phone joined ${profile.ssid} but Android never obtained a usable IPv4 address from " +
-            "it within ${CONNECTION_TIMEOUT_MS}ms. Switch the dash off and on again, then retry."
+        MotoHubStrings.get(
+            "The phone joined %1\$s but Android never obtained a usable IPv4 address from it within %2\$dms. Switch the dash off and on again, then retry.",
+            profile.ssid,
+            CONNECTION_TIMEOUT_MS
+        )
     } else {
-        "The phone never joined ${profile.ssid}: Android did not associate to it within " +
-            "${CONNECTION_TIMEOUT_MS}ms. Check that ${profile.ssid} is listed in the phone's Wi-Fi " +
-            "settings while the dash shows its pairing screen - if it is not, the dash is not " +
-            "broadcasting. If Android showed a dialog asking to connect to it, accept it and retry."
+        MotoHubStrings.get(
+            "The phone never joined %1\$s: Android did not associate to it within %2\$dms. Check that %1\$s is listed in the phone's Wi-Fi settings while the dash shows its pairing screen - if it is not, the dash is not broadcasting. If Android showed a dialog asking to connect to it, accept it and retry.",
+            profile.ssid,
+            CONNECTION_TIMEOUT_MS
+        )
     }
 
     /**
@@ -1101,9 +1430,9 @@ class TBoxNetworkConnector(context: Context) {
             ProjectionEventLog.warning(
                 "NETWORK",
                 "Releasing the pending T-Box Wi-Fi request for $ssid: nothing connected within " +
-                    "${REJOIN_GIVE_UP_MS / 1_000L}s" +
-                    (if (wokenByAlarm) "; the app's own timer was frozen, so the wake-up alarm did it" else "") +
-                    "."
+                        "${REJOIN_GIVE_UP_MS / 1_000L}s" +
+                        (if (wokenByAlarm) "; the app's own timer was frozen, so the wake-up alarm did it" else "") +
+                        "."
             )
             clearCurrentNetworkRequestLocked()
         }
@@ -1118,17 +1447,43 @@ class TBoxNetworkConnector(context: Context) {
         ladderToken.set(token)
         rejoinJob = reconnectScope.launch {
             var attempt = 0
+            // Logged on entering and leaving the wait rather than per poll: the whole point is
+            // to stop filling a rider's log with refusals that say nothing about the dash.
+            var waitingForForeground = false
+            // This attempt's backoff has been served. Survives a foreground wait on purpose - see
+            // nextTBoxRejoinStep - and is cleared once the attempt it belongs to has been spent.
+            var backoffElapsed = false
             val startedAt = SystemClock.elapsedRealtime()
             try {
                 ladder@ while (activeProfile != null && connectedOnce && activeNetwork == null) {
+                    val importanceNow = processImportance()
                     val step = nextTBoxRejoinStep(
                         attempt = attempt + 1,
                         elapsedMillis = SystemClock.elapsedRealtime() - startedAt,
                         budgetMillis = REJOIN_GIVE_UP_MS,
                         firstDelayMillis = REJOIN_FIRST_DELAY_MS,
                         baseDelayMillis = REJOIN_BASE_DELAY_MS,
-                        maxDelayMillis = REJOIN_MAX_DELAY_MS
+                        maxDelayMillis = REJOIN_MAX_DELAY_MS,
+                        submissionWouldBeRefused = importanceNow > FOREGROUND_SERVICE_IMPORTANCE,
+                        backgroundPollMillis = REJOIN_BACKGROUND_POLL_MS,
+                        backoffElapsed = backoffElapsed
                     )
+                    if (step is TBoxRejoinStep.WaitForForeground) {
+                        if (!waitingForForeground) {
+                            waitingForForeground = true
+                            ProjectionEventLog.warning(
+                                "NETWORK",
+                                "Not asking Android for ${profile.ssid} yet: MOTO-HUB is in the " +
+                                        "background (importance=$importanceNow), and a request made " +
+                                        "from there is refused without the AP ever being looked " +
+                                        "for. Waiting up to ${REJOIN_GIVE_UP_MS / 1_000L}s for " +
+                                        "MOTO-HUB to come back to the foreground - open it to " +
+                                        "reconnect now."
+                            )
+                        }
+                        delay(step.delayMillis)
+                        continue@ladder
+                    }
                     if (step is TBoxRejoinStep.GiveUp) {
                         // Every downstream recovery budget is shorter than this, so past the
                         // deadline there is no session left for a reacquired AP to serve. Holding
@@ -1137,15 +1492,43 @@ class TBoxNetworkConnector(context: Context) {
                         // reconnecting by hand.
                         ProjectionEventLog.warning(
                             "NETWORK",
-                            "Giving up on the T-Box Wi-Fi after $attempt rejoin attempt(s) over " +
-                                "${REJOIN_GIVE_UP_MS / 1_000L}s; releasing the network request."
+                            if (attempt == 0) {
+                                "Giving up on the T-Box Wi-Fi after " +
+                                        "${REJOIN_GIVE_UP_MS / 1_000L}s without ever being able to " +
+                                        "ask: MOTO-HUB stayed in the background the whole time, " +
+                                        "where Android refuses the request. Releasing the network " +
+                                        "request; open MOTO-HUB and tap Connect."
+                            } else {
+                                "Giving up on the T-Box Wi-Fi after $attempt rejoin attempt(s) " +
+                                        "over ${REJOIN_GIVE_UP_MS / 1_000L}s; releasing the network " +
+                                        "request."
+                            }
                         )
                         clearCurrentNetworkRequest()
                         break@ladder
                     }
+                    if (step is TBoxRejoinStep.WaitThenRetry) {
+                        delay(step.delayMillis)
+                        // Nothing is submitted on the way out of this branch. The loop reads the
+                        // process importance again at the top, so the rule that authorises a
+                        // submission is always applied to a reading taken after the last thing
+                        // that could suspend - which a delay of up to REJOIN_MAX_DELAY_MS very
+                        // much is. The while condition catches an AP reacquired during it too.
+                        backoffElapsed = true
+                        continue@ladder
+                    }
+                    // Said here rather than before the wait: "resuming" belongs next to the
+                    // submission it announces, or it can be followed by "giving up, it was in the
+                    // background the whole time" - two lines that contradict each other.
+                    if (waitingForForeground) {
+                        waitingForForeground = false
+                        ProjectionEventLog.record(
+                            "NETWORK",
+                            "MOTO-HUB is back in the foreground; resuming the T-Box Wi-Fi rejoin."
+                        )
+                    }
                     attempt++
-                    delay((step as TBoxRejoinStep.WaitThenRetry).delayMillis)
-                    if (activeNetwork != null) break@ladder
+                    backoffElapsed = false
                     // A fresh submission per attempt: the ladder exists for devices whose stale
                     // specifier registration never reconnects on its own, so unlike the connect()
                     // retry path it deliberately does NOT join the previous pending request.
@@ -1206,7 +1589,7 @@ class TBoxNetworkConnector(context: Context) {
                 ProjectionEventLog.record(
                     "NETWORK",
                     "Existing Wi-Fi validated for simulator: ssid=${normalizeSsid(ssid)}, network=$network, " +
-                        "addresses=${usableIpv4Addresses(network)}."
+                            "addresses=${usableIpv4Addresses(network)}."
                 )
                 return network
             }
@@ -1279,7 +1662,7 @@ class TBoxNetworkConnector(context: Context) {
                     ProjectionEventLog.warning(
                         "NETWORK",
                         "Android did not expose the current Wi-Fi SSID; using the only usable Wi-Fi network " +
-                            "for the simulator. Further occurrences are not logged."
+                                "for the simulator. Further occurrences are not logged."
                     )
                 }
             }
@@ -1339,11 +1722,25 @@ class TBoxNetworkConnector(context: Context) {
          * that is simply switched off does not leave the radio under an exclusive request.
          */
         const val REJOIN_GIVE_UP_MS = 180_000L
+
+        /**
+         * How often the ladder re-checks process importance while a submission would be refused.
+         * Cheap (`getMyMemoryState` reads this process, no binder call) and short enough that a
+         * rider who opens the app gets their rejoin within a couple of seconds.
+         */
+        const val REJOIN_BACKGROUND_POLL_MS = 2_000L
         /** Enough to show a band twin without turning a busy scan into a wall of text. */
         const val SIBLING_AP_LOG_LIMIT = 4
 
         /** Steady-link cadence for the radio trail; a moving link logs sooner (sampleLinkQuality). */
         const val LINK_SAMPLE_INTERVAL_MS = 15_000L
+
+        /**
+         * Older than this and the loss-time sample stops being quoted as a measurement: a fading
+         * link produces callbacks well inside a minute, so a sample this old means the link never
+         * moved, not that it looked like the sample says when it died.
+         */
+        const val LINK_SAMPLE_STALE_AGE_MS = 60_000L
 
         /**
          * RSSI change that logs a sample regardless of the cadence. 6dB is a quarter of the
@@ -1380,6 +1777,28 @@ class TBoxNetworkConnector(context: Context) {
  * WPA3 is called out on its own because it is the one answer that indicts this app: the specifier
  * only offers a WPA2 passphrase, so a dash that requires SAE cannot be joined at all.
  */
+/**
+ * The sentence [TBoxNetworkConnector.joinTimingSummary] logs, without a Context so it can be
+ * tested.
+ *
+ * @param associatedMs time to Android's AVAILABLE callback, or null when none was seen - which is
+ *   itself an answer (an address appeared without this app ever being told the phone associated)
+ *   and must not be reported as an association at 0 ms.
+ */
+internal fun joinTimingLine(
+    ssid: String,
+    totalMs: Long,
+    associatedMs: Long?,
+    askedBy: String,
+    importance: Int
+): String {
+    val asked = askedBy.takeIf { it.isNotBlank() } ?: "nobody on the ledger"
+    val phases = associatedMs
+        ?.let { ": associated after ${it}ms, address ${totalMs - it}ms later" }
+        ?: " (no AVAILABLE callback was seen for it)"
+    return "Joined $ssid in ${totalMs}ms$phases; asked by $asked at process importance $importance."
+}
+
 internal fun securityName(capabilities: String?): String {
     val caps = capabilities.orEmpty().uppercase()
     val schemes = buildList {
@@ -1421,6 +1840,33 @@ internal fun regulatoryReach(topFiveGhzMhz: Int?): String = when {
  * eight attempts came back with 1, 2, 2, 2, 3 and 10 networks (log 2026-08-12) - on the low
  * readings "the dash is not in the scan" says more about the scan than it does about the dash.
  */
+/**
+ * Is a Wi-Fi scan list recent enough to be evidence about the dash?
+ *
+ * [newestResultTimestampMicros] is [ScanResult.timestamp] - microseconds since boot at which that
+ * AP was last seen - so the newest entry dates the list as a whole. Compared against
+ * [SystemClock.elapsedRealtime], which shares that clock.
+ *
+ * A list older than [SCAN_EVIDENCE_MAX_AGE_MS] is not a smaller amount of evidence, it is none:
+ * the rider may have switched the dash on since it was taken. Returning false there sends
+ * [TBoxNetworkConnector.isDashBroadcasting] to null - "cannot be said" - which is the only answer
+ * that neither convicts the dash nor invents a sighting. A future timestamp (a clock the platform
+ * has stepped) is treated as fresh: it is not evidence of age either.
+ */
+internal fun scanEvidenceIsFresh(newestResultTimestampMicros: Long, nowMillis: Long): Boolean {
+    val ageMs = nowMillis - newestResultTimestampMicros / 1_000L
+    return ageMs <= SCAN_EVIDENCE_MAX_AGE_MS
+}
+
+/**
+ * How old a scan list may be and still answer "is the dash on the air?".
+ *
+ * 30s is picked off the failure it exists to stop: the gap between a rider powering the dash up
+ * and coming back to MOTO-HUB is seconds, not minutes, so anything older cannot have seen the
+ * dash come up. Long enough that a list refreshed while the rider walks to the bike still counts.
+ */
+internal const val SCAN_EVIDENCE_MAX_AGE_MS = 30_000L
+
 private const val SPARSE_SCAN_NETWORKS = 3
 
 /**
@@ -1445,15 +1891,15 @@ internal fun scanBlindSpotHint(targetSsid: String, topFiveGhzMhz: Int?, networks
             val ceiling = topFiveGhzMhz?.let { "above ${it}MHz" } ?: "any 5GHz channel"
             add(
                 "This network's name says 5GHz, and this phone's own scan never reached $ceiling: " +
-                    "a dash on a Chinese 5GHz channel (149-165, 5745MHz and up) is invisible to a " +
-                    "phone on EU rules however well the dash is working. Hosted-hotspot mode does " +
-                    "not depend on seeing it."
+                        "a dash on a Chinese 5GHz channel (149-165, 5745MHz and up) is invisible to a " +
+                        "phone on EU rules however well the dash is working. Hosted-hotspot mode does " +
+                        "not depend on seeing it."
             )
         }
         if (networksSeen <= SPARSE_SCAN_NETWORKS) {
             add(
                 "Only $networksSeen network(s) were in that scan, so it may be a throttled or " +
-                    "stale one rather than a true picture of the air."
+                        "stale one rather than a true picture of the air."
             )
         }
     }
@@ -1487,7 +1933,7 @@ internal fun bandName(frequencyMhz: Int): String = when (frequencyMhz) {
 
 internal fun isUsableTBoxIpv4Address(address: InetAddress): Boolean =
     address is Inet4Address &&
-        !address.isAnyLocalAddress &&
-        !address.isLoopbackAddress &&
-        !address.isLinkLocalAddress &&
-        !address.isMulticastAddress
+            !address.isAnyLocalAddress &&
+            !address.isLoopbackAddress &&
+            !address.isLinkLocalAddress &&
+            !address.isMulticastAddress

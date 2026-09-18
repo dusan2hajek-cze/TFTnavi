@@ -68,6 +68,34 @@ object YunmoProtocol {
     /** How many frames may be in flight (unacked) before the sender must wait. */
     const val SEND_WINDOW = 3
 
+    /**
+     * Stills the dash may owe us an ack for before offers are refused.
+     *
+     * Deliberately tighter than [SEND_WINDOW]. This dash is byte-limited, not latency-limited - it
+     * drinks about the same number of bytes per second however they are divided up - so a wider
+     * window buys no throughput and costs delay one for one: at the ~2.5 stills a second the
+     * X-Cape manages, every slot is another 400ms the rider waits. Two lets one still sit on the
+     * wire while the next is being compressed, which is all the overlap there is to win. Raise it
+     * only if a road test shows the rate dropping.
+     */
+    const val STILL_SEND_WINDOW = 2
+
+    /**
+     * Stills handed to the socket that the dash has not acknowledged yet.
+     *
+     * A pure function so it can be tested, because the arithmetic being wrong is not a theoretical
+     * risk: 1.1.85 shipped a version of it reading a counter the stills path never advances, which
+     * evaluated to `0 - lastAckedId` and so never once closed the send window. Nothing then limited
+     * the sender but the socket, the stills queued inside the kernel and the dash's own buffers,
+     * and riders saw a picture roughly fifteen seconds old (field log 2026-08-22).
+     *
+     * [lastOfferedId] and [lastAckedId] are both -1 before anything moves. Gaps in the ids are
+     * expected and harmless - a latest-wins sender skips the stills it replaced - because this
+     * measures the distance to the newest id, not how many were sent.
+     */
+    fun stillsInFlight(lastOfferedId: Int, lastAckedId: Int): Int =
+        lastOfferedId - maxOf(lastAckedId, -1)
+
     /** Largest simple-frame payload the parser will accept, matching the reference guard. */
     private const val MAX_SIMPLE_PAYLOAD = 10240
 

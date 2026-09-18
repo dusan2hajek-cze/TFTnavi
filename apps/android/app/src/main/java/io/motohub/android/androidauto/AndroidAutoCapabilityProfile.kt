@@ -3,14 +3,40 @@
 // Part of MOTO-HUB. Free software under the GNU AGPL v3; see LICENSE.
 package io.motohub.android.androidauto
 
+/**
+ * Every coded source the Android Auto protocol defines (control.proto's
+ * `VideoCodecResolutionType`), each with the density that keeps its layout the same size in dp
+ * as the SD source for the same orientation - the extra pixels buy sharpness, not more UI.
+ *
+ * [autoSelectable] is what stops that completeness from becoming a black screen. The four
+ * sources below it are the ones MOTO-HUB has actually run end to end on a dashboard; the rest
+ * are offered as a manual choice only, because AUTO picks a source from a geometry the T-Box
+ * reported about itself, and a dash that misreports 1920x1080 would have us encode 1080p into a
+ * decoder nobody has ever fed 1080p. A rider who knows their panel can still select one by hand.
+ */
 enum class AndroidAutoVideoPreset(
     val source: DisplayGeometry,
-    val densityDpi: Int
+    val densityDpi: Int,
+    /** Whether AUTO is allowed to land on this source from a learned T-Box geometry. */
+    val autoSelectable: Boolean = true
 ) {
     LANDSCAPE_800X480(DisplayGeometry(800, 480), 160),
     LANDSCAPE_1280X720(DisplayGeometry(1280, 720), 160),
+    LANDSCAPE_1920X1080(DisplayGeometry(1920, 1080), 240, autoSelectable = false),
+    LANDSCAPE_2560X1440(DisplayGeometry(2560, 1440), 320, autoSelectable = false),
+    LANDSCAPE_3840X2160(DisplayGeometry(3840, 2160), 480, autoSelectable = false),
     PORTRAIT_720X1280(DisplayGeometry(720, 1280), 240),
-    PORTRAIT_1080X1920(DisplayGeometry(1080, 1920), 240)
+    PORTRAIT_1080X1920(DisplayGeometry(1080, 1920), 240),
+    PORTRAIT_1440X2560(DisplayGeometry(1440, 2560), 320, autoSelectable = false),
+    PORTRAIT_2160X3840(DisplayGeometry(2160, 3840), 480, autoSelectable = false);
+
+    /**
+     * Taller than wide. Every source above is decisively one or the other, so a square panel
+     * (none exists in the protocol) counting as landscape never comes up; what matters is that
+     * the orientation test reads the same here, in the saved-geometry veto below, and in
+     * TBoxModelProfile.hasValidatedAndroidAutoPreset, which compares two profiles' presets.
+     */
+    val isPortrait: Boolean get() = source.height > source.width
 }
 
 private val AUTO_LANDSCAPE_PRESETS = listOf(
@@ -94,10 +120,19 @@ data class AndroidAutoCapabilityProfile(
     val screenMargins: TBoxScreenMargins = TBoxScreenMargins.NONE,
     val touchEnabled: Boolean = true,
     /** See [AaAspectMargins]; added on top of [screenMargins] in the AAP margin fields. */
-    val aspectMargins: AaAspectMargins = AaAspectMargins.NONE
+    val aspectMargins: AaAspectMargins = AaAspectMargins.NONE,
+    /**
+     * The rider's explicit density, in dpi, or null to use the one the preset carries.
+     *
+     * Density is the only thing that decides how big Android Auto draws itself: the source size
+     * is pixels, and dp = px * 160 / dpi. Two dashes with the same 800x480 panel can want
+     * different answers here - a 5" TFT at arm's length and a 10" one on a tourer - and the
+     * preset's own value is a single compromise for both.
+     */
+    val densityOverride: Int? = null
 ) {
     val video: DisplayGeometry get() = videoPreset.source
-    val densityDpi: Int get() = videoPreset.densityDpi
+    val densityDpi: Int get() = densityOverride ?: videoPreset.densityDpi
     /** Android Auto's touch/UI surface after applying explicit AA content insets only. */
     val touchSurface: DisplayGeometry
         get() = screenMargins.inset(video).let { framed ->
@@ -131,12 +166,20 @@ object AndroidAutoCapabilityProfiles {
      * misreported T-Box area (for example a portrait emulator area saved for a landscape 800NK).
      * Exact-fit geometries remain valid even when they are close to square.
      *
-     * [fallbackIsValidated] must be false when the fallback comes from the generic profile
-     * rather than a recognized model. GENERIC's landscape default is a guess, not a
-     * measurement, and vetoing against it is self-defeating: a rider log (modelId 37426 whose
-     * CLIENT_INFO failed to decode, so it resolved to GENERIC) showed a real portrait 800x951
-     * dash rejected on every session, which also blocked saving the very geometry that would
-     * have corrected the guess - Android Auto stayed letterboxed into a 800x480 band forever.
+     * [fallbackIsValidated] must be false whenever the fallback preset's ORIENTATION is a guess
+     * about this dashboard rather than a fact about it - see
+     * TBoxModelProfile.hasValidatedAndroidAutoPreset, which is the one place that judgement is
+     * made. Vetoing a measurement against a guess is self-defeating - the same veto refuses to
+     * save the area, so the guess can never be corrected - and it has now cost two riders most
+     * of their screen on every session they ever ran:
+     *  - modelId 37426 whose CLIENT_INFO failed to decode, so it resolved to GENERIC: a real
+     *    portrait 800x951 dash rejected on every session, which also blocked saving the very
+     *    geometry that would have corrected the guess - Android Auto stayed letterboxed into a
+     *    800x480 band forever.
+     *  - rider 6e77dcf7 (2026-09-06), the same modelId decoding fine but ambiguous across three
+     *    CFDL26 profiles, where two touch capability flags broke the tie towards a portrait
+     *    preset and vetoed the dash's own 784x576 landscape CAPTURE_CONFIG. Non-GENERIC is not
+     *    the same claim as identified, which is what that function now answers.
      */
     internal fun usableSavedGeometryForAuto(
         target: DisplayGeometry?,
@@ -147,8 +190,7 @@ object AndroidAutoCapabilityProfiles {
         if (exactFitPreset(target) != null) return target
         if (!fallbackIsValidated) return target
         val targetIsPortrait = target.height > target.width
-        val fallbackIsPortrait = fallbackPreset.source.height > fallbackPreset.source.width
-        return target.takeIf { targetIsPortrait == fallbackIsPortrait }
+        return target.takeIf { targetIsPortrait == fallbackPreset.isPortrait }
     }
 
     fun select(
@@ -156,7 +198,8 @@ object AndroidAutoCapabilityProfiles {
         overridePreset: AndroidAutoVideoPreset? = null,
         screenMargins: TBoxScreenMargins = TBoxScreenMargins.NONE,
         touchEnabled: Boolean = true,
-        fallbackPreset: AndroidAutoVideoPreset = AndroidAutoVideoPreset.LANDSCAPE_800X480
+        fallbackPreset: AndroidAutoVideoPreset = AndroidAutoVideoPreset.LANDSCAPE_800X480,
+        densityOverride: Int? = null
     ): AndroidAutoCapabilityProfile {
         if (overridePreset != null) {
             return AndroidAutoCapabilityProfile(
@@ -165,7 +208,8 @@ object AndroidAutoCapabilityProfiles {
                 target = target,
                 reason = "Selected by the user's resolution and orientation override.",
                 screenMargins = screenMargins,
-                touchEnabled = touchEnabled
+                touchEnabled = touchEnabled,
+                densityOverride = densityOverride
             )
         }
        if (target == null) {
@@ -173,7 +217,8 @@ object AndroidAutoCapabilityProfiles {
                reason = "No saved T-Box geometry is available.",
                screenMargins = screenMargins,
                touchEnabled = touchEnabled,
-               preset = fallbackPreset
+               preset = fallbackPreset,
+               densityOverride = densityOverride
            )
        }
         if (!target.isPlausibleTBoxGeometry()) {
@@ -181,7 +226,8 @@ object AndroidAutoCapabilityProfiles {
                reason = "Saved T-Box geometry is outside safe limits.",
                screenMargins = screenMargins,
                touchEnabled = touchEnabled,
-               preset = fallbackPreset
+               preset = fallbackPreset,
+               densityOverride = densityOverride
            )
        }
 
@@ -208,7 +254,8 @@ object AndroidAutoCapabilityProfiles {
             reason = selectionReason + "${target.width}x${target.height}: " +
                 "${preset.source.width}x${preset.source.height}.",
             screenMargins = screenMargins,
-            touchEnabled = touchEnabled
+            touchEnabled = touchEnabled,
+            densityOverride = densityOverride
         )
     }
 
@@ -216,7 +263,8 @@ object AndroidAutoCapabilityProfiles {
         reason: String = "Using the hardware-validated compatibility profile.",
         screenMargins: TBoxScreenMargins = TBoxScreenMargins.NONE,
         touchEnabled: Boolean = true,
-        preset: AndroidAutoVideoPreset = AndroidAutoVideoPreset.LANDSCAPE_800X480
+        preset: AndroidAutoVideoPreset = AndroidAutoVideoPreset.LANDSCAPE_800X480,
+        densityOverride: Int? = null
     ) =
         AndroidAutoCapabilityProfile(
             videoPreset = preset,
@@ -224,7 +272,8 @@ object AndroidAutoCapabilityProfiles {
             target = null,
             reason = reason,
             screenMargins = screenMargins,
-            touchEnabled = touchEnabled
+            touchEnabled = touchEnabled,
+            densityOverride = densityOverride
         )
 
     private fun DisplayGeometry.isPlausibleTBoxGeometry(): Boolean {
@@ -240,8 +289,11 @@ object AndroidAutoCapabilityProfiles {
         val alignedWidth = target.width and 0xFFF0
         val alignedHeight = target.height and 0xFFF0
         val candidates = AndroidAutoVideoPreset.entries.filter { preset ->
-            (preset.videoWidth() == alignedWidth && preset.videoHeight() >= alignedHeight) ||
-                (preset.videoHeight() == alignedHeight && preset.videoWidth() >= alignedWidth)
+            // autoSelectable, not entries: the sources beyond 720p exist for a rider to choose,
+            // never for a T-Box's own report to choose for them. See the enum.
+            preset.autoSelectable &&
+                ((preset.videoWidth() == alignedWidth && preset.videoHeight() >= alignedHeight) ||
+                    (preset.videoHeight() == alignedHeight && preset.videoWidth() >= alignedWidth))
         }
         return candidates.minByOrNull { preset ->
             val widthRemainder = (preset.videoWidth() - alignedWidth).coerceAtLeast(0)

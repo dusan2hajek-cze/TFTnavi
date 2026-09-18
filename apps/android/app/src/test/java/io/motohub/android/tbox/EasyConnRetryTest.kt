@@ -132,10 +132,93 @@ class EasyConnRetryTest {
         assertFalse(isTransientEasyConnFailure(CancellationException("cancelled")))
     }
 
-    private fun policy() = EasyConnRetryPolicy(
+    /**
+     * The shape rider 94b0a3da hit: one attempt burns the whole native startup budget. Re-dialling
+     * the same silent session here would only double his wait, so the budget must refuse it - and
+     * must say so, because "gave up" and "was never allowed to try" read identically in a log.
+     */
+    @Test
+    fun `an attempt that spends the whole budget is not retried and says why`() = runBlocking {
+        var attempts = 0
+        var clock = 0L
+        val budgetSpent = mutableListOf<Pair<Int, Long>>()
+
+        try {
+            retryEasyConnStart(
+                policy = policy(totalBudgetMillis = 25_000),
+                shouldRetry = ::isTransientEasyConnFailure,
+                onRetry = { _, _, _ -> fail("There is no time left for another attempt") },
+                onBudgetSpent = { attempt, spent, _ -> budgetSpent += attempt to spent },
+                sleeper = { fail("A refused retry must not sleep") },
+                elapsedMillis = { clock }
+            ) {
+                attempts++
+                clock += 25_037L
+                throw IllegalStateException("context deadline exceeded")
+            }
+            fail("The failure must be returned")
+        } catch (failure: Throwable) {
+            assertEquals("context deadline exceeded", failure.message)
+        }
+
+        assertEquals(1, attempts)
+        assertEquals(listOf(1 to 25_037L), budgetSpent)
+    }
+
+    /**
+     * The other half of the same change: a handshake that fails FAST is exactly what the retry was
+     * written for, and the budget must not get in its way.
+     */
+    @Test
+    fun `fast failures still use every attempt within the same budget`() = runBlocking {
+        var attempts = 0
+        var clock = 0L
+
+        val result = retryEasyConnStart(
+            policy = policy(totalBudgetMillis = 25_000),
+            shouldRetry = ::isTransientEasyConnFailure,
+            onBudgetSpent = { _, _, _ -> fail("There is plenty of budget left") },
+            sleeper = { clock += it },
+            elapsedMillis = { clock }
+        ) { attempt ->
+            attempts++
+            clock += 12L
+            if (attempt < 3) throw IllegalStateException("unsuccessful ec response") else "ready"
+        }
+
+        assertEquals("ready", result)
+        assertEquals(3, attempts)
+    }
+
+    /** The default policy must stay exactly as unbounded as it was before the budget existed. */
+    @Test
+    fun `an unset budget never refuses a retry`() = runBlocking {
+        var attempts = 0
+        val clock = Long.MAX_VALUE / 2
+
+        try {
+            retryEasyConnStart(
+                policy = EasyConnRetryPolicy(initialDelayMillis = 0, maximumDelayMillis = 0),
+                shouldRetry = ::isTransientEasyConnFailure,
+                onBudgetSpent = { _, _, _ -> fail("An unset budget cannot be spent") },
+                sleeper = { },
+                elapsedMillis = { clock }
+            ) {
+                attempts++
+                throw IOException("connection reset")
+            }
+            fail("The final failure must be returned")
+        } catch (_: IOException) {
+        }
+
+        assertEquals(3, attempts)
+    }
+
+    private fun policy(totalBudgetMillis: Long = Long.MAX_VALUE) = EasyConnRetryPolicy(
         maxAttempts = 3,
         initialDelayMillis = 100,
         maximumDelayMillis = 250,
-        backoffMultiplier = 2
+        backoffMultiplier = 2,
+        totalBudgetMillis = totalBudgetMillis
     )
 }

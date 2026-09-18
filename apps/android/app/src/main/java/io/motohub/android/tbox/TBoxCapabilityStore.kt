@@ -63,6 +63,43 @@ class TBoxCapabilityStore(context: Context) {
         )
     }
 
+    /**
+     * One motorcycle's CLIENT_INFO capabilities as the JSON this store persists, addressed by
+     * profile id rather than by [MotorcycleProfile] so the other side of the AIDL bridge - which
+     * has an id and nothing else - can ask for them.
+     *
+     * The raw JSON rather than a parcel of fields, for the same reason the wire ladder crosses
+     * that way: both apps compile this file, so what one encodes the other decodes, and a
+     * capability gaining a field needs no contract change.
+     */
+    fun encodedCapabilities(profileId: String): String? =
+        preferences.getString(key(profileId), null)
+            ?.let { serialized -> runCatching { decode(JSONObject(serialized)) }.getOrNull() }
+            ?.capabilities
+            ?.let { capabilities -> encodeCapabilities(capabilities).toString() }
+
+    /**
+     * Stores capabilities that arrived as [encodedCapabilities] text from another process.
+     * Returns what was stored, or null when the text carries nothing this build recognises.
+     *
+     * An all-null decode is refused rather than saved: every field here is optional, so a
+     * truncated or foreign object decodes to an empty snapshot instead of throwing, and saving
+     * that would replace a real snapshot with an empty one that still counts as "capabilities
+     * known" everywhere downstream.
+     */
+    @Synchronized
+    fun recordEncodedCapabilities(
+        profile: MotorcycleProfile,
+        json: String,
+        observedAtEpochMillis: Long = System.currentTimeMillis()
+    ): TBoxCapabilities? {
+        val decoded = runCatching { decodeCapabilities(JSONObject(json)) }.getOrNull()
+            ?.takeIf { it != TBoxCapabilities() }
+            ?: return null
+        recordCapabilities(profile, decoded, observedAtEpochMillis)
+        return decoded
+    }
+
     fun load(profile: MotorcycleProfile): TBoxCapabilitySnapshot? =
         preferences.getString(key(profile.id), null)
             ?.let { serialized -> runCatching { decode(JSONObject(serialized)) }.getOrNull() }
@@ -105,87 +142,9 @@ class TBoxCapabilityStore(context: Context) {
         capabilitiesObservedAtEpochMillis = json.optionalLong("capabilitiesObservedAt")
     )
 
-    private fun encodeCapabilities(value: TBoxCapabilities): JSONObject = JSONObject().apply {
-        putNullable("huName", value.huName)
-        putNullable("carBrand", value.carBrand)
-        putNullable("carModel", value.carModel)
-        putNullable("packageName", value.packageName)
-        putNullable("pxcVersion", value.pxcVersion)
-        putNullable("sdkVersion", value.sdkVersion)
-        putNullable("versionName", value.versionName)
-        putNullable("versionCode", value.versionCode)
-        putNullable("dpi", value.dpi)
-        putNullable("dpiEnabled", value.dpiEnabled)
-        putNullable("productType", value.productType)
-        putNullable("screenType", value.screenType)
-        putNullable("transportType", value.transportType)
-        putNullable("supportFunction", value.supportFunction)
-        putNullable("socketTimeoutPeriodWifi", value.socketTimeoutPeriodWifi)
-        putNullable("socketServerAuth", value.socketServerAuth)
-        putNullable("screenTouch", value.screenTouch)
-        putNullable("screenMirroring", value.screenMirroring)
-        putNullable("mirrorReconnect", value.mirrorReconnect)
-        putNullable("landscapeAdaptive", value.landscapeAdaptive)
-        putNullable("microphone", value.microphone)
-        putNullable("hid", value.hid)
-        putNullable("mirrorOverlayTouch", value.mirrorOverlayTouch)
-        putNullable("thirdPartyApps", value.thirdPartyApps)
-        putNullable("phoneSignal", value.phoneSignal)
-        putNullable("syncCorrectTime", value.syncCorrectTime)
-        putNullable("bluetoothCall", value.bluetoothCall)
-        putNullable("bluetoothSettings", value.bluetoothSettings)
-    }
-
-    private fun decodeCapabilities(json: JSONObject) = TBoxCapabilities(
-        huName = json.optionalString("huName"),
-        carBrand = json.optionalString("carBrand"),
-        carModel = json.optionalString("carModel"),
-        packageName = json.optionalString("packageName"),
-        pxcVersion = json.optionalString("pxcVersion"),
-        sdkVersion = json.optionalString("sdkVersion"),
-        versionName = json.optionalString("versionName"),
-        versionCode = json.optionalString("versionCode"),
-        dpi = json.optionalInt("dpi"),
-        dpiEnabled = json.optionalBoolean("dpiEnabled"),
-        productType = json.optionalInt("productType"),
-        screenType = json.optionalInt("screenType"),
-        transportType = json.optionalInt("transportType"),
-        supportFunction = json.optionalInt("supportFunction"),
-        socketTimeoutPeriodWifi = json.optionalInt("socketTimeoutPeriodWifi"),
-        socketServerAuth = json.optionalBoolean("socketServerAuth"),
-        screenTouch = json.optionalBoolean("screenTouch"),
-        screenMirroring = json.optionalBoolean("screenMirroring"),
-        mirrorReconnect = json.optionalBoolean("mirrorReconnect"),
-        landscapeAdaptive = json.optionalBoolean("landscapeAdaptive"),
-        microphone = json.optionalBoolean("microphone"),
-        hid = json.optionalBoolean("hid"),
-        mirrorOverlayTouch = json.optionalBoolean("mirrorOverlayTouch"),
-        thirdPartyApps = json.optionalBoolean("thirdPartyApps"),
-        phoneSignal = json.optionalBoolean("phoneSignal"),
-        syncCorrectTime = json.optionalBoolean("syncCorrectTime"),
-        bluetoothCall = json.optionalBoolean("bluetoothCall"),
-        bluetoothSettings = json.optionalBoolean("bluetoothSettings")
-    )
-
     private fun key(profileId: String) = "profile:$profileId"
 
     private companion object {
         const val PREFERENCES_NAME = "tbox_capabilities"
     }
 }
-
-private fun JSONObject.putNullable(key: String, value: Any?) {
-    put(key, value ?: JSONObject.NULL)
-}
-
-private fun JSONObject.optionalString(key: String): String? =
-    if (!has(key) || isNull(key)) null else optString(key).takeIf(String::isNotBlank)
-
-private fun JSONObject.optionalInt(key: String): Int? =
-    if (!has(key) || isNull(key)) null else optInt(key)
-
-private fun JSONObject.optionalLong(key: String): Long? =
-    if (!has(key) || isNull(key)) null else optLong(key)
-
-private fun JSONObject.optionalBoolean(key: String): Boolean? =
-    if (!has(key) || isNull(key)) null else optBoolean(key)

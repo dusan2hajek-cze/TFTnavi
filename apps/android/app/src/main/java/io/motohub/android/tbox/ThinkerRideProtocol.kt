@@ -177,6 +177,77 @@ object ThinkerRideProtocol {
         }
     }
 
+    // ---- BLE byteCat framing -----------------------------------------------------------------
+
+    /**
+     * Some ThinkerRide firmware does not read a bare JSON write on `ffe1` at all: it expects the
+     * OEM's `byteCat` frame — a fixed 104-byte envelope `FE | seq_be:2 | payload | FF`, zero
+     * padded, carrying at most [BYTE_CAT_CHUNK_MAX] bytes of a checksummed body per frame.
+     *
+     * Off by default and enabled per profile ([TBoxModelProfile.bleUsesByteCatFraming]), because
+     * the two dialects are NOT interchangeable and one of them is field-proven: a KOVE 800X
+     * streamed 2226 frames on bare JSON (tester log 2026-08-15), so framing every dash would
+     * break the one rider known to work. The SiQi firmware on a KOVE 450 Rally is the opposite
+     * case — across 12 sessions it answered none of our writes, not even the `item:6` version
+     * reply that `{"msg_id":13}` is supposed to force, while sending its own telemetry the whole
+     * time (case 32e132d0, 2026-08-24). Source for the frame shape: ttarlov/kove-dash
+     * `app/.../net/ByteCat.kt` + `proto-poc/PROTOCOL.md`, itself decompiled from the OEM app.
+     */
+    const val BYTE_CAT_FRAME_LENGTH = 104
+    const val BYTE_CAT_CHUNK_MAX = 100
+    const val BYTE_CAT_HEAD = 0xFE.toByte()
+    const val BYTE_CAT_TAIL = 0xFF.toByte()
+
+    /**
+     * The OEM's `getCRCCode`: a mod-256 sum of [body] split into two nibbles, each OR'd with
+     * 0x80 so neither byte can collide with [BYTE_CAT_HEAD] or [BYTE_CAT_TAIL] inside a frame.
+     * Not a CRC in any real sense, but it is what the dash checks.
+     */
+    fun byteCatChecksum(body: ByteArray): ByteArray {
+        var total = 0
+        for (byte in body) total = (total + (byte.toInt() and 0xFF)) and 0xFF
+        return byteArrayOf(
+            (((total and 0xF0) ushr 4) or 0x80).toByte(),
+            ((total and 0x0F) or 0x80).toByte()
+        )
+    }
+
+    /**
+     * One JSON command as the 104-byte frames the dash reads, sequence numbers starting at
+     * [startSeq] and advancing **per frame** — the dash's loss detector wants one contiguous
+     * run per connection, so a caller must advance its own counter by the returned size rather
+     * than stamp a whole message with one number.
+     *
+     * The body is the JSON, its NUL terminator replaced by the two checksum bytes, and the NUL
+     * put back at the end — the reference's `cat()` does exactly this, and the dash rejects any
+     * other arrangement, so it is copied rather than tidied.
+     */
+    fun byteCatFrames(json: String, startSeq: Int): List<ByteArray> {
+        val body = json.toByteArray(StandardCharsets.UTF_8) + 0x00.toByte()
+        val checksum = byteCatChecksum(body)
+        val payload = ByteArray(body.size + 2)
+        body.copyInto(payload)
+        payload[body.size - 1] = checksum[0]
+        payload[body.size] = checksum[1]
+
+        val frames = mutableListOf<ByteArray>()
+        var cursor = 0
+        var sequence = startSeq
+        while (cursor < payload.size) {
+            val length = minOf(payload.size - cursor, BYTE_CAT_CHUNK_MAX)
+            val frame = ByteArray(BYTE_CAT_FRAME_LENGTH)
+            frame[0] = BYTE_CAT_HEAD
+            frame[1] = ((sequence shr 8) and 0xFF).toByte()
+            frame[2] = (sequence and 0xFF).toByte()
+            payload.copyInto(frame, destinationOffset = 3, startIndex = cursor, endIndex = cursor + length)
+            frame[3 + length] = BYTE_CAT_TAIL
+            frames += frame
+            cursor += length
+            sequence++
+        }
+        return frames
+    }
+
     // ---- Control channel framing -------------------------------------------------------------
 
     /** Frames one JSON command for the control channel: `EE FD` + 4-byte BE length + body + `FF`. */

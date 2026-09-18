@@ -18,6 +18,15 @@ interface TBoxSessionEstablisher {
     val transport: TBoxTransport
     val networkConnector: TBoxNetworkConnector
 
+    companion object {
+        /**
+         * The establisher's name in [TBoxNetworkConnectors]' interest ledger. On the interface
+         * because the ViewModel that drives a PRO establisher releases the lease its establisher
+         * acquired - one constant, not a string agreed across files.
+         */
+        const val NETWORK_OWNER = "pro-establisher"
+    }
+
     /**
      * Establishes the connection and installs the session into TBoxSessionRegistry.
      * Returns true when the session is READY. The callbacks let the shared UI keep its exact
@@ -39,4 +48,19 @@ interface TBoxSessionEstablisher {
      * ask Core to abort its side — see AidlTBoxSessionEstablisher.
      */
     fun cancelPendingConnect() = Unit
+
+    /**
+     * Whether the dashboard is refusing most of what this session sends it, as a stream the UI
+     * can simply collect.
+     *
+     * Behind the seam because the two editions cannot learn it the same way, and neither one
+     * should have to know that. CORE runs the video pipelines in its own process and observes
+     * [io.motohub.android.session.DashboardDeliveryMonitor] directly; ADVANCED writes its frames
+     * into a one-way pipe and has to ask Core, whose answer only changes when a session does -
+     * so it polls, slowly, and only while there is a session to ask about.
+     *
+     * Emits null when there is nothing to report, which is every healthy session there is.
+     */
+    fun deliveryWarnings(): kotlinx.coroutines.flow.Flow<io.motohub.android.session.DashboardDeliveryReport?> =
+        kotlinx.coroutines.flow.flowOf(null)
 }

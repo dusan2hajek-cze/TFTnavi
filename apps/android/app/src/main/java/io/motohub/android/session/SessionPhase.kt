@@ -95,10 +95,10 @@ data class HubSessionState(
     /**
      * The last failure is one another EasyConn app could plausibly have caused - i.e. the link to
      * the dash was up and the session handshake is what failed. Only then is it fair to point the
-     * rider at the official CFMOTO app, which cannot be force-stopped by this app and so costs
-     * them a trip through Settings to find out.
+     * rider at their motorcycle's own companion app, which cannot be force-stopped by this
+     * app and so costs them a trip through Settings to find out.
      *
-     * The banner used to offer that help for *every* failure on a phone with the CFMOTO app
+     * The banner used to offer that help for *every* failure on a phone with a companion app
      * installed, including failures that never got as far as a network. One rider spent a morning
      * on it - force-stopping it, then uninstalling it - for a connection Android was refusing to
      * route at all (2026-08-15). Advice that cannot possibly apply is not neutral; it is the
@@ -107,7 +107,20 @@ data class HubSessionState(
      * Same reasoning as [offerPhoneHotspotRetry] for carrying it as state: the stage a failure
      * came from is known where it is raised and unrecoverable from the translated text.
      */
-    val offerOfficialAppHelp: Boolean = false
+    val offerOfficialAppHelp: Boolean = false,
+
+    /**
+     * The session is up and the dashboard is refusing most of what it is sent - see
+     * [DashboardDeliveryMonitor]. Not a failure and never phrased as one: the phase stays
+     * whatever it was, because everything the app can check really is working.
+     *
+     * This exists because the failure it describes had no representation at all. Rider 315e0af3
+     * spent two days on a Moto Morini X-Cape 1200 that connected, reported READY, and painted a
+     * frozen picture; the app's own log had the numbers the whole time. He found the profile
+     * override in the Garage by accident, pinned the right entry, and was riding in ninety
+     * seconds - so the fix was always one tap away behind a screen nothing pointed him at.
+     */
+    val deliveryWarning: DashboardDeliveryReport? = null
 )
 
 fun HubSessionState.withMotorcycle(profile: MotorcycleProfile): HubSessionState = copy(

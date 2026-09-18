@@ -17,6 +17,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
+import io.motohub.android.R
 import kotlin.math.roundToInt
 import io.motohub.android.ui.theme.MotoHubLive
 
@@ -153,21 +156,31 @@ private fun EditionWaveText(modifier: Modifier = Modifier) {
             )
         )
     }
-    Text(
-        text = label,
-        modifier = modifier.offset { IntOffset(0, offsetY.value.roundToInt()) },
-        style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = MaterialTheme.typography.labelMedium.letterSpacing,
-            color = accentColor,
-            shadow = Shadow(
-                color = accentColor.copy(alpha = 0.45f),
-                offset = Offset(0f, 3f),
-                blurRadius = 10f
+    if (isPro) {
+        Text(
+            text = label,
+            modifier = modifier.offset { IntOffset(0, offsetY.value.roundToInt()) },
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = MaterialTheme.typography.labelMedium.letterSpacing,
+                color = accentColor,
+                shadow = Shadow(
+                    color = accentColor.copy(alpha = 0.45f),
+                    offset = Offset(0f, 3f),
+                    blurRadius = 10f
+                )
             )
         )
-    )
+    } else {
+        Image(
+            painter = painterResource(R.drawable.connector),
+            contentDescription = "TFTnavi",
+            modifier = modifier
+                .offset { IntOffset(0, offsetY.value.roundToInt()) }
+                .height(28.dp)
+        )
+    }
 }
 
 /** Same bright center tone as the Advanced/PRO adaptive launcher icon's radial gradient. */
@@ -263,7 +276,7 @@ private fun NavItem(label: String, active: Boolean, modifier: Modifier = Modifie
     ) {
         NavIcon(label, active)
         Text(
-            text = label,
+            text = motoHubText(label),
             style = MaterialTheme.typography.labelSmall,
             fontFamily = FontFamily.SansSerif,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
@@ -462,7 +475,11 @@ fun MotoHubDetailScreen(
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold
         )
-        Text(title, style = MaterialTheme.typography.displaySmall)
+        Text(
+            title,
+            style = MaterialTheme.typography.displaySmall,
+            color = MaterialTheme.colorScheme.onBackground
+        )
         content()
         Spacer(Modifier.height(8.dp))
     }

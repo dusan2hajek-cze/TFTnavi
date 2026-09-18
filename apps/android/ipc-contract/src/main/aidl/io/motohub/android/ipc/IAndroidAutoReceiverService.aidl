@@ -1,8 +1,10 @@
 package io.motohub.android.ipc;
 
+import android.os.ParcelFileDescriptor;
 import android.view.Surface;
 import io.motohub.android.ipc.IAndroidAutoStateListener;
 import io.motohub.android.ipc.INavigationGuidanceListener;
+import io.motohub.android.ipc.IHandlebarGestureListener;
 import io.motohub.android.ipc.AndroidAutoSettingsParcel;
 
 /**
@@ -69,4 +71,30 @@ interface IAndroidAutoReceiverService {
      */
     void registerNavigationGuidanceListener(INavigationGuidanceListener listener);
     void unregisterNavigationGuidanceListener(INavigationGuidanceListener listener);
+
+    /**
+     * Every handlebar gesture CORE's bridge recognises while a session is running, so the
+     * companion app's teaching wizard can see the press the rider was just asked to make.
+     *
+     * Appended after every pre-existing method, like the navigation listener above, so AIDL
+     * transaction ids stay stable across a CORE/companion version skew. A CORE that predates
+     * these calls answers the dead transaction, the registration fails, and the wizard behaves
+     * exactly as it did before - which is to say it sees nothing during an Android Auto session.
+     */
+    void registerHandlebarGestureListener(IHandlebarGestureListener listener);
+    void unregisterHandlebarGestureListener(IHandlebarGestureListener listener);
+
+    /**
+     * Android Auto's own sound - music and spoken directions - handed to the companion as plain
+     * PCM instead of left to the phone. Wanting it is decided per session: Core claims the
+     * audio streams at the next service discovery and stops claiming them at the one after the
+     * want is withdrawn. The pipe carries frames shaped by ProjectionAudioFraming; it can be
+     * reopened freely, and closing it never touches the session.
+     *
+     * Appended after every pre-existing method, like the listeners above. A Core that predates
+     * these calls answers a dead transaction, which the client surfaces as false / null.
+     */
+    boolean setProjectionAudioWanted(boolean wanted);
+    ParcelFileDescriptor openProjectionAudioStream();
+    void closeProjectionAudioStream();
 }

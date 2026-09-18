@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
@@ -53,7 +54,14 @@ import kotlinx.coroutines.withTimeoutOrNull
 internal class ThinkerRideBleLink(
     context: Context,
     private val log: (String) -> Unit,
-    private val onLinkLost: (String) -> Unit
+    private val onLinkLost: (String) -> Unit,
+    /**
+     * Whether this dash's profile wants the OEM's 104-byte byteCat envelope instead of bare
+     * JSON. A lambda rather than a value because the session is built before the caller has
+     * necessarily configured the profile, and getting the framing from a stale read would be
+     * silent: an unframed write is not rejected, it is simply never parsed.
+     */
+    private val useByteCatFraming: () -> Boolean = { false }
 ) {
     private val appContext = context.applicationContext
     private val bluetoothManager = appContext.getSystemService(BluetoothManager::class.java)
@@ -86,11 +94,25 @@ internal class ThinkerRideBleLink(
     /** Notifications are fragments, not messages; this puts them back together. */
     private val notifyAssembler = ThinkerRideProtocol.NotifyAssembler()
 
+    /**
+     * One GATT write: the bytes that go on the wire plus the JSON they came from, which is what
+     * every log line and the heartbeat's already-queued check are really about. Compared by
+     * identity everywhere - two frames of one message, or two heartbeats, are equal by value.
+     */
+    private class Packet(val label: String, val bytes: ByteArray)
+
     /** Guards [writeQueue], [inFlight], [inFlightAttempts], [writeGeneration], [writeWatchdog]. */
     private val queueLock = Any()
-    private val writeQueue = ArrayDeque<String>()
-    private var inFlight: String? = null
+    private val writeQueue = ArrayDeque<Packet>()
+    private var inFlight: Packet? = null
     private var inFlightAttempts = 0
+
+    /**
+     * byteCat sequence numbers, contiguous from 0 per connection: the dash's loss detector reads
+     * the run, and restarting it mid-session makes it ask for retransmits of frames that were
+     * never sent.
+     */
+    private val byteCatSequence = AtomicInteger(0)
     private var writeGeneration = 0L
     private var writeWatchdog: ScheduledFuture<*>? = null
 
@@ -403,7 +425,10 @@ internal class ThinkerRideBleLink(
         if (!handshakeStarted.compareAndSet(false, true)) return
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         val packets = ThinkerRideProtocol.bleHandshakePackets(timestamp)
-        log("Sending the Bluetooth handshake (${packets.size} packets, queued).")
+        // Which dialect went out is the first thing to check in a log where the dash answers
+        // nothing, and it cannot be inferred from anything else the log says.
+        val framing = if (useByteCatFraming()) "byteCat frames" else "bare JSON"
+        log("Sending the Bluetooth handshake (${packets.size} packets, queued, $framing).")
         packets.forEach { enqueue(it) }
         // The first heartbeat goes out with the handshake, not one interval later: KoveMirror
         // added exactly this (upstream 22ed5d5, "Trying to fix the connection issues") and a
@@ -415,16 +440,25 @@ internal class ThinkerRideBleLink(
     /** A heartbeat that is still waiting its turn is not worth queueing twice. */
     private fun queueHeartbeat() {
         val packet = ThinkerRideProtocol.bleHeartbeatPacket()
-        val alreadyQueued = synchronized(queueLock) { writeQueue.contains(packet) }
+        val alreadyQueued = synchronized(queueLock) { writeQueue.any { it.label == packet } }
         if (!alreadyQueued) enqueue(packet)
     }
 
     // ---- Write queue -----------------------------------------------------------------------
 
     private fun enqueue(json: String) {
+        val packets = if (useByteCatFraming()) {
+            // Reserve this message's sequence numbers in one step, so two commands queued from
+            // different threads can never interleave their frames' numbering.
+            val frames = ThinkerRideProtocol.byteCatFrames(json, byteCatSequence.get())
+            byteCatSequence.addAndGet(frames.size)
+            frames.map { Packet(json, it) }
+        } else {
+            listOf(Packet(json, json.toByteArray(StandardCharsets.UTF_8)))
+        }
         synchronized(queueLock) {
             if (closed.get()) return
-            writeQueue.addLast(json)
+            packets.forEach { writeQueue.addLast(it) }
         }
         schedule(0) { pump() }
     }
@@ -441,7 +475,7 @@ internal class ThinkerRideBleLink(
         dispatch(next)
     }
 
-    private fun dispatch(json: String) {
+    private fun dispatch(packet: Packet) {
         val activeGatt = gatt
         val characteristic = writeCharacteristic
         if (closed.get() || activeGatt == null || characteristic == null) {
@@ -452,16 +486,16 @@ internal class ThinkerRideBleLink(
             BleCompat.writeCharacteristic(
                 activeGatt,
                 characteristic,
-                json.toByteArray(StandardCharsets.UTF_8),
+                packet.bytes,
                 BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             )
         }
         val failure = submitted.exceptionOrNull()
         when {
             failure is SecurityException -> onLinkLost(missingPermissionFailure().message.orEmpty())
-            failure != null -> retryOrDrop(json, "write threw ${failure.message}")
-            submitted.getOrNull() == BluetoothStatusCodes.SUCCESS -> armWriteWatchdog(json)
-            else -> retryOrDrop(json, "refused (code ${submitted.getOrNull()})")
+            failure != null -> retryOrDrop(packet, "write threw ${failure.message}")
+            submitted.getOrNull() == BluetoothStatusCodes.SUCCESS -> armWriteWatchdog(packet)
+            else -> retryOrDrop(packet, "refused (code ${submitted.getOrNull()})")
         }
     }
 
@@ -469,25 +503,28 @@ internal class ThinkerRideBleLink(
      * A refusal means the radio is busy, not that the dash said no — the packet has not been
      * transmitted at all, so the only correct answer is to send it again.
      */
-    private fun retryOrDrop(json: String, reason: String) {
+    private fun retryOrDrop(packet: Packet, reason: String) {
         val attempts = synchronized(queueLock) {
-            if (inFlight != json) return
+            if (inFlight !== packet) return
             ++inFlightAttempts
         }
         if (attempts >= MAX_WRITE_ATTEMPTS) {
-            log("BLE write dropped after $attempts attempts — $reason: $json")
+            log("BLE write dropped after $attempts attempts — $reason: ${packet.label}")
             finishInFlight()
             return
         }
-        schedule(WRITE_RETRY_DELAY_MS) { dispatch(json) }
+        schedule(WRITE_RETRY_DELAY_MS) { dispatch(packet) }
     }
 
-    private fun armWriteWatchdog(json: String) {
+    private fun armWriteWatchdog(packet: Packet) {
         val generation = synchronized(queueLock) { writeGeneration }
         val watchdog = schedule(WRITE_CALLBACK_TIMEOUT_MS) {
             val stalled = synchronized(queueLock) { writeGeneration == generation && inFlight != null }
             if (stalled) {
-                log("BLE write got no completion callback in ${WRITE_CALLBACK_TIMEOUT_MS}ms; moving on: $json")
+                log(
+                    "BLE write got no completion callback in ${WRITE_CALLBACK_TIMEOUT_MS}ms; " +
+                        "moving on: ${packet.label}"
+                )
                 finishInFlight()
             }
         }

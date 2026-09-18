@@ -91,7 +91,9 @@ class PhoneOnlyAndroidAutoBridge(private val context: Context) :
         val activeCompositor = AaCompositor(
             log = { ProjectionEventLog.debug("PHONE_ONLY_AA", it) },
             displayMode = AndroidAutoDisplayModeStore(context).load(PHONE_ONLY_ANDROID_AUTO_PROFILE),
-            sourceGeometry = profile.video
+            sourceGeometry = profile.video,
+            // There is no bike here: this compositor's output target is the preview panel itself.
+            outputAppliesBackPressure = false
         )
         if (!activeCompositor.start()) {
             AndroidAutoRuntime.publish(AndroidAutoRuntimeState.Failed("Compositor failed to initialize (EGL/GL)."))

@@ -21,6 +21,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.os.PowerManager
 import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
@@ -29,6 +30,7 @@ import io.motohub.android.R
 import io.motohub.android.encoding.AvcEncoder
 import io.motohub.android.encoding.EncoderProfile
 import io.motohub.android.i18n.motoHubText
+import io.motohub.android.session.FrameLogThrottle
 import io.motohub.android.session.ProjectionEventLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +61,7 @@ class AoaExternalService : Service() {
     private var aoaFileDescriptor: ParcelFileDescriptor? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val framesSent = AtomicLong(0)
+    private val frameLogThrottle = FrameLogThrottle()
     private val capturing = AtomicBoolean(false)
     @Volatile private var stopping = false
 
@@ -129,8 +132,8 @@ class AoaExternalService : Service() {
                     "and close Autolink first."
             )
 
-            // 3. Kill Autolink if running (releases any stale AOA claim)
-            killAutolink()
+            // 3. Ask Autolink to let go of the accessory, where the platform still allows it
+            requestAutolinkStop(this)
 
             // 4. Request USB permission and open the accessory stream
             val usbManager = getSystemService(UsbManager::class.java)
@@ -168,12 +171,13 @@ class AoaExternalService : Service() {
                     try {
                         outputStream.write(accessUnit)
                         val count = framesSent.incrementAndGet()
-                        if (count == 1L || count % FRAME_LOG_INTERVAL == 0L) {
-                            ProjectionEventLog.record(
-                                "AOA_ENCODER",
-                                "AOA frames sent: $count."
-                            )
-                        }
+                        frameLogThrottle.rateSuffixIfDue(count, SystemClock.elapsedRealtime())
+                            ?.let { rate ->
+                                ProjectionEventLog.record(
+                                    "AOA_ENCODER",
+                                    "AOA frames sent: $count$rate."
+                                )
+                            }
                         true
                     } catch (e: IOException) {
                         serviceScope.launch {
@@ -263,23 +267,6 @@ class AoaExternalService : Service() {
             ProjectionEventLog.warning("AOA_SERVICE", "USB AOA permission denied by user.")
         }
         result[0]
-    }
-
-    /** Attempts to stop Autolink so it releases its AOA claim. */
-    private fun killAutolink() {
-        try {
-            val am = getSystemService(android.app.ActivityManager::class.java)
-            am.killBackgroundProcesses(AUTOLINK_PACKAGE)
-            ProjectionEventLog.record(
-                "AOA_SERVICE",
-                "Requested background stop of $AUTOLINK_PACKAGE."
-            )
-        } catch (e: Exception) {
-            ProjectionEventLog.warning(
-                "AOA_SERVICE",
-                "Unable to stop Autolink: ${e.message}"
-            )
-        }
     }
 
     /** Returns the first AOA accessory, or null if none is connected. */
@@ -373,14 +360,12 @@ class AoaExternalService : Service() {
             "io.motohub.android.action.AOA_USB_PERMISSION"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
-        private const val AUTOLINK_PACKAGE = "com.link.autolink"
 
         // Autolink-compatible video parameters
         private const val EXTERNAL_WIDTH = 1280
         private const val EXTERNAL_HEIGHT = 720
         private const val EXTERNAL_FRAMERATE = 30
         private const val EXTERNAL_BITRATE = 4_194_304
-        private const val FRAME_LOG_INTERVAL = 120L
 
         fun start(context: Context, resultCode: Int, resultData: Intent) {
             val intent = Intent(context, AoaExternalService::class.java)

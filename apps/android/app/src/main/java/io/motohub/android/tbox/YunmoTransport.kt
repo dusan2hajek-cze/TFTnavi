@@ -17,6 +17,7 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -61,7 +62,10 @@ class YunmoTransport(context: Context) : TBoxTransport {
     private var session: Session? = null
     private val sessionLock = Any()
 
-    override fun configureProtocolProfile(profile: TBoxModelProfile) {
+    override fun configureProtocolProfile(
+        profile: TBoxModelProfile,
+        motorcycle: io.motohub.android.session.MotorcycleProfile?
+    ) {
         protocolProfile = profile
     }
 
@@ -224,6 +228,9 @@ class YunmoTransport(context: Context) : TBoxTransport {
         }
     }
 
+    /** One still on its way to the socket, carrying the id the dash will echo back. */
+    private class PendingStill(val jpeg: ByteArray, val id: Int)
+
     /** Everything owned by one dash connection, torn down as a unit. */
     private inner class Session(
         private val mapNavMode: Boolean,
@@ -248,6 +255,41 @@ class YunmoTransport(context: Context) : TBoxTransport {
 
         @Volatile
         private var unackedSinceAck = 0
+
+        /**
+         * The id of the newest still handed to the socket, and the only honest measure of how far
+         * ahead of the dash the stills path is.
+         *
+         * [frameId] cannot serve here. It is advanced by [writeFrame], which belongs to the H.264
+         * path; stills are numbered by `JpegDisplaySource` and written straight out, so on a JPEG
+         * session that counter sits at 0 for the whole ride. Reading it as "ids outstanding" made
+         * the window arithmetic `0 - lastAckedId`, which is negative from the first ack onwards -
+         * a send window that could never close. Nothing then limited the sender except the socket
+         * itself, so stills piled into the kernel send buffer and the dash's receive buffer and
+         * were painted many seconds after they were drawn (field log 2026-08-22: 13,328 stills
+         * over 75 minutes, the writer permanently blocked in `write`, 40 of every 51 offers
+         * refused, and a rider reporting roughly fifteen seconds of delay).
+         */
+        @Volatile
+        private var lastOfferedStillId = -1
+
+        /** The still waiting for the socket. Latest wins: an unsent still ages out in one tick. */
+        private val pendingStill = AtomicReference<PendingStill?>(null)
+
+        /**
+         * The id just below the first still this connection ever offered, and the floor the
+         * in-flight arithmetic measures against until the dash's first ack arrives.
+         *
+         * Still ids come from the sender's own counter, which does not restart when a watchdog
+         * recovery rebuilds this connection - so the first still of a recovered session arrived
+         * carrying id 10 into a transport whose lastAckedId was -1, the window arithmetic read
+         * eleven stills in flight against a window of two, and every offer was refused until the
+         * dash's ack for that first frame happened to land (X-Cape 1200 field log, 2026-08-24).
+         * Anchoring the floor at first-offer-minus-one makes a fresh connection start at one in
+         * flight whatever the inherited id says; the first real ack takes over from there.
+         */
+        @Volatile
+        private var stillIdFloor = -1
 
         @Volatile
         private var pendingDim: YunmoProtocol.DimensionReport? = null
@@ -304,7 +346,9 @@ class YunmoTransport(context: Context) : TBoxTransport {
 
         // One frame queued at most, like RideDaemon/ThinkerRide: a stalled dash socket produces
         // rejected offers (which VideoBackpressureGuard understands) rather than an unbounded
-        // backlog of stale video.
+        // backlog of stale video. It bounds the handoff, not the delay - what the dash is
+        // actually willing to hold is [YunmoProtocol.STILL_SEND_WINDOW] for stills and the ack
+        // window for H.264, and a queue this shallow says nothing about either.
         private val frameExecutor = ThreadPoolExecutor(
             1,
             1,
@@ -439,27 +483,62 @@ class YunmoTransport(context: Context) : TBoxTransport {
             }
         }
 
+        /**
+         * Offers one still, and refuses it outright when the dash has not caught up.
+         *
+         * The refusal is the point. The H.264 path can afford to *wait* for a window slot because
+         * an encoder starved of output stalls; a still has nowhere to stall to, and the caller
+         * already holds a newer picture. So this never blocks: it answers "not now", the caller
+         * counts the frame as held back and keeps the freshest one for the next tick, and the only
+         * pictures on the wire are ones the dash has room for. That is what bounds the delay -
+         * without it there is no application-level limit at all and the wait happens inside the
+         * socket buffers instead, where it is measured in seconds and nothing can drop it.
+         */
         fun offerJpegFrame(jpeg: ByteArray, frameId: Int): Boolean {
             if (!running.get()) return false
             // The dash draws its own arrows in SimpleNavi and discards whatever arrives; skipping
             // keeps the capture draining so the resume is immediate.
             if (simpleNaviActive) return true
+            if (lastOfferedStillId == -1) stillIdFloor = frameId - 1
+            if (stillsInFlight() >= YunmoProtocol.STILL_SEND_WINDOW) return false
+
+            // Latest wins. A still that has not reached the socket yet is worth nothing beside the
+            // one that just replaced it, so hand the newest to whatever task is already queued
+            // rather than letting a stale picture take its turn.
+            val alreadyQueued = pendingStill.getAndSet(PendingStill(jpeg, frameId)) != null
+            lastOfferedStillId = frameId
+            if (alreadyQueued) return true
             return try {
-                frameExecutor.execute {
-                    try {
-                        if (!waitForSendWindow() || !running.get()) return@execute
-                        write(YunmoProtocol.encodeJpegEx(jpeg, frameId))
-                        phaseOnce("jpeg") { "first JPEG still out (${jpeg.size}b, id=$frameId)" }
-                        unackedSinceAck++
-                    } catch (failure: IOException) {
-                        reportFatal("The dashboard video connection dropped: ${failure.message}")
-                    }
-                }
+                frameExecutor.execute { writePendingStill() }
                 true
             } catch (_: RejectedExecutionException) {
+                pendingStill.set(null)
                 false
             }
         }
+
+        private fun writePendingStill() {
+            val still = pendingStill.getAndSet(null) ?: return
+            if (!running.get()) return
+            try {
+                write(YunmoProtocol.encodeJpegEx(still.jpeg, still.id))
+                phaseOnce("jpeg") { "first JPEG still out (${still.jpeg.size}b, id=${still.id})" }
+            } catch (failure: IOException) {
+                reportFatal("The dashboard video connection dropped: ${failure.message}")
+            }
+        }
+
+        /**
+         * Stills handed over but not yet acknowledged.
+         *
+         * Ids, not a count of frames since the last ack: the dash echoes the last still id it
+         * processed, so the difference is exact and survives the gaps that latest-wins leaves
+         * behind. Counting frames-since-the-last-ack here is what throttled the dash to half its
+         * rate before (field log 2026-08-20: 569 stills sent, last ack carrying id 569, and 314
+         * dropped waiting for a window that was never really full).
+         */
+        private fun stillsInFlight(): Int =
+            YunmoProtocol.stillsInFlight(lastOfferedStillId, maxOf(lastAckedId, stillIdFloor))
 
         private fun sendAccessUnit(avcc: ByteArray) {
             // The dash paints its own arrows in this state and drops whatever we push. Skipping
@@ -536,20 +615,15 @@ class YunmoTransport(context: Context) : TBoxTransport {
             val deadline = System.currentTimeMillis() + SEND_WINDOW_TIMEOUT_MS
             synchronized(ackLock) {
                 while (running.get()) {
-                    // Two different quantities, because the two paths number their frames
-                    // differently. Stills carry a real frame id and the dash echoes the last one
-                    // it processed, so the OEM's own measure - ids outstanding - is available and
-                    // correct. H.264 frames go out with the id field zeroed (that is what the OEM
-                    // does there), so the dash can only ever echo 0 and an id difference would
-                    // grow without bound; frames-since-the-last-ack is the only thing left to
-                    // count.
+                    // H.264 only; stills never reach this method - see [stillsInFlight], which can
+                    // use the id difference because the dash echoes a still's real id.
                     //
-                    // Using frames-since-the-last-ack for stills throttled the dash to about half
-                    // its rate: it acknowledges roughly every second still, so that counter sat at
-                    // the window limit constantly while the dash was in fact fully caught up
-                    // (field log 2026-08-20: 569 frames sent, last ack carrying id 569, and 314
-                    // stills dropped waiting for a window that was never really full).
-                    val inFlight = if (jpegMode || !mapNavMode) {
+                    // Two different quantities even here, because map-nav numbers frames
+                    // differently. Outside it, frames carry an id the dash echoes. Inside it they
+                    // go out with the id field zeroed (that is what the OEM does there), so the
+                    // dash can only ever echo 0 and an id difference would grow without bound;
+                    // frames-since-the-last-ack is the only thing left to count.
+                    val inFlight = if (!mapNavMode) {
                         frameId.get() - maxOf(lastAckedId, 0)
                     } else {
                         unackedSinceAck
@@ -692,6 +766,7 @@ class YunmoTransport(context: Context) : TBoxTransport {
             synchronized(dimLock) { dimLock.notifyAll() }
             receiveThread?.interrupt()
             frameExecutor.shutdownNow()
+            pendingStill.set(null)
             runCatching { socket?.close() }
             socket = null
             output = null

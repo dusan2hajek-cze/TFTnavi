@@ -86,6 +86,51 @@ class TBoxVpnDiagnosticsTest {
         assertNotNull(TBoxVpnDiagnostics.userFacingMessage(error, routing = null))
     }
 
+    /**
+     * The 2026-08-26 case, and the one the class did not have a test for: routes innocent, error
+     * a permission refusal. Both facts are true at once, and only together do they mean lockdown.
+     */
+    @Test
+    fun namesLockdownWhenTheRoutesAreInnocentAndTheBindIsRefused() {
+        val message = TBoxVpnDiagnostics.userFacingMessage(
+            error = java.net.SocketException("Binding socket to network 245 failed: EPERM (Operation not permitted)"),
+            routing = routing()
+        )
+
+        assertNotNull(message)
+        assertTrue(TBoxVpnDiagnostics.isVpnRoutingMessage(message))
+        assertTrue(message!!.contains("Block connections without VPN"))
+        assertTrue(message.contains("tun0"))
+    }
+
+    /**
+     * A tunnel that swallows the dash keeps the routing sentence even when the error is also a
+     * permission refusal: it is the stronger explanation, and its fix (exit node / allow LAN
+     * access) is not lockdown's.
+     */
+    @Test
+    fun aTunnelThatCapturesTheDashKeepsItsOwnAdviceOverLockdown() {
+        val message = TBoxVpnDiagnostics.userFacingMessage(
+            error = java.net.SocketException("bind failed: EPERM (Operation not permitted)"),
+            routing = routing(capturesDash = true)
+        )
+
+        assertNotNull(message)
+        assertTrue(message!!.contains("allow local network access"))
+        assertFalse(message.contains("Block connections without VPN"))
+    }
+
+    /** The two sentences are different advice and must not be mistaken for each other. */
+    @Test
+    fun theTwoDiagnosesDoNotShareTheirFix() {
+        val lockdown = TBoxVpnDiagnostics.lockdownMessage(routing())
+        val fullTunnel = TBoxVpnDiagnostics.blockingMessage(routing(capturesDefaultRoute = true))
+
+        assertTrue(TBoxVpnDiagnostics.isVpnRoutingMessage(lockdown))
+        assertTrue(TBoxVpnDiagnostics.isVpnRoutingMessage(fullTunnel))
+        assertFalse(lockdown == fullTunnel)
+    }
+
     @Test
     fun doesNotMistakeAnUnrelatedMessageForAVpnDiagnosis() {
         assertFalse(TBoxVpnDiagnostics.isVpnRoutingMessage(null))

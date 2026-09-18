@@ -35,6 +35,15 @@ enum class VideoPowerMode(
     SAVER("Saver", "20 FPS for reduced heat and battery use.", R.string.video_power_saver, R.string.video_power_saver_description, 20)
 }
 
+/**
+ * Every coded source the Android Auto protocol defines, plus AUTO.
+ *
+ * The list is deliberately complete rather than curated: MOTO-HUB is the head unit, so whatever
+ * the protocol can ask the phone for is a resolution some dashboard out there could want, and a
+ * rider who knows their panel is a better judge of it than a table of the dashes we have seen.
+ * What the app does NOT do is choose the unvalidated ones by itself - see
+ * [AndroidAutoVideoPreset.autoSelectable].
+ */
 enum class AndroidAutoResolutionMode(
     val label: String,
     val description: String,
@@ -63,6 +72,27 @@ enum class AndroidAutoResolutionMode(
         R.string.android_auto_resolution_landscape_hd_description,
         AndroidAutoVideoPreset.LANDSCAPE_1280X720
     ),
+    LANDSCAPE_FHD(
+        "Landscape 1920 x 1080",
+        "Full HD landscape source. Not validated on any known dashboard.",
+        R.string.android_auto_resolution_landscape_fhd,
+        R.string.android_auto_resolution_landscape_fhd_description,
+        AndroidAutoVideoPreset.LANDSCAPE_1920X1080
+    ),
+    LANDSCAPE_QHD(
+        "Landscape 2560 x 1440",
+        "Quad HD landscape source. Heavy on the phone and not validated on any known dashboard.",
+        R.string.android_auto_resolution_landscape_qhd,
+        R.string.android_auto_resolution_landscape_qhd_description,
+        AndroidAutoVideoPreset.LANDSCAPE_2560X1440
+    ),
+    LANDSCAPE_UHD(
+        "Landscape 3840 x 2160",
+        "4K landscape source. The phone encodes and decodes 4K at once; expect heat and drops.",
+        R.string.android_auto_resolution_landscape_uhd,
+        R.string.android_auto_resolution_landscape_uhd_description,
+        AndroidAutoVideoPreset.LANDSCAPE_3840X2160
+    ),
     PORTRAIT_SD(
         "Portrait 720 x 1280",
         "Standard portrait Android Auto source.",
@@ -76,6 +106,97 @@ enum class AndroidAutoResolutionMode(
         R.string.android_auto_resolution_portrait_hd,
         R.string.android_auto_resolution_portrait_hd_description,
         AndroidAutoVideoPreset.PORTRAIT_1080X1920
+    ),
+    PORTRAIT_QHD(
+        "Portrait 1440 x 2560",
+        "Quad HD portrait source. Heavy on the phone and not validated on any known dashboard.",
+        R.string.android_auto_resolution_portrait_qhd,
+        R.string.android_auto_resolution_portrait_qhd_description,
+        AndroidAutoVideoPreset.PORTRAIT_1440X2560
+    ),
+    PORTRAIT_UHD(
+        "Portrait 2160 x 3840",
+        "4K portrait source. The phone encodes and decodes 4K at once; expect heat and drops.",
+        R.string.android_auto_resolution_portrait_uhd,
+        R.string.android_auto_resolution_portrait_uhd_description,
+        AndroidAutoVideoPreset.PORTRAIT_2160X3840
+    );
+
+    /** Whether this is a source no dashboard has been seen to accept. */
+    val experimental: Boolean get() = preset?.autoSelectable == false
+
+    /** True for the landscape sources; false for AUTO and for the portrait ones. */
+    val landscape: Boolean
+        get() = preset != null && preset.source.width >= preset.source.height
+}
+
+/**
+ * How big Android Auto draws itself on the dashboard.
+ *
+ * Resolution is pixels; density is size. Android Auto lays its UI out in dp, and
+ * dp = px * 160 / dpi - so raising the dpi makes every button, label and map icon bigger and
+ * fits less on screen, and lowering it does the opposite. The same 800x480 panel wants a
+ * different answer on a 5" TFT than on a 10" one, and until now every rider got whichever single
+ * value the resolution preset happened to carry.
+ *
+ * [AUTO] keeps exactly that value, so the default behaviour is unchanged.
+ */
+enum class AndroidAutoDensityMode(
+    val label: String,
+    val description: String,
+    val labelRes: Int,
+    val descriptionRes: Int,
+    /** The dpi to advertise, or null to keep the selected resolution's own density. */
+    val dpi: Int?
+) {
+    AUTO(
+        "Auto",
+        "Use the density that comes with the selected resolution.",
+        R.string.android_auto_density_auto,
+        R.string.android_auto_density_auto_description,
+        null
+    ),
+    DPI_120(
+        "120 dpi",
+        "Smallest interface, most map on screen. Hard to read on a small TFT.",
+        R.string.android_auto_density_120,
+        R.string.android_auto_density_120_description,
+        120
+    ),
+    DPI_160(
+        "160 dpi",
+        "Small interface. The density the landscape sources use by default.",
+        R.string.android_auto_density_160,
+        R.string.android_auto_density_160_description,
+        160
+    ),
+    DPI_213(
+        "213 dpi",
+        "Between small and standard. Useful when 160 is too tight and 240 too coarse.",
+        R.string.android_auto_density_213,
+        R.string.android_auto_density_213_description,
+        213
+    ),
+    DPI_240(
+        "240 dpi",
+        "Standard interface. The density the portrait sources use by default.",
+        R.string.android_auto_density_240,
+        R.string.android_auto_density_240_description,
+        240
+    ),
+    DPI_320(
+        "320 dpi",
+        "Large interface, easier to read and to hit with gloves. Less map on screen.",
+        R.string.android_auto_density_320,
+        R.string.android_auto_density_320_description,
+        320
+    ),
+    DPI_480(
+        "480 dpi",
+        "Largest interface. Only sensible on the high-resolution sources.",
+        R.string.android_auto_density_480,
+        R.string.android_auto_density_480_description,
+        480
     )
 }
 
@@ -92,7 +213,7 @@ enum class AndroidAutoAspectMatchingMode(
     AUTO(
         "Auto",
         "Match Android Auto's layout to the dashboard's real shape, so the map fills the panel " +
-            "instead of sitting between black bars.",
+                "instead of sitting between black bars.",
         R.string.android_auto_insets_auto,
         R.string.android_auto_insets_auto_description
     ),
@@ -148,6 +269,7 @@ object MotoHubSettings {
     private const val KEY_DISABLE_TOUCHSCREEN = "disable_touchscreen"
     private const val KEY_SEAMLESS_RESUME = "seamless_resume"
     private const val KEY_ANDROID_AUTO_RESOLUTION = "android_auto_resolution"
+    private const val KEY_ANDROID_AUTO_DENSITY = "android_auto_density"
     private const val KEY_ANDROID_AUTO_ASPECT_MATCHING = "android_auto_aspect_matching"
     private const val KEY_AUTO_CONNECT = "auto_connect"
     private const val KEY_AUTOSTART_ENABLED = "autostart_enabled"
@@ -155,6 +277,7 @@ object MotoHubSettings {
     private const val KEY_AUTO_RECOVERY = "auto_recovery"
     private const val KEY_KEEP_WIFI_DIRECT_ON_DISCONNECT = "keep_wifi_direct_on_disconnect"
     private const val KEY_BLUETOOTH_CLOCK_SYNC = "bluetooth_clock_sync"
+    private const val KEY_DASH_CLOCK_SYNC = "dash_clock_sync"
     private const val KEY_AUTO_RECORD_TRIPS = "auto_record_trips"
     private const val KEY_SHOW_RECORDED_TRACK = "show_recorded_track_on_dashboard"
     private const val KEY_DISTANCE_UNITS = "distance_units"
@@ -163,10 +286,10 @@ object MotoHubSettings {
     private const val KEY_USE_DEMO_ROUTING_SERVER = "use_demo_routing_server"
     private const val KEY_SKIPPED_UPDATE_TAG = "skipped_update_tag"
     private const val KEY_AUTO_UPDATE_CHECKS = "auto_update_checks"
+    private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
     private const val KEY_LAST_AUTO_UPDATE_CHECK_AT = "last_auto_update_check_at_millis"
     private const val KEY_LAST_AUTO_UPDATE_CHECK_VERSION = "last_auto_update_check_version"
     private const val KEY_SAFETY_DISCLAIMER_ACKNOWLEDGED = "safety_disclaimer_acknowledged"
-    private const val KEY_MOTOPLAY_WARNING_SUPPRESSED = "motoplay_warning_suppressed"
     private const val KEY_VERBOSE_TBOX_LOGGING = "verbose_tbox_logging"
     private const val KEY_LOGGING_ENABLED = "logging_enabled"
 
@@ -254,6 +377,16 @@ object MotoHubSettings {
         preferences(context).edit().putString(KEY_ANDROID_AUTO_RESOLUTION, mode.name).apply()
     }
 
+    fun androidAutoDensity(context: Context): AndroidAutoDensityMode = enumPreference(
+        context = context,
+        key = KEY_ANDROID_AUTO_DENSITY,
+        default = AndroidAutoDensityMode.AUTO
+    )
+
+    fun setAndroidAutoDensity(context: Context, mode: AndroidAutoDensityMode) {
+        preferences(context).edit().putString(KEY_ANDROID_AUTO_DENSITY, mode.name).apply()
+    }
+
     fun androidAutoAspectMatching(context: Context): AndroidAutoAspectMatchingMode = enumPreference(
         context = context,
         key = KEY_ANDROID_AUTO_ASPECT_MATCHING,
@@ -330,6 +463,33 @@ object MotoHubSettings {
     }
 
     /**
+     * Tell the dashboard the wall-clock time over Wi-Fi when it asks, and when it does not ask.
+     *
+     * On by default, because that answer is what sets the clock on every dash that reads it, and
+     * an unanswered clock question is what left Morini X-Cape and Voge clusters at 01.01.1970 in
+     * the first place.
+     *
+     * It exists as a switch because one Voge panel class does the opposite. Two SSDQ01-0120 units
+     * are indistinguishable by firmware string - same flavor 51, same channel 37501, same
+     * version_name - and behave in opposite ways: one accepts the reply and keeps a real date,
+     * the other asks, is answered, discards it, and shows 01.01.1970 anyway. Writing a clock into
+     * the second kind does not fix it and can overwrite a time its rider set by hand on the
+     * dashboard itself, which then goes back to epoch on every connect.
+     *
+     * Turning this off makes the daemon answer the clock question with an empty body and never
+     * push the time unasked ([io.motohub.android.tbox.RideDaemonTransport] maps it to
+     * `MobileConfig.SkipDashClockSync`). The handshake still completes; the dash is simply not
+     * told a time. Only turn it off for a dash that asks for the time and ignores it - a dash that
+     * never asks at all is the case the daemon now handles on its own.
+     */
+    fun dashClockSync(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_DASH_CLOCK_SYNC, true)
+
+    fun setDashClockSync(context: Context, enabled: Boolean) {
+        preferences(context).edit().putBoolean(KEY_DASH_CLOCK_SYNC, enabled).apply()
+    }
+
+    /**
      * Extra T-Box protocol diagnostics: full CLIENT_INFO JSON, every candidate
      * profile's CLIENT_INFO score (not just the winner), hex dumps of
      * unrecognized PXC/media-control commands, and Wi-Fi link quality at
@@ -386,10 +546,25 @@ object MotoHubSettings {
 
     /** Check GitHub releases shortly after launch, at most once every 24 hours. */
     fun autoUpdateChecks(context: Context): Boolean =
-        preferences(context).getBoolean(KEY_AUTO_UPDATE_CHECKS, true)
+        preferences(context).getBoolean(KEY_AUTO_UPDATE_CHECKS, false)
 
     fun setAutoUpdateChecks(context: Context, enabled: Boolean) {
         preferences(context).edit().putBoolean(KEY_AUTO_UPDATE_CHECKS, enabled).apply()
+    }
+
+    /**
+     * Hold the phone's screen awake while a MOTO-HUB screen is in the foreground.
+     *
+     * No screen in this edition writes it, so it reads false and the diagnostics report says so -
+     * which is the truth about a CORE install rather than a gap in it. It lives here, and not
+     * behind an edition check at the one place that reads it, so the two copies of this shared
+     * file keep the same surface.
+     */
+    fun keepScreenOn(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_KEEP_SCREEN_ON, false)
+
+    fun setKeepScreenOn(context: Context, enabled: Boolean) {
+        preferences(context).edit().putBoolean(KEY_KEEP_SCREEN_ON, enabled).apply()
     }
 
     /** Epoch millis of the last *automatic* update check; 0 if one has never run. */
@@ -415,17 +590,6 @@ object MotoHubSettings {
         preferences(context).edit().putBoolean(KEY_SAFETY_DISCLAIMER_ACKNOWLEDGED, acknowledged).apply()
     }
 
-    /**
-     * True after the rider chose not to see the MotoPlay conflict warning again before
-     * every Android Auto launch. The warning is a pre-flight reminder, not a blocker, so
-     * a rider who has already force-stopped MotoPlay - or who never runs it - can silence it.
-     */
-    fun motoPlayWarningSuppressed(context: Context): Boolean =
-        preferences(context).getBoolean(KEY_MOTOPLAY_WARNING_SUPPRESSED, false)
-
-    fun setMotoPlayWarningSuppressed(context: Context, suppressed: Boolean) {
-        preferences(context).edit().putBoolean(KEY_MOTOPLAY_WARNING_SUPPRESSED, suppressed).apply()
-    }
 
     private inline fun <reified T : Enum<T>> enumPreference(
         context: Context,

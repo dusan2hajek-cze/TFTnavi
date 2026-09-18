@@ -16,24 +16,15 @@ final app.
 
 | Document | Purpose |
 |---|---|
-| [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) | Goals, scope, UX and acceptance criteria |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Architecture, components, flows and lifecycle |
 | [REFERENCE_ANALYSIS.md](REFERENCE_ANALYSIS.md) | Repository analysis and reuse plan |
 | [ANDROID_IMPLEMENTATION.md](ANDROID_IMPLEMENTATION.md) | Android APIs, permissions, modules and implementation sequence |
 | [TBOX_STREAMING_CONTRACT.md](TBOX_STREAMING_CONTRACT.md) | Observed contract with the T-Box and `ridedaemon-lib` |
 | [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md) | Security model, privacy and GPL distribution |
 | [TEST_STRATEGY.md](TEST_STRATEGY.md) | Software test strategy and hardware matrix |
-| [ROADMAP.md](ROADMAP.md) | Spikes, MVP, later phases and decision gates |
-| [RISK_REGISTER.md](RISK_REGISTER.md) | Open risks, impact and mitigations |
 | [DYNAMIC_ANDROID_AUTO_PROFILE.md](DYNAMIC_ANDROID_AUTO_PROFILE.md) | Runtime Android Auto orientation profiles and fallback contract |
-| [RIDE_DASHBOARD.md](RIDE_DASHBOARD.md) | Native GNSS dashboard, data provenance and staged scope |
-| [NAVIGATION.md](NAVIGATION.md) | Native turn-by-turn navigation design (Valhalla/Photon), rendered into Ride Dashboard |
-| [NAVIGATION_M2_REQUIREMENTS.md](NAVIGATION_M2_REQUIREMENTS.md) | Phone navigation UX requirements: classic GPS features plus motorcycle-specific differentiators |
 | [PROJECTION_SETTINGS.md](PROJECTION_SETTINGS.md) | Video quality, Android Auto source profiles, startup and recovery preferences |
-| [TRIP_RECORDING.md](TRIP_RECORDING.md) | Persistent GPS trip recording, storage, maps, filtering and GPX export |
 | [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md) | Manual/public APK release process and private Android Auto identity handling |
-| [OPEN_CFMOTO_COMPARATIVE_AUDIT.md](OPEN_CFMOTO_COMPARATIVE_AUDIT.md) | Functional audit against OpenCfMoto and remaining gaps |
-| [decisions/README.md](decisions/README.md) | Architecture decision record index |
 
 ## Reference Repositories
 

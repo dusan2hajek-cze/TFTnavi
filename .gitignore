@@ -17,3 +17,20 @@ apps/android/app/src/main/res/raw/aa_identity_data
 
 # Local CodeGraph index: machine-specific, 60-100MB, rebuilt by `codegraph init`.
 /.codegraph/
+
+# Internal-only docs — never public, kept in ../documentation-private/ instead.
+/documentation/decisions/
+/documentation/.obsidian/
+/documentation/OPEN_CFMOTO_COMPARATIVE_AUDIT.md
+/documentation/2026-07-20.md
+/documentation/NAVIGATION.md
+/documentation/NAVIGATION_M2_REQUIREMENTS.md
+/documentation/PRODUCT_REQUIREMENTS.md
+/documentation/RIDE_DASHBOARD.md
+/documentation/RISK_REGISTER.md
+/documentation/ROADMAP.md
+/documentation/TRIP_RECORDING.md
+/documentation/Untitled.canvas
+/tools/tbox-simulator/
+
+apps/android/.idea/

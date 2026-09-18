@@ -19,7 +19,23 @@ enum class HandlebarAction(val id: String, val label: String) {
     ASSISTANT("assistant", "Assistant"),
     NAV_1("nav1", "Navigate → place 1"),
     NAV_2("nav2", "Navigate → place 2"),
-    NAV_3("nav3", "Navigate → place 3")
+    NAV_3("nav3", "Navigate → place 3"),
+
+    // The Ride Dashboard's own verbs, so a button can drive MOTO-HUB rather than only Android
+    // Auto. Performed through a sink the ADVANCED edition registers - see HandlebarActionRunner -
+    // because the dashboard lives in the pro source set and this enum does not.
+    DASH_NEXT_PANEL("dashNextPanel", "Dashboard: next panel"),
+    DASH_FULLSCREEN_MAP("dashFullscreenMap", "Dashboard: fullscreen map"),
+    DASH_MAP_ZOOM("dashMapZoom", "Dashboard: zoom the map on me"),
+    DASH_WIDGET_LEFT("dashWidgetLeft", "Dashboard: change the left widget"),
+    DASH_WIDGET_RIGHT("dashWidgetRight", "Dashboard: change the right widget"),
+
+    // The rider's own music, not the fake session MediaButtonBridge publishes for AVRCP.
+    MEDIA_PLAY_PAUSE("mediaPlayPause", "Music: play / pause"),
+    MEDIA_NEXT("mediaNext", "Music: next track"),
+    MEDIA_PREVIOUS("mediaPrevious", "Music: previous track"),
+    MEDIA_VOLUME_UP("mediaVolumeUp", "Music: volume up"),
+    MEDIA_VOLUME_DOWN("mediaVolumeDown", "Music: volume down")
 }
 
 /**
@@ -109,7 +125,10 @@ object HandlebarControlStore {
     private const val CALIBRATION_PREFIX = "calibrated_"
     private const val INPUT_MODE = "input_mode"
     /** Bumped when [defaultAction] values change — auto-migrates stored overrides. */
-    private const val DEFAULTS_VER = 2
+    private const val DEFAULTS_VER = 3
+
+    /** The id DASH_FULLSCREEN_MAP replaced; still on disk for anyone who mapped it. */
+    private const val LEGACY_PREV_PANEL_ACTION_ID = "dashPrevPanel"
     private const val KEY_DEFAULTS_VER = "defaults_ver"
 
     /**
@@ -186,18 +205,49 @@ object HandlebarControlStore {
 
     private fun ensureDefaultsMigrated(context: Context) {
         val p = preferences(context)
-        if (p.getInt(KEY_DEFAULTS_VER, 0) >= DEFAULTS_VER) return
-        // V2: Select hold/double defaulted to ASSISTANT twice, leaving Back and Home unreachable
-        // on volume-only dashes. Clear stored values still equal to the old default so the new
-        // HOME/BACK defaults apply; explicit rider overrides are kept.
+        // Each step is gated on the version the install is coming FROM, not just on being behind
+        // the current one: re-running V2 on an install that already passed it would delete an
+        // ASSISTANT the rider chose on purpose afterwards.
+        val from = p.getInt(KEY_DEFAULTS_VER, 0)
+        if (from >= DEFAULTS_VER) return
         val editor = p.edit()
-        listOf(HandlebarGesture.ENTER_LONG, HandlebarGesture.ENTER_DOUBLE).forEach { gesture ->
-            if (p.getString(gesture.id, null) == HandlebarAction.ASSISTANT.id) {
-                editor.remove(gesture.id)
+        if (from < 2) {
+            // V2: Select hold/double defaulted to ASSISTANT twice, leaving Back and Home
+            // unreachable on volume-only dashes. Clear stored values still equal to the old
+            // default so the new HOME/BACK defaults apply; explicit rider overrides are kept.
+            listOf(HandlebarGesture.ENTER_LONG, HandlebarGesture.ENTER_DOUBLE).forEach { gesture ->
+                if (p.getString(gesture.id, null) == HandlebarAction.ASSISTANT.id) {
+                    editor.remove(gesture.id)
+                }
+            }
+        }
+        if (from < 3) {
+            // V3: DASH_PREV_PANEL took the fullscreen map's place and its id went with it. An id
+            // no enum answers to is not an error anywhere - [action] just returns the gesture's
+            // factory default - so without this a rider who deliberately mapped a button to the
+            // dashboard would find it scrolling instead, with the screen showing that as his own
+            // choice. The new action inherits the binding rather than clearing it: the rider
+            // assigned that button to the dashboard, and the dashboard still has something for
+            // it to do.
+            //
+            // Walks every entry instead of the gesture ids because a binding is stored per
+            // motorcycle as "<gesture>#<motorcycleId>" (see MotorcycleScope) - the V2 step above
+            // predates that and only ever reached the un-scoped keys. Matching on the exact
+            // legacy value is safe: no other setting in this file stores an action id.
+            p.all.forEach { (key, value) ->
+                rewrittenActionId(value)?.let { editor.putString(key, it) }
             }
         }
         editor.putInt(KEY_DEFAULTS_VER, DEFAULTS_VER).apply()
     }
+
+    /**
+     * What V3 writes over [stored], or null to leave the entry alone. Pure so a test can pin it
+     * without a Context, the same split [MotorcycleScope.readKey] uses - this preference file
+     * also holds booleans and ints, which is why the parameter is Any?.
+     */
+    internal fun rewrittenActionId(stored: Any?): String? =
+        if (stored == LEGACY_PREV_PANEL_ACTION_ID) HandlebarAction.DASH_FULLSCREEN_MAP.id else null
 
     private fun preferences(context: Context) = context.applicationContext.getSharedPreferences(
         PREFERENCES,

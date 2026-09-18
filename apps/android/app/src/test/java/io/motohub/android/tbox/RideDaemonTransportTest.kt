@@ -166,6 +166,109 @@ class RideDaemonTransportTest {
         assertTrue(beats >= PXC_STREAMING_CADENCE_MIN_BEATS)
     }
 
+    @Test
+    fun `reads the pull count the daemon reports for the dashboard`() {
+        // [phase, 8 bytes big-endian]. That count is the only number in a whole session that the
+        // DASHBOARD produced; every other counter the transport prints describes this phone.
+        val payload = byteArrayOf(1, 0, 0, 0, 0, 0, 0, 1, 0x2C)
+        assertEquals(300L, decodeVideoPullCount(payload))
+    }
+
+    @Test
+    fun `a dash that pulled nothing reads as zero, not as missing`() {
+        val closed = byteArrayOf(3, 0, 0, 0, 0, 0, 0, 0, 0)
+        assertEquals(0L, decodeVideoPullCount(closed))
+    }
+
+    @Test
+    fun `a truncated pull event costs a number in the log, never the session`() {
+        assertEquals(0L, decodeVideoPullCount(null))
+        assertEquals(0L, decodeVideoPullCount(byteArrayOf(1, 0, 0)))
+    }
+
+    @Test
+    fun `reads back which page command the probe put on the wire`() {
+        // [step, ok, 4 bytes big-endian command]. The step ids are the wire contract with the
+        // daemon (net.PageSwitchProbeStep), so they are written out here rather than read from
+        // the transport's private companion - if one side renumbers them, this fails.
+        val pageStatus = byteArrayOf(1, 1, 0x00, 0x02, 0x04, 0x00)
+        assertEquals(0x20400L, decodePageSwitchProbeCommand(pageStatus))
+
+        val jump = byteArrayOf(2, 1, 0x00, 0x02, 0x04, 0x80.toByte())
+        assertEquals(0x20480L, decodePageSwitchProbeCommand(jump))
+
+        val mainPage = byteArrayOf(3, 1, 0x00, 0x02, 0x01, 0x70)
+        assertEquals(0x20170L, decodePageSwitchProbeCommand(mainPage))
+    }
+
+    @Test
+    fun `a probe step with no command of its own reads as zero`() {
+        // The start marker and the no-channel marker both carry 0; neither is a failure to
+        // decode, and neither may be printed as a command.
+        assertEquals(0L, decodePageSwitchProbeCommand(byteArrayOf(0, 1, 0, 0, 0, 0)))
+        assertEquals(0L, decodePageSwitchProbeCommand(null))
+        assertEquals(0L, decodePageSwitchProbeCommand(byteArrayOf(0, 1, 0)))
+    }
+
+    @Test
+    fun `no dashboard asks for the page experiment any more`() {
+        // It ran on the QJ dash on 2026-09-09 and failed twice over: not one of the three
+        // commands was acknowledged, and the rider watching the panel saw nothing, the
+        // control command included. Three writes a session that the firmware provably
+        // ignores are not worth muddying the next experiment's only instrument - the panel.
+        assertTrue(TBoxModelProfile.entries.none { it.sendsPageSwitchProbe })
+    }
+
+    @Test
+    fun `only the QJ dash announces its mirroring state`() {
+        // ECP_P2C_APPSTATUS_BACKGROUND is unsolicited: it goes out whether or not the dash
+        // asked anything. Every other EasyConn dashboard in the fleet paints a picture today
+        // without ever having seen it from us, and none of them has a field log asking for it.
+        assertTrue(TBoxModelProfile.QJ_SRK921_RR.announcesMirrorState)
+        val others = TBoxModelProfile.entries.filter { it != TBoxModelProfile.QJ_SRK921_RR }
+        assertTrue(others.none { it.announcesMirrorState })
+    }
+
+    @Test
+    fun `no dash is told JPEG when it asked for H264`() {
+        // Every other EasyConn dashboard in the fleet paints an H.264 stream today. Answering
+        // the capture negotiation with encoder=1 anywhere else would change the wire format of
+        // all of them at once, and none of them has a field log asking for it.
+        //
+        // The QJ 5-inch dash did have one, and the experiment ran on it on 2026-09-10 and
+        // failed: report 6264-6CB4-AA1E shows the stills leaving the phone in both sessions and
+        // the dash pulling them at the same rate, with the same counters and the same blank
+        // panel, as it does on H.264. Leaving the flag on would have every later log from that
+        // bike measure a dead experiment on an 8 fps stream nothing else is written against.
+        assertTrue(TBoxModelProfile.entries.none { it.easyConnJpegStills })
+    }
+
+    @Test
+    fun `every profile that is fed stills says so through one predicate`() {
+        // The four ways into a projection all read usesJpegStills. A profile that answered only
+        // one of the two flags would take the still path on some of them and build an encoder on
+        // the others - which is how three rounds of X-Cape field tests reported "JPEG does not
+        // work" without a single JPEG leaving the phone.
+        val stillProfiles = TBoxModelProfile.entries.filter { it.usesJpegStills }
+        assertTrue(TBoxModelProfile.MORINI_XCAPE_1200_JPEG in stillProfiles)
+        assertTrue(TBoxModelProfile.KOVE_625X in stillProfiles)
+        assertTrue(
+            TBoxModelProfile.entries.none {
+                it.usesJpegStills != (it.yunmoJpegVideo || it.easyConnJpegStills)
+            }
+        )
+    }
+
+    @Test
+    fun `the dash that is sent stills is not also sent an encoded stream`() {
+        // The two are mutually exclusive by construction: one session produces either stills or
+        // access units, never both, and a profile setting both flags would ask the Yunmo
+        // transport and the EasyConn negotiation for the same frames.
+        assertTrue(
+            TBoxModelProfile.entries.none { it.yunmoJpegVideo && it.easyConnJpegStills }
+        )
+    }
+
     private fun captureRequest(width: Int, height: Int): ByteArray = ByteBuffer
         .allocate(204)
         .order(ByteOrder.LITTLE_ENDIAN)

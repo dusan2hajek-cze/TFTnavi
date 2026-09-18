@@ -6,8 +6,10 @@ package io.motohub.android.feature.pairing
 import io.motohub.android.i18n.motoHubText
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,13 +26,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.motohub.android.ui.components.MonoLabel
 import io.motohub.android.ui.components.MotoHubBackground
-import io.motohub.android.ui.components.MotoHubHeader
+import io.motohub.android.R
 import io.motohub.android.session.TBoxConnectionMode
 
 /**
@@ -47,6 +52,12 @@ fun ManualPairingScreen(
     password: String,
     connectionMode: TBoxConnectionMode,
     formError: String?,
+    /**
+     * A name the phone has evidence for, which [ssid] differs from only by spacing or
+     * punctuation. Null unless there is one - see [manualSsidVerdict].
+     */
+    ssidSuggestion: String?,
+    onAcceptSsidSuggestion: () -> Unit,
     onSsidChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConnectionModeChanged: (TBoxConnectionMode) -> Unit,
@@ -65,18 +76,30 @@ fun ManualPairingScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            MotoHubHeader(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                trailing = { TextButton(onClick = onClose) { Text(motoHubText("Close")) } }
-            )
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.connector),
+                    contentDescription = "TFTnavi",
+                    modifier = Modifier.height(28.dp),
+                    contentScale = ContentScale.Fit
+                )
+
+                TextButton(onClick = onClose) {
+                    Text(motoHubText("Close"))
+                }
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MonoLabel(motoHubText("MANUAL SETUP"))
                 Text(motoHubText("Connect without a QR code"), style = MaterialTheme.typography.displaySmall)
                 Text(
                     motoHubText("Some motorcycles don't show a pairing QR code on the dash. If you already know ") +
-                        "the T-Box's Wi-Fi network name and password - from the bike itself, its manual, " +
-                        "or a dealer - enter them here instead of scanning.",
+                            "the T-Box's Wi-Fi network name and password - from the bike itself, its manual, " +
+                            "or a dealer - enter them here instead of scanning.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -86,6 +109,14 @@ fun ManualPairingScreen(
                 value = ssid,
                 onValueChange = onSsidChanged,
                 label = { Text(motoHubText("Wi-Fi network name (SSID)")) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = onPasswordChanged,
+                label = { Text(motoHubText("Wi-Fi password")) },
+                visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -104,16 +135,33 @@ fun ManualPairingScreen(
                     )
                 }
             }
-            OutlinedTextField(
-                value = password,
-                onValueChange = onPasswordChanged,
-                label = { Text(motoHubText("Wi-Fi password")) },
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
             formError?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+            // Deliberately not an error colour, and deliberately not blocking. The rider may well
+            // be right; this only makes the other reading visible before a second motorcycle is
+            // created that can never be joined.
+            ssidSuggestion?.let { suggestion ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // One sentence with both names in it, not four fragments glued around them:
+                    // a translator handed "No network called " and " has been seen, but this
+                    // phone knows " separately cannot move them, and every language that puts
+                    // its verb elsewhere would come out wrong. Same for the button.
+                    Text(
+                        motoHubText(
+                            "No network called “%1\$s” has been seen, but this phone knows " +
+                                    "“%2\$s”, which differs only in spacing. Save again to keep " +
+                                    "what you typed.",
+                            ssid,
+                            suggestion
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = onAcceptSsidSuggestion) {
+                        Text(motoHubText("Use %1\$s", suggestion))
+                    }
+                }
             }
 
             Button(

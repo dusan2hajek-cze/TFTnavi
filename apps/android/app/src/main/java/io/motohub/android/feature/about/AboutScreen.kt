@@ -8,6 +8,7 @@ import io.motohub.android.i18n.motoHubText
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,15 +32,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.motohub.android.BuildConfig
+import io.motohub.android.R
 import io.motohub.android.ui.components.MonoLabel
 import io.motohub.android.ui.components.MotoHubBackground
-import io.motohub.android.ui.components.MotoHubHeader
 
 const val MOTO_HUB_GITHUB_URL = "https://github.com/vincenzobpt/MOTO-HUB"
 const val MOTO_HUB_DISCORD_URL = "https://discord.gg/Y8bnx9Zxgw"
@@ -73,14 +77,22 @@ fun AboutScreen(
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            MotoHubHeader(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                trailing = {
-                    TextButton(onClick = onBack) {
-                        Text(motoHubText("Close"))
-                    }
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.connector),
+                    contentDescription = "TFTnavi Connector",
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
+                    modifier = Modifier.height(34.dp)
+                )
+                TextButton(onClick = onBack) {
+                    Text(motoHubText("Close"))
                 }
-            )
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MonoLabel(motoHubText("ABOUT THE PROJECT"))
@@ -91,10 +103,10 @@ fun AboutScreen(
                 )
                 Text(
                     text = motoHubText(
-                        "MOTO-HUB connects an Android 14+ phone to a motorcycle dashboard that " +
-                            "pairs over EasyConn — the Carbit software several manufacturers ship, " +
-                            "CFMOTO among them. It supports screen and app mirroring, Android Auto " +
-                            "projection, saved motorcycle profiles, and on-device diagnostics."
+                        "MOTO-HUB connects an Android 12+ phone to a motorcycle dashboard that " +
+                                "pairs over EasyConn — the Carbit software several manufacturers ship, " +
+                                "CFMOTO among them. It supports screen and app mirroring, Android Auto " +
+                                "projection, saved motorcycle profiles, and on-device diagnostics."
                     ),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -137,27 +149,46 @@ fun AboutScreen(
                             Text(motoHubText("Discord"))
                         }
                     }
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                        ),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            MonoLabel("OPEN SOURCE LICENSE")
+                            Text(
+                                text =
+                                    "MOTO-HUB Core is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). " +
+                                            "TFTnavi Connector contains modifications to the MOTO-HUB Core project made by Xixao s.r.o. " +
+                                            "The source code of TFTnavi Connector and the AGPL-3.0 license text will be made available " +
+                                            "in the public project repository. Original MOTO-HUB project: github.com/vincenzobpt/MOTO-HUB.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
             if (showsMaps) MapCreditsCard()
             VersionCard(onUnlockPrototype = onUnlockPrototype)
-            Button(
-                onClick = onCheckUpdates,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-            ) {
-                Text(motoHubText("Check for updates"))
-            }
             DisclaimerCard()
 
             Text(
                 text = motoHubText(
                     "MOTO-HUB is an independent project. It is not affiliated with, endorsed by, " +
-                        "or sponsored by Carbit, CFMOTO, any other manufacturer whose dashboard uses " +
-                        "EasyConn, Google, or Android Auto. All product names and marks belong to " +
-                        "their respective owners."
+                            "or sponsored by Carbit, CFMOTO, any other manufacturer whose dashboard uses " +
+                            "EasyConn, Google, or Android Auto. All product names and marks belong to " +
+                            "their respective owners."
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -225,7 +256,7 @@ private fun VersionCard(onUnlockPrototype: (() -> Unit)? = null) {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 MonoLabel(motoHubText("PLATFORM"))
                 Text(
-                    text = "Android 14+",
+                    text = "Android 12+",
                     style = MaterialTheme.typography.titleMedium,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
@@ -258,7 +289,7 @@ private fun MapCreditsCard() {
             Text(
                 text = motoHubText(
                     "Maps, addresses and routes are built on data by © OpenStreetMap " +
-                        "contributors, licensed under the ODbL."
+                            "contributors, licensed under the ODbL."
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -266,12 +297,12 @@ private fun MapCreditsCard() {
             Text(
                 text = motoHubText(
                     "Map rendering by MapLibre Native (BSD-2-Clause). Vector tiles by OpenFreeMap, " +
-                        "to the OpenMapTiles schema; raster tiles by CARTO. Address search by " +
-                        "Photon. Routing by Valhalla, hosted by Stadia Maps or the FOSSGIS demo " +
-                        "server. Places by Overpass. Weather by Open-Meteo. Petrol prices " +
-                        "published as open data by Spain's Ministerio para la Transición " +
-                        "Ecológica, Portugal's DGEG, the French Ministère de l'Économie and " +
-                        "Italy's MIMIT. DGEG's data may not be used commercially."
+                            "to the OpenMapTiles schema; raster tiles by the OpenStreetMap " +
+                            "Foundation. Address search by Photon. Routing by Valhalla, hosted by " +
+                            "Stadia Maps or the FOSSGIS demo server. Places by Overpass. Weather by " +
+                            "Open-Meteo. Petrol prices published as open data by Spain's Ministerio " +
+                            "para la Transición Ecológica, Portugal's DGEG, the French Ministère de " +
+                            "l'Économie and Italy's MIMIT. DGEG's data may not be used commercially."
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -300,10 +331,10 @@ private fun DisclaimerCard() {
             Text(
                 text = motoHubText(
                     "Development and testing happen on a CFMOTO 700MT-ADV dashboard with " +
-                        "OnePlus 13 / Galaxy Z Fold4 phones. Other motorcycles, brands, T-Box " +
-                        "firmware versions and phones are untested here: expect different behaviour, " +
-                        "retries, or no connection at all. If the dashboard shows a pairing QR code, " +
-                        "it is worth trying."
+                            "OnePlus 13 / Galaxy Z Fold4 phones. Other motorcycles, brands, T-Box " +
+                            "firmware versions and phones are untested here: expect different behaviour, " +
+                            "retries, or no connection at all. If the dashboard shows a pairing QR code, " +
+                            "it is worth trying."
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -311,7 +342,7 @@ private fun DisclaimerCard() {
             Text(
                 text = motoHubText(
                     "Do not rely on it as your only source of critical navigation. Configure " +
-                        "navigation while parked and use the software at your own risk."
+                            "navigation while parked and use the software at your own risk."
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

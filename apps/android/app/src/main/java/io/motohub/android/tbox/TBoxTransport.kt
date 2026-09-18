@@ -50,7 +50,14 @@ sealed interface TBoxTransportStatus {
 
 interface TBoxTransport {
     /** Selects the profile whose wire-level capabilities will be advertised for the next session. */
-    fun configureProtocolProfile(profile: TBoxModelProfile) = Unit
+    /**
+     * [motorcycle] is optional and only [TBoxWireLadder] uses it: its memory of which wire format
+     * a dashboard accepted is per motorcycle. A caller with none gets the profile's own settings.
+     */
+    fun configureProtocolProfile(
+        profile: TBoxModelProfile,
+        motorcycle: io.motohub.android.session.MotorcycleProfile? = null
+    ) = Unit
 
     /**
      * The profile this transport is actually running, when that is not simply the one the caller

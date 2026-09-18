@@ -4,6 +4,8 @@
 package io.motohub.android.tbox
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
+import android.app.AppOpsManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,6 +18,7 @@ import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.os.Looper
+import android.os.Process
 import io.motohub.android.feature.settings.MotoHubSettings
 import io.motohub.android.session.MotorcycleProfile
 import io.motohub.android.session.ProjectionEventLog
@@ -45,8 +48,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * Joins by credentials (`setNetworkName` + passphrase from the saved [MotorcycleProfile]) as a
  * legacy P2P client, then resolves:
- *  - the bike gateway (the Group Owner, always `192.168.49.1` by Android's P2P convention), and
- *  - the phone's own `192.168.49.x` address on the `p2p-*` interface.
+ *  - the bike gateway (the Group Owner, which Android names `192.168.49.1` for a group IT
+ *    formed - but here the DASH is the GO and picks its own subnet), and
+ *  - the phone's own address on that gateway's subnet, on the `p2p-*` interface.
  *
  * A P2P group produces no `ConnectivityManager.Network`; the caller binds its sockets to the
  * returned phone address instead (see [TBoxLink.WifiDirect]).
@@ -98,7 +102,9 @@ class TBoxWifiDirectConnector(
                     // Adopting comes before joining, and the check is awaited rather than left to
                     // race the join: asking the framework to form a group that is already up is
                     // how a working link gets torn back down.
-                    if (!adoptsExistingGroup(manager, channel, profile, outcome)) {
+                    if (adoptsExistingGroup(manager, channel, profile, outcome)) {
+                        footprint.adoptedExistingGroup = true
+                    } else {
                         join(manager, channel, profile, outcome, footprint)
                     }
                     outcome.await()
@@ -181,8 +187,9 @@ class TBoxWifiDirectConnector(
                         lastState = "no Wi-Fi Direct group is formed on this phone any more"
                     info.isGroupOwner ->
                         lastState = "this phone is the Group Owner, so the dash is not"
-                    !groupNameMatchesProfile(group?.networkName, profile.ssid) ->
-                        lastState = "the formed group is '${group?.networkName}', not ${profile.ssid}"
+                    !groupBelongsToProfile(group?.networkName, group?.owner?.deviceName, profile.ssid) ->
+                        lastState = "the formed group is '${group?.networkName}' " +
+                            "(owner '${group?.owner?.deviceName}'), not ${profile.ssid}"
                     else -> {
                         val gateway = info.groupOwnerAddress as? Inet4Address ?: groupOwnerIpv4
                         log(
@@ -290,7 +297,7 @@ class TBoxWifiDirectConnector(
         val group = awaitQuery<WifiP2pGroup> { resume ->
             manager.requestGroupInfo(channel) { resume(it) }
         }
-        if (!groupNameMatchesProfile(group?.networkName, profile.ssid)) return false
+        if (!groupBelongsToProfile(group?.networkName, group?.owner?.deviceName, profile.ssid)) return false
         log(
             "Wi-Fi Direct group ${group?.networkName ?: profile.ssid} is already formed and this " +
                 "phone is a client in it; adopting it instead of joining again."
@@ -304,13 +311,21 @@ class TBoxWifiDirectConnector(
     }
 
     /**
-     * Brings the P2P state machine into a state where `connect()` can succeed, then issues it.
+     * Joins the dash, giving a wedged P2P stack time to come back rather than reporting its
+     * first refusal as the dash's fault.
      *
-     * The order matters and mirrors what the OEM EasyConn app does, which is the counterpart the
-     * dash was built for: discover the peer, stop discovery, clear a half-open invitation, and
-     * only then connect. Firing `connect()` straight after `discoverPeers()` - which is what this
-     * connector used to do - leaves a scan running and a stale invitation in place, and the
-     * framework answers with a bare `ERROR` ("internal error") or forms no group at all.
+     * A framework that refuses `discoverPeers()` and rejects `connect()` in milliseconds is not
+     * answering about the dash at all - it is a stack that has not finished letting go of the
+     * group we just tore down. One round of [attemptJoin] takes about two and a half seconds
+     * there, so the old single round turned a 35s budget into a 2.5s one, and the watchdog above
+     * spent the rider's whole recovery window re-asking the same question 41 times.
+     * Field log 7c7e9e44 (CFMOTO 800MT-X, POCO/HyperOS, 2026-08-24): the video pipe died at
+     * 18:31:32, and every one of the 41 recovery attempts that followed over the next five
+     * minutes was refused this way; a join an hour later was accepted at once.
+     *
+     * So a refused round is now retried inside the same budget, with a settle in between, and
+     * only the last one reports a failure - one that names the fix (toggle Wi-Fi) instead of
+     * repeating the framework's bare "internal error".
      */
     private suspend fun join(
         manager: WifiP2pManager,
@@ -319,15 +334,178 @@ class TBoxWifiDirectConnector(
         outcome: CompletableDeferred<Result<TBoxLink.WifiDirect>>,
         footprint: P2pJoinFootprint
     ) {
+        val startedAt = System.nanoTime()
+        var round = 1
+        var waitingForWindow = false
+        while (true) {
+            if (outcome.isCompleted) return
+            if (!hasNoVisibleWindow(processImportance())) footprint.everHadAWindow = true
+            val reason = attemptJoin(manager, channel, profile, outcome, footprint)
+                ?: return // Accepted, pending, or a failure this round already published.
+            val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
+            if (!shouldSettleAndRetryJoin(elapsedMillis, CONNECT_TIMEOUT_MS)) {
+                // The permission is already ruled out by connect()'s preflight, so the remaining
+                // rider-fixable cause of a bare rejection is the phone-wide location toggle.
+                // Named only when it is actually off - a hint that appears on every failure is
+                // one riders learn to skip.
+                val hint = if (WifiDirectGate.isLocationEnabled(appContext)) {
+                    ""
+                } else {
+                    " ${WifiDirectGate.LOCATION_OFF_HINT}"
+                }
+                // The counts go to the log, not into the message: a companion app compares
+                // consecutive failure reasons to tell "the same answer again" from "something
+                // changed", and a message carrying elapsed seconds is never twice the same.
+                log(
+                    "Giving up this Wi-Fi Direct join: $round round(s) refused outright in " +
+                        "${elapsedMillis / 1_000}s."
+                )
+                // The toggle advice belongs to a wedged stack, and only to one. A stack that
+                // scanned, found the dash and named it is working; telling that rider to
+                // restart Wi-Fi sends them to do again what they have very likely already done
+                // - 94b0a3da did, between two identical failures - and hides the real answer,
+                // which is that the phone refuses to join this dash by address. Advice that
+                // cannot apply is not neutral: it becomes the thing investigated instead of
+                // the cause.
+                val diagnosis = joinRefusalAdvice(
+                    ssid = profile.ssid,
+                    appName = appName(),
+                    peerSeen = footprint.peerSeen,
+                    peerListClearedOnStop = footprint.peerListClearedOnStop,
+                    everHadAWindow = footprint.everHadAWindow
+                )
+                outcome.complete(
+                    Result.failure(
+                        IllegalStateException(
+                            "Wi-Fi Direct connect() failed: ${reasonName(reason)}. $diagnosis$hint"
+                        )
+                    )
+                )
+                return
+            }
+            round++
+            // A process with no window on screen is refused for a reason no settle can change,
+            // and sleeping 6s before asking again only spends the budget that the rider opening
+            // the app would have used. Waiting for the window IS the retry here - see
+            // [hasNoVisibleWindow] for why a foreground service does not count as one.
+            if (hasNoVisibleWindow(processImportance())) {
+                if (!waitingForWindow) {
+                    waitingForWindow = true
+                    log(
+                        "The phone refused this join while ${appName()} had no window on " +
+                            "screen; every round so far was rejected in milliseconds. Waiting " +
+                            "for the app to come back on screen instead of settling - open " +
+                            "${appName()} to reconnect now (round $round)."
+                    )
+                }
+                val remaining = CONNECT_TIMEOUT_MS - (System.nanoTime() - startedAt) / 1_000_000
+                if (awaitVisibleWindow(remaining - WEDGE_ROUND_COST_MS)) {
+                    waitingForWindow = false
+                    footprint.everHadAWindow = true
+                    log("${appName()} is back on screen; asking for the Wi-Fi Direct join again.")
+                }
+                continue
+            }
+            log(
+                "The phone's Wi-Fi Direct stack refused this join outright; letting it settle " +
+                    "for ${WEDGE_SETTLE_MS / 1_000}s and trying again (round $round)."
+            )
+            delay(WEDGE_SETTLE_MS)
+        }
+    }
+
+    /**
+     * Polls until this process has a window on screen again, or until [budgetMillis] runs out.
+     *
+     * Polled rather than observed: the connector has no lifecycle owner of its own and runs on
+     * behalf of a companion process too, where there is no activity of ours to listen to.
+     */
+    private suspend fun awaitVisibleWindow(budgetMillis: Long): Boolean {
+        if (budgetMillis <= 0) return false
+        val deadline = System.nanoTime() + budgetMillis * 1_000_000
+        while (System.nanoTime() < deadline) {
+            delay(WINDOW_POLL_INTERVAL_MS)
+            if (!hasNoVisibleWindow(processImportance())) return true
+        }
+        return false
+    }
+
+    /**
+     * How close to the rider this process is, on Android's own scale (smaller is closer). The
+     * same reading [TBoxNetworkConnector] takes for its specifier requests, for the same reason:
+     * a refusal cannot say by itself whether the dash was missing or the asker was.
+     */
+    private fun processImportance(): Int {
+        val state = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(state)
+        return state.importance
+    }
+
+    /**
+     * The app-op MODE behind a permission, which is not the same thing as the grant.
+     *
+     * The grant is what the rider sees in Settings and what [WifiDirectGate] already reports; the
+     * mode is what the framework actually consults, and it flips to `MODE_IGNORED` on its own for
+     * a process the platform considers backgrounded. That difference is invisible in every log we
+     * have: they all say "granted" next to a refusal.
+     */
+    private fun appOpMode(op: String): String = runCatching {
+        val ops = appContext.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        when (ops.unsafeCheckOpNoThrow(op, Process.myUid(), appContext.packageName)) {
+            AppOpsManager.MODE_ALLOWED -> "allowed"
+            AppOpsManager.MODE_IGNORED -> "IGNORED"
+            AppOpsManager.MODE_ERRORED -> "ERRORED"
+            AppOpsManager.MODE_DEFAULT -> "default"
+            AppOpsManager.MODE_FOREGROUND -> "foreground-only"
+            else -> "unknown"
+        }
+    }.getOrElse { "unreadable" }
+
+    /**
+     * One round of the join the OEM EasyConn app performs, which is the counterpart the dash was
+     * built for: discover the peer, stop discovery, clear a half-open invitation, and only then
+     * connect. Firing `connect()` straight after `discoverPeers()` - which is what this connector
+     * used to do - leaves a scan running and a stale invitation in place, and the framework
+     * answers with a bare `ERROR` ("internal error") or forms no group at all.
+     *
+     * Returns null when the round handed the outcome over - `connect()` accepted, a group
+     * pending, or a failure already published - and the rejection reason when every `connect()`
+     * of the round came back refused, which is [join]'s cue to settle and try again.
+     */
+    private suspend fun attemptJoin(
+        manager: WifiP2pManager,
+        channel: WifiP2pManager.Channel,
+        profile: MotorcycleProfile,
+        outcome: CompletableDeferred<Result<TBoxLink.WifiDirect>>,
+        footprint: P2pJoinFootprint
+    ): Int? {
         // A group that was already formed settles through the receiver; joining again would tear
         // down the link the caller is about to use.
-        if (outcome.isCompleted) return
+        if (outcome.isCompleted) return null
         val peer = discoverPeer(manager, channel, profile, outcome, footprint)
-        if (outcome.isCompleted) return
+        if (outcome.isCompleted) return null
 
         // Discovery and connect() contend for the same radio state machine; leaving the scan
         // running is a known way to get connect() rejected.
         awaitAction { listener -> manager.stopPeerDiscovery(channel, listener) }
+
+        // Read back before connect(), not only after it was refused. Some frameworks empty
+        // their peer list the moment discovery stops (see [connectWithRetry]), which turns the
+        // address just discovered into an address the framework no longer knows - and the only
+        // answer it has for that is a bare ERROR in single-digit milliseconds. The post-mortem
+        // snapshot could never say whether the peer went before the call or because of it; this
+        // one can. Logged only when it happened: a line on every join is noise.
+        if (peer != null &&
+            requestPeers(manager, channel).none { candidate ->
+                candidate.deviceAddress.equals(peer.deviceAddress, ignoreCase = true)
+            }
+        ) {
+            footprint.peerListClearedOnStop = true
+            log(
+                "The dash left the Wi-Fi Direct peer list as soon as discovery stopped, so a " +
+                    "connect() by its address is about to be refused outright on this phone."
+            )
+        }
 
         if (peer?.status == WifiP2pDevice.INVITED || footprint.discoveryRefused) {
             // A half-open invitation keeps failing every new connect() until it is cancelled, and
@@ -340,9 +518,9 @@ class TBoxWifiDirectConnector(
             awaitAction { listener -> manager.cancelConnect(channel, listener) }
             delay(CANCEL_SETTLE_MS)
         }
-        if (outcome.isCompleted) return
+        if (outcome.isCompleted) return null
 
-        connectWithRetry(manager, channel, profile, peer, outcome, footprint)
+        return connectWithRetry(manager, channel, profile, peer, outcome, footprint)
     }
 
     /**
@@ -378,6 +556,7 @@ class TBoxWifiDirectConnector(
                 peer.deviceName.equals(expectedName, ignoreCase = true)
             }
             if (match != null) {
+                footprint.peerSeen = true
                 log(
                     "Found the dash as Wi-Fi Direct peer '${match.deviceName}' " +
                         "(${match.deviceAddress}), status ${statusName(match.status)}."
@@ -398,6 +577,11 @@ class TBoxWifiDirectConnector(
      * `ERROR` in ~2ms - the rejection snapshot shows "dash peer=not in the peer list" - so
      * re-sending the same address can never succeed there, while the credentials join carries
      * no peer address and is accepted by those same frameworks.
+     *
+     * Returns null when the outcome was handed over (accepted, pending, or a published failure)
+     * and the last rejection reason when both attempts were refused - a refusal is [join]'s to
+     * judge, because only it knows how much of the join budget is left to wait out a wedged
+     * stack.
      */
     private suspend fun connectWithRetry(
         manager: WifiP2pManager,
@@ -406,29 +590,71 @@ class TBoxWifiDirectConnector(
         peer: WifiP2pDevice?,
         outcome: CompletableDeferred<Result<TBoxLink.WifiDirect>>,
         footprint: P2pJoinFootprint
-    ) {
-        repeat(CONNECT_ATTEMPTS) { attempt ->
-            if (outcome.isCompleted) return
+    ): Int? {
+        var lastReason: Int? = null
+        for (attempt in 0 until CONNECT_ATTEMPTS) {
+            if (outcome.isCompleted) return null
             val joinPeer = peer?.takeIf { attempt == 0 }
             // buildConfig(profile, null) is the credentials form; it returns null when the SSID
             // or passphrase cannot express one (setNetworkName rejects non-"DIRECT-" names,
-            // build() rejects a bad passphrase length), in which case the peer form is kept.
-            val config = buildConfig(profile, joinPeer) ?: buildConfig(profile, peer) ?: run {
-                outcome.complete(
-                    Result.failure(
-                        IllegalStateException(
-                            "Wi-Fi Direct join is not possible for ${profile.ssid}: the dash did " +
-                                "not answer Wi-Fi Direct discovery, and its name cannot be used " +
-                                "as a group name either. Make sure the dash screen is on and " +
-                                "showing its connection page, then retry."
+            // build() rejects a bad passphrase length).
+            var addressPeer = joinPeer
+            var rediscovered = false
+            var config = buildConfig(profile, joinPeer)
+            if (config == null) {
+                // No credentials form for this profile. Falling back to the address config
+                // unchanged - which is what this code used to do - re-sends the request that
+                // was just refused, and the retry that exists precisely for a flushed peer list
+                // becomes a second copy of the failure. Worse, it was logged as "as a legacy
+                // client": field log 94b0a3da has four rounds of a fallback that never ran.
+                //
+                // Find the dash again instead and connect with the scan STILL RUNNING. That is
+                // the one form that carries an address the framework currently knows, and on a
+                // stack that empties its list when discovery stops it is the only one left.
+                if (peer == null) {
+                    outcome.complete(
+                        Result.failure(
+                            IllegalStateException(
+                                "Wi-Fi Direct join is not possible for ${profile.ssid}: the dash " +
+                                    "did not answer Wi-Fi Direct discovery, and its name cannot " +
+                                    "be used as a group name either. Make sure the dash screen " +
+                                    "is on and showing its connection page, then retry."
+                            )
                         )
                     )
-                )
-                return
+                    return null
+                }
+                addressPeer = discoverPeer(manager, channel, profile, outcome, footprint) ?: peer
+                if (outcome.isCompleted) return null
+                rediscovered = true
+                // The peer form of buildConfig cannot fail, but a return that settles nothing
+                // would leave the join sitting out the whole 35s budget for a question already
+                // answered - so the impossible branch still publishes a failure.
+                config = buildConfig(profile, addressPeer) ?: run {
+                    outcome.complete(
+                        Result.failure(
+                            IllegalStateException(
+                                "Wi-Fi Direct join is not possible for ${profile.ssid}: its name " +
+                                    "cannot be used as a group name, and no peer address for the " +
+                                    "dash could be built either."
+                            )
+                        )
+                    )
+                    return null
+                }
             }
             log(
-                if (joinPeer != null) "Joining the dash at ${joinPeer.deviceAddress} (attempt ${attempt + 1})."
-                else "Joining Wi-Fi Direct group ${profile.ssid} as a legacy client (attempt ${attempt + 1})."
+                when {
+                    rediscovered ->
+                        "Joining the dash at ${addressPeer?.deviceAddress} with discovery still " +
+                            "running (attempt ${attempt + 1}): ${profile.ssid} is not a group " +
+                            "name, so there is no credentials join to fall back to."
+                    joinPeer != null ->
+                        "Joining the dash at ${joinPeer.deviceAddress} (attempt ${attempt + 1})."
+                    else ->
+                        "Joining Wi-Fi Direct group ${profile.ssid} as a legacy client " +
+                            "(attempt ${attempt + 1})."
+                }
             )
             // Set before the call, not after: a rejected connect() can still have left an
             // invitation behind on some frameworks, and the cleanup must know to cancel it.
@@ -436,40 +662,26 @@ class TBoxWifiDirectConnector(
             when (val reason = issueConnect(manager, channel, config)) {
                 null -> {
                     log("Wi-Fi Direct connect() accepted; waiting for the group to form.")
-                    return
+                    return null
                 }
                 WifiP2pManager.BUSY -> {
                     // A stale group is being torn down; the connection-changed broadcast still fires.
                     log("Wi-Fi Direct connect() busy; waiting for the pending group.")
-                    return
+                    return null
                 }
                 else -> {
+                    lastReason = reason
                     if (attempt == CONNECT_ATTEMPTS - 1) {
-                        logConnectRejectionDiagnostics(manager, channel, profile, peer)
-                        // The permission is already ruled out by connect()'s preflight, so the
-                        // remaining rider-fixable cause of a bare rejection is the phone-wide
-                        // location toggle. Named only when it is actually off - a hint that
-                        // appears on every failure is one riders learn to skip.
-                        val hint = if (WifiDirectGate.isLocationEnabled(appContext)) {
-                            ""
-                        } else {
-                            " ${WifiDirectGate.LOCATION_OFF_HINT}"
-                        }
-                        outcome.complete(
-                            Result.failure(
-                                IllegalStateException(
-                                    "Wi-Fi Direct connect() failed: ${reasonName(reason)}.$hint"
-                                )
-                            )
-                        )
-                        return
+                        logConnectRejectionDiagnostics(manager, channel, profile, addressPeer ?: peer)
+                        return reason
                     }
                     log("Wi-Fi Direct connect() failed (${reasonName(reason)}); retrying.")
-                    logConnectRejectionDiagnostics(manager, channel, profile, peer)
+                    logConnectRejectionDiagnostics(manager, channel, profile, addressPeer ?: peer)
                     delay(CONNECT_RETRY_DELAY_MS)
                 }
             }
         }
+        return lastReason
     }
 
     /**
@@ -500,10 +712,13 @@ class TBoxWifiDirectConnector(
             val group = awaitQuery<WifiP2pGroup> { resume ->
                 manager.requestGroupInfo(channel) { info -> resume(info) }
             }
-            val expectedName = peerNameFromGroupSsid(profile.ssid)
+            // expectedPeerName, not peerNameFromGroupSsid: the latter is null for a profile
+            // saved under the dash's device name, so on exactly the dashes this snapshot was
+            // needed for the name branch never ran and only the address could ever match.
+            val expectedName = expectedPeerName(profile.ssid)
             val dash = requestPeers(manager, channel).firstOrNull { candidate ->
                 (peer != null && candidate.deviceAddress.equals(peer.deviceAddress, ignoreCase = true)) ||
-                    (expectedName != null && candidate.deviceName.equals(expectedName, ignoreCase = true))
+                    candidate.deviceName.equals(expectedName, ignoreCase = true)
             }
             val groupDescription = if (group == null) {
                 "none"
@@ -521,11 +736,20 @@ class TBoxWifiDirectConnector(
         // Appended even when the framework went silent: these two are what it consults before
         // answering at all, and reading them costs no framework call. Without them a bare ERROR
         // is indistinguishable from a hardware fault in a mailed-in log.
+        val importance = processImportance()
         log(
             "$line Permission gate: nearbyDevices=" +
                 (if (WifiDirectGate.hasNearbyDevicesPermission(appContext)) "granted" else "DENIED") +
                 ", locationServices=" +
-                (if (WifiDirectGate.isLocationEnabled(appContext)) "on" else "OFF") + "."
+                (if (WifiDirectGate.isLocationEnabled(appContext)) "on" else "OFF") +
+                // Grants alone have never explained one of these refusals. What the framework
+                // consults is the app-op mode and how close to the rider this process is, and
+                // both change without the grant changing - which is why they are read here and
+                // not left to be inferred from a log that only ever says "granted".
+                ", app=${importanceName(importance)} ($importance)" +
+                ", window=${if (hasNoVisibleWindow(importance)) "NONE" else "on screen"}" +
+                ", nearbyDevicesOp=${appOpMode(OPSTR_NEARBY_WIFI_DEVICES)}" +
+                ", fineLocationOp=${appOpMode(AppOpsManager.OPSTR_FINE_LOCATION)}."
         )
     }
 
@@ -674,11 +898,18 @@ class TBoxWifiDirectConnector(
                 // toward another DIRECT- device (a different bike, a cast dongle) also reports
                 // groupFormed. Joining it would make discovery fail with a misleading "dash did
                 // not answer". Remove the stale group and keep waiting for the requested one.
+                //
+                // Only on proof that it belongs to someone else, though - see
+                // [groupBelongsToProfile]. This is the branch that removed a rider's working
+                // link because his dash's group is named `DIRECT-iY` and his profile is named
+                // after the dash's P2P device, two strings that can never be equal.
                 val groupName = group?.networkName
-                if (!groupNameMatchesProfile(groupName, profile.ssid)) {
+                val ownerName = group?.owner?.deviceName
+                if (!groupBelongsToProfile(groupName, ownerName, profile.ssid)) {
                     log(
-                        "Ignoring formed Wi-Fi Direct group '$groupName': it is not " +
-                            "${profile.ssid}. Removing the stale group and waiting for the join."
+                        "Ignoring formed Wi-Fi Direct group '$groupName' (owner '$ownerName'): " +
+                            "it is not ${profile.ssid}. Removing the stale group and waiting " +
+                            "for the join."
                     )
                     removeGroup(manager, channel, closeChannelAfter = false)
                     return@requestGroupInfo
@@ -701,7 +932,7 @@ class TBoxWifiDirectConnector(
     ) {
         // DHCP on the p2p link can lag the "group formed" event; poll off the main thread.
         Thread({
-            val bindIp = pollLocalP2pIpv4(iface)
+            val bindIp = pollLocalP2pIpv4(iface, gateway)
             if (bindIp == null) {
                 // What the process could actually see, not just that it saw nothing: this poll
                 // comes up empty for two very different reasons - DHCP still pending on a group
@@ -712,7 +943,8 @@ class TBoxWifiDirectConnector(
                 settle(
                     Result.failure(
                         IllegalStateException(
-                            "Wi-Fi Direct group formed but no usable 192.168.49.x address appeared on $iface."
+                            "Wi-Fi Direct group formed but no address on " +
+                                "${gateway.hostAddress}'s subnet appeared on $iface."
                         )
                     )
                 )
@@ -734,17 +966,17 @@ class TBoxWifiDirectConnector(
         }, "tbox-p2p-ip").apply { isDaemon = true }.start()
     }
 
-    private fun pollLocalP2pIpv4(iface: String?): Inet4Address? {
+    private fun pollLocalP2pIpv4(iface: String?, gateway: Inet4Address?): Inet4Address? {
         val deadline = System.nanoTime() + IP_POLL_TIMEOUT_MS * 1_000_000
         while (System.nanoTime() < deadline) {
-            localP2pIpv4(iface)?.let { return it }
+            localP2pIpv4(iface, gateway)?.let { return it }
             try {
                 Thread.sleep(IP_POLL_INTERVAL_MS)
             } catch (_: InterruptedException) {
                 return null
             }
         }
-        return localP2pIpv4(iface)
+        return localP2pIpv4(iface, gateway)
     }
 
     /** Every up, non-loopback interface with its IPv4 addresses - or why the list is unavailable. */
@@ -762,18 +994,38 @@ class TBoxWifiDirectConnector(
             .ifBlank { "none" }
     }.getOrElse { "unreadable (${it.javaClass.simpleName}: ${it.message})" }
 
-    private fun localP2pIpv4(iface: String?): Inet4Address? = runCatching {
+    /**
+     * @param gateway the Group Owner's address, as the platform reported it for THIS group. It is
+     *   what tells a p2p address apart from any other private address the phone happens to hold,
+     *   now that the subnet is no longer assumed - see the comment on the fallback below.
+     */
+    private fun localP2pIpv4(iface: String?, gateway: Inet4Address?): Inet4Address? = runCatching {
         for (nic in NetworkInterface.getNetworkInterfaces()) {
             if (!nic.isUp || nic.isLoopback) continue
             val nameMatches = iface == null || nic.name == iface || nic.name.startsWith("p2p")
-            for (address in nic.inetAddresses) {
+            for (binding in nic.interfaceAddresses) {
+                val address = binding.address
                 if (address !is Inet4Address || address.isLoopbackAddress) continue
                 val host = address.hostAddress ?: continue
                 // Never accept the GO's own address as the phone's source: that only happens
-                // when the phone ended up as Group Owner, which the join already rejects.
-                if (host == GROUP_OWNER_IP) continue
+                // when the phone ended up as Group Owner, which the join already rejects. The
+                // literal is the backstop for a caller that could not report a gateway.
+                if (address == gateway || host == GROUP_OWNER_IP) continue
                 if (nic.name == iface) return address
-                if (nameMatches && host.startsWith("192.168.49.")) return address
+                if (!nameMatches) continue
+                // The group named no interface, so the address has to prove it belongs to the
+                // group some other way: by sitting on the Group Owner's own subnet. This used to
+                // require the literal `192.168.49.` prefix, which is only ever right for a group
+                // ANDROID formed - and on these dashes the GO is the dash, free to hand out
+                // whatever it likes. A Zontes 350E puts its GO on 192.168.2.1 and the phone on
+                // 192.168.2.20 (GitHub issue #12); every address on the p2p interface was walked
+                // past and the join died on "no usable 192.168.49.x address".
+                if (gateway != null) {
+                    val prefixLength = binding.networkPrefixLength.toInt()
+                    if (sharesSubnet(address, prefixLength, gateway)) return address
+                } else if (host.startsWith("192.168.49.")) {
+                    return address
+                }
             }
         }
         null
@@ -857,6 +1109,13 @@ class TBoxWifiDirectConnector(
                 delay(CANCEL_SETTLE_MS)
             }
         }
+        if (footprint.adoptedExistingGroup) {
+            // See P2pJoinFootprint.adoptedExistingGroup: the group outlives this attempt, so all
+            // that is left to hand back is the channel.
+            log("Leaving the Wi-Fi Direct group up: this attempt adopted it rather than forming it.")
+            runCatching { channel.close() }
+            return
+        }
         // Outside the budget above: it is fire-and-forget, and it is also what closes the channel.
         removeGroup(manager, channel, closeChannelAfter = true)
     }
@@ -901,6 +1160,40 @@ class TBoxWifiDirectConnector(
 
         /** `connect()` was called at all, accepted or not, so an invitation may be outstanding. */
         var connectIssued = false
+
+        /**
+         * Discovery surfaced the dash at least once during this join.
+         *
+         * Read only to decide what to tell the rider when the join gives up. A stack that ran a
+         * scan and named the dash is not the wedged stack the "turn Wi-Fi off and on" advice was
+         * written for, and rider 94b0a3da had already done exactly that - his 19:10 attempt, on
+         * a Wi-Fi he had just toggled, failed identically to the three before it.
+         */
+        var peerSeen = false
+
+        /** The dash fell out of the peer list when discovery was stopped. See [attemptJoin]. */
+        var peerListClearedOnStop = false
+
+        /**
+         * This process had a window on screen at least once while this join was running.
+         *
+         * False is the whole finding of support case f014ce61 (VOGE 800 Rally, 2026-08-31): five
+         * joins in one ride, and the three that were refused are exactly the three made after
+         * `Main activity destroyed`. What the rider must do about that is open the app, which is
+         * the opposite of the advice a wedged stack earns.
+         */
+        var everHadAWindow = false
+
+        /**
+         * The group was already up and this attempt adopted it instead of forming one.
+         *
+         * Nothing here may then remove it. Whoever formed it - the companion app, or an earlier
+         * session of this process - is still counting on it, and a removed group is not a group
+         * that can be joined again: field log 90438e1e (Voge, 2026-08-25) has Core adopting the
+         * companion's group, failing to read its address, removing it on the way out, and then
+         * being refused every join for the rest of the ride.
+         */
+        var adoptedExistingGroup = false
     }
 
     companion object {
@@ -921,12 +1214,146 @@ class TBoxWifiDirectConnector(
         private const val P2P_RELEASE_TIMEOUT_MS = 4_000L
         private const val CONNECT_ATTEMPTS = 2
         private const val CONNECT_RETRY_DELAY_MS = 1_200L
+
+        /**
+         * How long a stack that refused a whole join round is left alone before the next one.
+         *
+         * Long enough to be a different question than the one just refused - the refusals come
+         * back in single-digit milliseconds - and short enough that four rounds still fit the
+         * 35s budget, so a dash that is merely slow to answer is not starved of attempts.
+         */
+        private const val WEDGE_SETTLE_MS = 6_000L
+
+        /**
+         * How often a join that is waiting for the app to come back on screen looks again.
+         *
+         * The rider is tapping a notification or the launcher icon, so seconds is the resolution
+         * that matters; polling faster would only wake the CPU on a phone strapped to a bike.
+         */
+        private const val WINDOW_POLL_INTERVAL_MS = 1_000L
+
+        /**
+         * `AppOpsManager.OPSTR_NEARBY_WIFI_DEVICES`, which the public SDK does not export.
+         *
+         * Passed as a literal on purpose: [appOpMode] reads it through `runCatching`, so on a
+         * platform that does not know this op the log says "unreadable" rather than failing.
+         */
+        private const val OPSTR_NEARBY_WIFI_DEVICES = "android:nearby_wifi_devices"
+
+        /**
+         * The importance a process has while one of its activities is the app the rider is
+         * looking at. Anything larger is further away.
+         *
+         * NOT [TBoxNetworkConnector.FOREGROUND_SERVICE_IMPORTANCE], and the difference is the
+         * whole point. A specifier request is accepted from a foreground service (125), so that
+         * connector's gate passes for a projection that is running with its UI closed - and in
+         * support case f014ce61 the Wi-Fi Direct join made from exactly that state was refused in
+         * four milliseconds, five rounds running, while `nearbyDevices=granted` and
+         * `locationServices=on`. Wi-Fi Direct wants a window, not a service.
+         */
+        private const val TOP_APP_IMPORTANCE =
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+
+        /** True when this process has no activity on screen. See [TOP_APP_IMPORTANCE]. */
+        internal fun hasNoVisibleWindow(importance: Int): Boolean = importance > TOP_APP_IMPORTANCE
+
+        internal fun importanceName(importance: Int): String = when (importance) {
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND -> "on screen"
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE ->
+                "foreground service only"
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE -> "visible"
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE -> "perceptible"
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE -> "service"
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED -> "cached"
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE -> "gone"
+            else -> "importance $importance"
+        }
+
+        /**
+         * What to tell the rider when a whole join was refused - the one sentence they will act
+         * on, so the branch that owns it is decided here and tested rather than inlined.
+         *
+         * Order is deliberate. A stack that ran a scan and named the dash is working, whatever
+         * else went wrong, so [peerSeen] keeps the first two branches it already had. Only then
+         * comes the window: a join that never once ran with the app on screen is the case where
+         * every framework call is rejected in milliseconds, and telling that rider to restart
+         * Wi-Fi sends them to do something that cannot help - support case f014ce61, where four
+         * recovery attempts spent the whole 120s watchdog on a phone whose Wi-Fi was fine.
+         */
+        internal fun joinRefusalAdvice(
+            ssid: String,
+            appName: String,
+            peerSeen: Boolean,
+            peerListClearedOnStop: Boolean,
+            everHadAWindow: Boolean
+        ): String = when {
+            peerSeen && peerListClearedOnStop ->
+                "The phone found $ssid but refused every request to join it, dropping it from " +
+                    "its Wi-Fi Direct peer list each time. Try joining the dash from the " +
+                    "phone's own Wi-Fi Direct screen first, then reconnect here."
+            peerSeen ->
+                "The phone found $ssid but refused every request to join it. Make sure the dash " +
+                    "is showing its connection page, then retry."
+            !everHadAWindow ->
+                "The phone refused every attempt of this join while $appName had no window on " +
+                    "screen, which is when it refuses them. Open $appName and it will reconnect."
+            else ->
+                "The phone's Wi-Fi Direct stack refused every attempt of this join. Turn Wi-Fi " +
+                    "off and on again on the phone, then reconnect."
+        }
+
+        /** What one refused round costs, measured on the field logs: discovery refusal, the
+         * preparation calls, two instant rejections and the retry delay between them. */
+        private const val WEDGE_ROUND_COST_MS = 3_000L
         private const val IP_POLL_TIMEOUT_MS = 10_000L
         private const val IP_POLL_INTERVAL_MS = 500L
         private const val ADOPT_VERIFY_TIMEOUT_MS = 3_000L
         private const val ADOPT_VERIFY_POLL_MS = 300L
+        /**
+         * The Group Owner address of a group ANDROID formed. Kept only as the backstop for a
+         * caller with no gateway to offer: a dash that is itself the GO picks its own subnet, so
+         * this is never the address to match a real one against - [sharesSubnet] is.
+         */
         private const val GROUP_OWNER_IP = "192.168.49.1"
+
+        /**
+         * Whether [local], on a network of [prefixLength] bits, is on the same subnet as
+         * [gateway].
+         *
+         * Plain values rather than the `InterfaceAddress` they come from, because that class is
+         * final with no public constructor: taking it would put this rule behind a mocking
+         * framework, and it is the rule the Zontes 350E turns on.
+         *
+         * A prefix outside 1..32 is what the platform returns for an address it could not
+         * describe (-1 is documented for exactly that), so it answers false rather than guessing
+         * a /24: a wrong yes here hands the session a source address that cannot reach the dash,
+         * and the failure would surface much later as a connect timeout.
+         */
+        internal fun sharesSubnet(local: Inet4Address, prefixLength: Int, gateway: Inet4Address): Boolean {
+            if (prefixLength !in 1..32) return false
+            val mask = -1 shl (32 - prefixLength)
+            return (ipv4ToInt(local) and mask) == (ipv4ToInt(gateway) and mask)
+        }
+
+        private fun ipv4ToInt(address: Inet4Address): Int =
+            address.address.fold(0) { acc, byte -> (acc shl 8) or (byte.toInt() and 0xFF) }
+
         private const val DIRECT_PREFIX = "DIRECT-"
+
+        /**
+         * Whether a join round that was refused outright should be retried after a settle,
+         * given how much of the whole-join budget it has already spent.
+         *
+         * The settle and one more round have to fit, or the retry would be cut off mid-flight by
+         * [CONNECT_TIMEOUT_MS] and the rider would get "no group formed in 35s" - a message about
+         * the dash - for what is a refusal by their own phone.
+         */
+        internal fun shouldSettleAndRetryJoin(
+            elapsedMillis: Long,
+            budgetMillis: Long,
+            settleMillis: Long = WEDGE_SETTLE_MS,
+            roundCostMillis: Long = WEDGE_ROUND_COST_MS
+        ): Boolean = elapsedMillis + settleMillis + roundCostMillis <= budgetMillis
 
         /** Wi-Fi Direct group names always start with "DIRECT-" (Android convention). */
         fun isWifiDirectSsid(ssid: String): Boolean =
@@ -963,15 +1390,49 @@ class TBoxWifiDirectConnector(
             peerNameFromGroupSsid(ssid) ?: ssid.trim().removeSurrounding("\"")
 
         /**
-         * Whether a formed group's network name is the profile's dash. A null/blank name cannot
-         * be verified (some frameworks withhold it from legacy clients) and is accepted rather
-         * than breaking joins that used to work.
+         * Whether a formed group is the profile's dash.
+         *
+         * Two shapes of profile reach this, and only one of them can ever match by group name.
+         * A `DIRECT-…` profile IS a group name, so the names are compared directly. A profile
+         * saved under the dash's P2P *device* name - `VOGE-5G-9fab`, the form
+         * [expectedPeerName] exists for - never can be: Android names every group `DIRECT-…`,
+         * so a name comparison against it is guaranteed to fail. Field log 94b0a3da (Voge
+         * Valico 900 DSX, OnePlus CPH2663 / Android 16, 2026-08-26): the rider had joined the
+         * dash by hand and this check called the resulting group `DIRECT-iY` a stale group
+         * toward another device and removed the working link.
+         *
+         * So the group owner's device name is consulted too - the GO *is* the dash, and its
+         * name is the same string the profile holds - as is the `DIRECT-xy-<name>` shape.
+         *
+         * The last rule is the one that matters most: **a group is only ever rejected on
+         * positive proof that it belongs to another device.** When nothing readable can settle
+         * it, the group is accepted. Removing on absence of evidence is what cost 94b0a3da his
+         * link, and the cost of the other mistake is smaller - a foreign group we adopt fails
+         * discovery a few seconds later, which is recoverable, while a removed group is not.
          */
-        internal fun groupNameMatchesProfile(groupName: String?, profileSsid: String): Boolean {
-            val normalizedGroup = groupName?.trim()?.removeSurrounding("\"").orEmpty()
-            if (normalizedGroup.isEmpty()) return true
+        internal fun groupBelongsToProfile(
+            groupName: String?,
+            ownerDeviceName: String?,
+            profileSsid: String
+        ): Boolean {
+            val group = groupName?.trim()?.removeSurrounding("\"").orEmpty()
+            val owner = ownerDeviceName?.trim()?.removeSurrounding("\"").orEmpty()
             val normalizedProfile = profileSsid.trim().removeSurrounding("\"")
-            return normalizedGroup.equals(normalizedProfile, ignoreCase = true)
+            val expected = expectedPeerName(profileSsid)
+            return when {
+                // A DIRECT- profile is a group name: compare them directly.
+                group.equals(normalizedProfile, ignoreCase = true) -> true
+                // The Group Owner is the dash, and a peer-name profile holds exactly its name.
+                owner.isNotEmpty() && owner.equals(expected, ignoreCase = true) -> true
+                // Android's own convention, when the framework does name the group after it.
+                group.endsWith("-$expected", ignoreCase = true) -> true
+                // Nothing readable to judge by - some frameworks withhold both from a client.
+                group.isEmpty() && owner.isEmpty() -> true
+                // A peer-name profile with an unreadable owner: the name mismatch above is not
+                // evidence of anything, because it could not have matched in the first place.
+                owner.isEmpty() && !isWifiDirectSsid(normalizedProfile) -> true
+                else -> false
+            }
         }
     }
 }

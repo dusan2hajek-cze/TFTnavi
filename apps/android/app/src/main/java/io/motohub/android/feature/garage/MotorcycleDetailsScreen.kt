@@ -67,6 +67,9 @@ import io.motohub.android.ui.components.MotoHubRadioRow
 
 private enum class MotorcycleDetail { ANDROID_AUTO_DISPLAY, TFT_MARGINS, PROFILE_OVERRIDE }
 
+/** Where a motorcycle photo comes from when the rider adds or changes it. */
+enum class MotorcyclePhotoSource { CAMERA, GALLERY, FILES }
+
 /**
  * Motorcycle profile screen. A compact hub (photo, name, fuel, connection info) with the
  * less-frequently-touched settings behind drill-down screens, mirroring the same
@@ -86,7 +89,7 @@ fun MotorcycleDetailsScreen(
     onCustomizeDashboard: () -> Unit,
     onDisplayModeChanged: (AndroidAutoDisplayMode) -> Unit,
     onScreenMarginsChanged: (TBoxScreenMargins) -> Unit,
-    onChoosePhoto: () -> Unit,
+    onChoosePhoto: (MotorcyclePhotoSource) -> Unit,
     onRemovePhoto: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -172,7 +175,7 @@ private fun MotorcycleDetailsMainList(
     onOpenDetail: (MotorcycleDetail) -> Unit,
     onOpenCapabilities: () -> Unit,
     onCustomizeDashboard: () -> Unit,
-    onChoosePhoto: () -> Unit,
+    onChoosePhoto: (MotorcyclePhotoSource) -> Unit,
     onRemovePhoto: () -> Unit,
     onRequestDelete: () -> Unit
 ) {
@@ -218,6 +221,16 @@ private fun MotorcycleDetailsMainList(
             )
         }
 
+        var showPhotoSourceDialog by rememberSaveable { mutableStateOf(false) }
+        if (showPhotoSourceDialog) {
+            PhotoSourceDialog(
+                onDismiss = { showPhotoSourceDialog = false },
+                onSelect = { source ->
+                    showPhotoSourceDialog = false
+                    onChoosePhoto(source)
+                }
+            )
+        }
         MotorcyclePhoto(
             path = profile.photoPath,
             modifier = Modifier
@@ -229,7 +242,7 @@ private fun MotorcycleDetailsMainList(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             OutlinedButton(
-                onClick = onChoosePhoto,
+                onClick = { showPhotoSourceDialog = true },
                 modifier = Modifier.weight(1f).height(48.dp),
                 shape = RoundedCornerShape(14.dp)
             ) { Text(if (profile.photoPath == null) motoHubText("Add photo") else motoHubText("Change photo")) }
@@ -530,4 +543,38 @@ private fun FormatButton(
             else MaterialTheme.colorScheme.onSurface
         )
     ) { Text(text, fontWeight = FontWeight.Bold) }
+}
+
+@Composable
+private fun PhotoSourceDialog(
+    onDismiss: () -> Unit,
+    onSelect: (MotorcyclePhotoSource) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(motoHubText("Motorcycle photo")) },
+        text = {
+            Column {
+                MotoHubActionRow(
+                    title = motoHubText("Take a photo"),
+                    description = motoHubText("Open the camera and shoot it now."),
+                    onClick = { onSelect(MotorcyclePhotoSource.CAMERA) }
+                )
+                HorizontalDivider()
+                MotoHubActionRow(
+                    title = motoHubText("Choose from gallery"),
+                    description = motoHubText("Pick one of your photos."),
+                    onClick = { onSelect(MotorcyclePhotoSource.GALLERY) }
+                )
+                HorizontalDivider()
+                MotoHubActionRow(
+                    title = motoHubText("Browse files"),
+                    description = motoHubText("Downloads, cloud drives and any other folder."),
+                    onClick = { onSelect(MotorcyclePhotoSource.FILES) }
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(motoHubText("Cancel")) } }
+    )
 }

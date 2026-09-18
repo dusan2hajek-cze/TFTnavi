@@ -77,4 +77,68 @@ class TBoxCapabilitiesTest {
         assertEquals("65561", result?.flavor)
         assertEquals("48405", result?.channel)
     }
+
+    /**
+     * The property the AIDL bridge rests on: Core encodes CLIENT_INFO with one of these functions
+     * and the companion app decodes it with the other, so anything lost here is a capability the
+     * companion silently never sees - which is the whole failure getCapabilitiesJson() exists to
+     * end.
+     */
+    @Test
+    fun `capabilities survive the round trip both apps make them take`() {
+        val original = TBoxCapabilities(
+            huName = "ZHKJ13-1122",
+            carBrand = "Benelli",
+            carModel = "TRK 702X",
+            packageName = "linux_no_package",
+            pxcVersion = "1.0.2",
+            sdkVersion = "0.9.23.4",
+            versionName = "1.0.0",
+            versionCode = "0",
+            dpi = 0,
+            dpiEnabled = false,
+            productType = 3,
+            screenType = 1,
+            transportType = 2,
+            supportFunction = 128,
+            socketTimeoutPeriodWifi = 15,
+            socketServerAuth = false,
+            screenTouch = false,
+            screenMirroring = true,
+            mirrorReconnect = true,
+            landscapeAdaptive = true,
+            microphone = false,
+            hid = true,
+            mirrorOverlayTouch = false,
+            thirdPartyApps = true,
+            phoneSignal = false,
+            syncCorrectTime = true,
+            bluetoothCall = false,
+            bluetoothSettings = false,
+            flavor = "51",
+            channel = "34813"
+        )
+        assertEquals(original, decodeCapabilities(encodeCapabilities(original)))
+    }
+
+    @Test
+    fun `an all-absent snapshot round trips as one, so an empty decode is distinguishable`() {
+        val empty = TBoxCapabilities()
+        assertEquals(empty, decodeCapabilities(encodeCapabilities(empty)))
+    }
+
+    @Test
+    fun `currentHUTime is the dashboard's uptime, whether it comes as a number or as text`() {
+        assertEquals(88_182L, tBoxCapabilitiesFrom(mapOf("currentHUTime" to 88182)).huUptimeMillis)
+        assertEquals(88_182L, tBoxCapabilitiesFrom(mapOf("currentHUTime" to "88182")).huUptimeMillis)
+        assertEquals(1_613_228_316_255L, tBoxCapabilitiesFrom(mapOf("currentHUTime" to 1_613_228_316_255L)).huUptimeMillis)
+        assertNull(tBoxCapabilitiesFrom(mapOf("HUName" to "SSDQ01")).huUptimeMillis)
+    }
+
+    @Test
+    fun `the uptime crosses the bridge to the companion app`() {
+        val decoded = decodeCapabilities(encodeCapabilities(TBoxCapabilities(huName = "VOGE", huUptimeMillis = 9_738L)))
+        assertEquals(9_738L, decoded.huUptimeMillis)
+        assertNull(decodeCapabilities(encodeCapabilities(TBoxCapabilities(huName = "VOGE"))).huUptimeMillis)
+    }
 }

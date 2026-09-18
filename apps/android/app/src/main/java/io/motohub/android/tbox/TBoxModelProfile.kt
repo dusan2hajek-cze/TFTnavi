@@ -7,6 +7,21 @@ import io.motohub.android.androidauto.AndroidAutoDisplayMode
 import io.motohub.android.androidauto.AndroidAutoVideoPreset
 import io.motohub.android.androidauto.TBoxScreenMargins
 
+/**
+ * The KOVE 450 Rally's landscape TFT, in the one place [TBoxModelProfile.KOVE_450_RALLY] needs it
+ * twice — the declared stream area and the bitrate derived from it must never drift apart. Not in
+ * ThinkerRideProtocol: that object holds the wire, and this wire never carries a panel size.
+ */
+private const val KOVE_450_RALLY_VIDEO_WIDTH = 1280
+private const val KOVE_450_RALLY_VIDEO_HEIGHT = 640
+
+/**
+ * Pseudo modelId of the KOVE 625X. Its QR carries no model information, so the id is stamped
+ * from the dash's network name ([TBoxModelProfile.modelIdForSsid]) rather than read from a code.
+ * Top-level like the 450 Rally geometry above: an enum entry cannot reach its own companion.
+ */
+internal const val KOVE_625X_PROVISIONING_MODEL_ID = "KOVE-625X"
+
 /** Tunings that can be applied after the transport has decoded a touch frame. */
 data class TBoxTouchPolicy(
     val ghostMergePx: Int = 48,
@@ -80,6 +95,59 @@ enum class TBoxModelProfile(
      */
     val encoderPlainGopWithoutIntraRefresh: Boolean = false,
     /**
+     * Send the phone-to-car page sequence once the dash says STREAM_START.
+     *
+     * **Off for every dashboard, including the one it was written for.** It puts three
+     * commands on the wire that travel
+     * phone-to-car - `ECP_P2C_PAGE_STATUS`, `ECP_P2C_JUMP_TO_CAR_PAGE` and
+     * `ECP_P2C_SWITCH_TO_SYSTEM_MAIN_PAGE`, all from the EasyConn SDK inside the CarbitRide
+     * APK - and no reference implementation sends any of them, so this is an experiment
+     * rather than a port. It exists for a dash that opens the video socket, pulls the whole
+     * stream at ~30 Hz and paints none of it, which is what a head unit whose UI never left
+     * its waiting page looks like from the phone's side. Never turn it on for a dashboard
+     * that already displays a picture.
+     *
+     * It ran on the one dash it was written for and did not work: report 611F-5791-9EBA
+     * (2026-09-09) shows all six writes reaching the socket across two sessions, not one
+     * `cmd+1` ack coming back, and the rider seeing nothing on the panel - not even from the
+     * control command that was supposed to move the dash away from mirroring. So no profile
+     * sets it any more, and a test holds that.
+     *
+     * The code stays because the measurement was worth making and the next Carbit firmware
+     * that drains a stream without painting it may answer differently. Do not switch it back
+     * on for [TBoxModelProfile.QJ_SRK921_RR] alongside another experiment: the two would fire
+     * within seconds of each other on the same session, and the panel is the only instrument
+     * either of them has.
+     */
+    val sendsPageSwitchProbe: Boolean = false,
+    /**
+     * Tell the head unit that the phone is mirroring, the way the official EasyConn app does.
+     *
+     * `ECP_P2C_APPSTATUS_BACKGROUND` (`0x20030`) is the only command the official app pushes at
+     * the phone's own initiative around a projection, and the only statement it ever makes that
+     * a mirror exists at all. From `kh/b.java` in the CarbitRide APK the body is
+     * `{"mode":n,"displayRotation":r,"width":w,"height":h,"enableAccessibility":b,"enableAOAHid":b}`,
+     * and the app sends it twice per connection: mode 2 the moment PXC comes up
+     * (`net.easyconn.carman.vf.s.b0()`), then mode 1 - "the picture you are pulling is live" -
+     * from `n0.setTrueMirror()`, once `REQ_RV_DATA_START` has been answered `113`.
+     *
+     * No reference implementation sends it: not open-cflink, not open-cfmoto, not
+     * open-cfmoto-zanderp, and not this app until now. It is on here for the one dashboard family
+     * whose EasyConn client runs to completion - handshake, capture negotiation, video socket,
+     * frames pulled at 30 Hz - while its panel stays blank, which is what a UI that was never told
+     * the mirror went live looks like from this side.
+     *
+     * Unlike [sendsPageSwitchProbe] this one carries its own readout. `0x20030` is even, so the
+     * dash owes it `0x20031`, and the SDK's own `y0.getResponseProcessType` puts the command in
+     * the group the official app blocks on - it expects that acknowledgement. An ack in a rider's
+     * log therefore says the firmware knows the command, whatever the panel does, which is the
+     * instrument the page experiment never had.
+     *
+     * Off everywhere else: it puts an unsolicited command on a wire that every dashboard painting
+     * a picture today has never seen it on.
+     */
+    val announcesMirrorState: Boolean = false,
+    /**
      * Encode exactly [fallbackTBoxVideoArea]'s dimensions instead of the 16-aligned canvas.
      * ThinkerRide declares the stream size to the dash in a header, and the reference app
      * encodes precisely what it declares (600x1024); we used to declare 600 and stream 592.
@@ -105,7 +173,45 @@ enum class TBoxModelProfile(
      * by hand, so no dash that streams today can land on this path.
      */
     val yunmoJpegVideo: Boolean = false,
+    /**
+     * EasyConn only: answer the capture negotiation with `encoder=1` (JPEG) even though the dash
+     * asked for H.264, and send the display as JPEG stills.
+     *
+     * Unlike [yunmoJpegVideo] this contradicts the dashboard: the QJ 5-inch panel asks for
+     * `wantEncoder=2` and would be given stills anyway. What made that worth a rider's session is
+     * that it asks for H.264, pulls every frame of the H.264 it is sent - 680 pulls at ~30 Hz with
+     * no gap, `frameTimeouts=0`, `frameRejections=0` - and paints none of it, through six chapters
+     * of field logs that had retired framing, rate, GOP, codec identity and the page plane.
+     *
+     * It ran on that dash on 2026-09-10 and did not work: report 6264-6CB4-AA1E shows the stills
+     * really leaving the phone in both sessions, and the dash pulling them at the same 23-35 Hz,
+     * with the same `frameTimeouts=0` / `frameRejections=0` / `mediaCtrlRx=2` and the same blank
+     * panel, as if nothing had changed - because for it nothing did. See [TBoxModelProfile.QJ_SRK921_RR]
+     * for the reading. So no profile sets it any more, and a test holds that.
+     *
+     * The code stays because the measurement was worth making and the next Carbit firmware that
+     * drains a stream without painting it may answer differently.
+     *
+     * The format is not invented. EasyConn's own `ECTinyPlus.proto` declares
+     * `VideoCodecType { NONE=0, JEPG=1, H264=2, MP4=3 }`, and `net.easyconn.carman`'s mirror
+     * sender branches on exactly that field to choose between JPEG stills and an H.264 stream: a
+     * Carbit head unit has a still decoder, and this reply is where the official app states which
+     * of the two it will use. It is the move that finally painted the X-Cape 1200 and the KOVE
+     * 625X (see [yunmoJpegVideo]), one transport family over.
+     *
+     * Off everywhere else. A dashboard that displays a picture today must never reach this.
+     */
+    val easyConnJpegStills: Boolean = false,
     /** Which wire protocol the dash speaks; routes the session to the matching transport. */
+    /**
+     * Wrap every BLE command to a ThinkerRide dash in the OEM's 104-byte `byteCat` frame
+     * instead of writing bare JSON (see [ThinkerRideProtocol.byteCatFrames]).
+     *
+     * Per profile and off by default on purpose: bare JSON is field-proven on a KOVE 800X and
+     * framing it everywhere would break the one rider known to stream, while the SiQi firmware
+     * on the 450 Rally reads nothing we send unframed.
+     */
+    val bleUsesByteCatFraming: Boolean = false,
     val transportFamily: TBoxTransportFamily = TBoxTransportFamily.EASYCONN,
     /**
      * Yunmo only: use the OEM map-navigation display path (A0 cmd=6, with each keyframe split into
@@ -113,7 +219,14 @@ enum class TBoxModelProfile(
      * still-unconfirmed compatibility experiment for the X-Cape 1200, so it stays off unless a
      * profile opts in — a plain mirror is the safe default for any Yunmo dash.
      */
-    val yunmoMapNavExperiment: Boolean = false
+    val yunmoMapNavExperiment: Boolean = false,
+    /**
+     * Network-name prefixes that identify this dashboard when nothing else does. Only for a
+     * dash whose QR carries no modelId and whose SSID is the one stable thing about it (the
+     * KOVE 625X's `KY_ADV_…`); a prefix earns the profile's first [modelIds] entry through
+     * [modelIdForSsid]. Empty for every profile a code or CLIENT_INFO can name.
+     */
+    val ssidPrefixes: Set<String> = emptySet()
 ) {
     MOTO_HUB_SIMULATOR(
         key = "moto_hub_simulator",
@@ -333,6 +446,153 @@ enum class TBoxModelProfile(
         encoderPlainGopWithoutIntraRefresh = true
     ),
     /**
+     * The QJ SRK921 RR's 5-inch dash: an 800x352 video band on a Carbit-licensed EasyConn stack
+     * (`flavor 51`, `channel 37303`, `package_name linux_no_package`, `sdkVersion 0.9.23.1`) that
+     * pulls the whole stream and paints none of it.
+     *
+     * This is the profile [TBoxWireLadder] could not find. Rider 1d316f4b/bffd0679 walked the
+     * whole ladder twice - all four rungs, both framings, all-intra and 1s GOP alike - and every
+     * rung ended the same way: the socket healthy, `frameTimeouts=0`, `frameRejections=0`, over a
+     * thousand frames accepted in seventy seconds, and a rider looking at nothing but the dash's
+     * Wi-Fi icon. The blackout survives the source: Android Auto and the Ride Dashboard, which
+     * share nothing but this transport, are equally blank. The all-intra rungs also do not merely
+     * fail, they take the link down - the dash drops its own AP 4s, 27s and 46s into three
+     * consecutive sessions at -17dBm, which is not coverage - so do not go back to them.
+     *
+     * The encoder settings below were the *rate* experiment: 10 fps on a 2s GOP at 2 Mbps, the
+     * way the reference fork drives the other Carbit `flavor 51` units, rather than the 30 fps
+     * all-intra [GENERIC] guesses, on the theory that a dash acknowledging everything while
+     * painting nothing was an over-fed decoder. **That theory is dead.** Report 59A7-4A36-6C03
+     * (support id 81d3f550, 2026-09-08, ADV+CORE 1.1.114) is the first log from this dash to
+     * carry the `dashPulls` counter, and it shows the dash is not merely acknowledging frames -
+     * it drives the pull loop itself. Two sessions, both on exactly these settings, both black:
+     * Android Auto pulled 808 times over 29s against 288 frames offered, the Ride Dashboard 580
+     * times over 18s against 253. It opened `:10920`, sent `0x0072` at ~28-30 Hz with no gap,
+     * took all 541 real frames plus the idles between them, `frameTimeouts=0`,
+     * `frameRejections=0`, and never closed the socket - the rider stopped both sessions - over a
+     * link at -23/-29dBm on 5180MHz.
+     *
+     * The same log buries the other three suspects. Framing: `supportExtendProtocol=0` was
+     * honoured and the frame index dropped, still black. Codec: `encoder=2` is H.264 and we send
+     * H.264 Baseline L3.1 at 800x352, the geometry the dash itself asks for in `CAPTURE_CONFIG`.
+     * And "the dash never reads the stream" is precisely what `dashPulls` refutes. **Do not spend
+     * another rider's session on format, bitrate or fps - all three are excluded.** The settings
+     * below stay because nothing indicts them either, not because they are a fix.
+     *
+     * Read together with the two PXC silences below, that said the dash opens and drains the
+     * video socket while its UI never enters the mirroring page - exactly the "only the Wi-Fi
+     * icon" the rider reported. [sendsPageSwitchProbe] was the answer to that, and it has now
+     * been tried and has failed. After `STREAM_START` the phone sends the three phone-to-car page commands from the EasyConn
+     * SDK inside the CarbitRide APK, three seconds apart - `ECP_P2C_PAGE_STATUS` (`0x20400`,
+     * `{page,status,type}`, with `ECP_APP_PAGE_STATUS_OPEN=1`), `ECP_P2C_JUMP_TO_CAR_PAGE`
+     * (`0x20480`, `{page}`) and `ECP_P2C_SWITCH_TO_SYSTEM_MAIN_PAGE` (`0x20170`, empty), against
+     * the `21` `ECP_C2P_STANDARD_PAGES` calls `ECP_APP_PAGE_MIRROR_FLOATING`. The third moves the
+     * dash AWAY from mirroring and went last deliberately, as the control: a panel that reacted
+     * only there would have proved the page plane works and the page id is what is wrong.
+     *
+     * Report 611F-5791-9EBA (support id 81d3f550, 2026-09-09, ADV+CORE 1.1.115) ran it twice, once
+     * per session, and all six writes reached the socket. **Nothing came back and nothing moved.**
+     * All three are even commands and so are owed a `cmd+1` ack (`0x20401`, `0x20481`, `0x20171`);
+     * the daemon emits unhandled odd responses to the event stream, so an ack would be in the log,
+     * and there is none - while the dash does answer our proactive `0x70000000` with `0x70000001`
+     * on that same connection, so the writes do reach its PXC handler and it does process them.
+     * The rider watched the panel through both windows and reported nothing at all, the control
+     * command included. **This firmware does not implement the `0x2xxxx` page block. Do not retry
+     * with other page ids: it is not the page number, it is the block.** The probe is
+     * switched off here again, so the next log from this bike measures one thing at a time.
+     *
+     * That leaves one silence on the dash's side of PXC, not two. `0x60` is not `viewAreaConfig`
+     * but `REQ_CONFIGCAPTUREREXTEND`, the extended-protocol negotiation (open-cfmoto-zanderp
+     * `docs/01-REVERSE-ENGINEERING.md`), and this dash reports `supportExtendProtocol=0` in every
+     * `CAPTURE_CONFIG`: a firmware that does not use the extend protocol has no reason to send it,
+     * and the CFDL16 that does send it runs `supportExtendProtocol=1`. The one anomaly left is
+     * `CHECK_SN_DONE` (`0x201c1`), which never arrives even though the daemon answers its
+     * `CHECK_SN` with `CHECK_SN_RESULT isOk:true` the way open-cflink does - and which may simply
+     * be optional on this firmware.
+     *
+     * The seventh experiment was the payload format itself, and it too has been tried and has
+     * failed. The X-Cape 1200 and the KOVE 625X are the exact precedent - a dash that accepts
+     * everything on the socket and paints none of it, because the OEM app sends JPEG stills and
+     * never H.264 - so [easyConnJpegStills] was switched on here and the capture negotiation
+     * answered `encoder=1` to a dash that had asked for `2`. Report 6264-6CB4-AA1E (support id
+     * 81d3f550, 2026-09-10, ADV+CORE 1.1.116) ran it in both sessions and the stills really did
+     * leave the phone: 121 and 140 of them, 7-8 fps, 17-33 KB each, 142-245 KB/s, `0 held back`.
+     * The second session arrived over AIDL from ADVANCED and carries the same JPEG lines, so
+     * [usesJpegStills] reached the companion path too - the trap that gave the X-Cape three rounds
+     * of "JPEG does not work" without a single JPEG ever leaving the phone did not repeat here.
+     *
+     * **The dash did not change one number.** It pulled at 23-35 Hz exactly as it does on H.264,
+     * `frameTimeouts=0`, `frameRejections=0`, `mediaCtrlRx=2` (`CAPTURE_CONFIG` and `STREAM_START`,
+     * nothing else), never closed the socket, still no `CHECK_SN_DONE` - and the rider still saw
+     * nothing. An H.264 decoder fed JPEG errors, stalls or hangs up; a JPEG renderer fed JPEG
+     * paints. This did neither. **The consumer of the video socket is blind to the format: it
+     * drains whatever it is given at a fixed cadence**, which is what a process that reads and
+     * discards looks like from this side. There was not even the cheap signal that closed the
+     * Morini and the KOVE - the acks carrying a non-zero frame id - because `supportExtendProtocol=0`
+     * means plain framing and no index on the wire, so the panel was again the only instrument.
+     * The flag is off here again and the H.264 settings above are back in force, so the next log
+     * from this bike measures the stream six chapters of field logs were written against.
+     *
+     * Seven chapters in, this side has done everything the reference implementations do, in every
+     * combination - framing, rate and GOP, codec identity, the `0x2xxxx` page block, and now the
+     * payload format - and the dash still runs its entire EasyConn client - NSD, PXC handshake,
+     * `CHECK_SN`, `CAPTURE_CONFIG`, `STREAM_START`, video socket, 680 pulls at 30 Hz with no gap -
+     * while nothing whatsoever reaches the panel. The mirroring process runs headless.
+     * **Nothing on the wire is left to try from the phone's side.** What remains is a mirror
+     * surface on a display that is not the physical panel (`displayId=0`, `dpi=0`,
+     * `enableDPI=false`), a Carbit stack not licensed for this vehicle (`package_name
+     * linux_no_package`, `token 0`), or a page that has to be opened on the dash itself. The next
+     * useful move is not code: it is the control nobody has run in seven chapters - whether the
+     * official QJ/Carbit/CFMOTO app paints on this same dash from this same phone - together with
+     * the question open since 2026-09-09, whether the panel is black or shows the bike's own
+     * dashboard with the phone simply never appearing on top of it.
+     *
+     * It is not `0x10020`, which briefly looked like a candidate because it is declared in the
+     * daemon and never sent by us. It is a bike-to-phone notification and always was: open-cflink,
+     * open-cfmoto and open-cfmoto-zanderp all name it MEDIA_FEATURE_CFG
+     * (`{music,talkie,tts,vr,autoChangeToBT}`), part of the CFDL26 notify burst the dash sends
+     * after CHECK_SN and expects a bare `cmd+1` ack for - which the daemon's default even-command
+     * branch already gives it. This QJ dash never sends it at all, and originating it from the
+     * phone has no evidence behind it in any of the four references.
+     *
+     * Field notes for whoever picks that up: the dash asks for `bitrate=4194304` and `fps=0`
+     * while we send 2 Mbps at 10 fps, and reports `capScreenMode=0`, `videoType=0`,
+     * `orientation=1`, `mirrorMode=1`, `screenType=1`, `supportScreenMirroring=true`,
+     * `supportScreenTouch=false`.
+     *
+     * Claimed by modelId alone, and deliberately: `37303` belongs to this one dashboard across the
+     * whole collector, while `flavor 51` also covers a Voge Valico and two further rebadges that
+     * must not be moved onto a 10 fps stream on the strength of a shared licence. [score] returns
+     * 0 for the same reason - CLIENT_INFO must never carry this profile to a dash whose QR did
+     * not name it.
+     */
+    QJ_SRK921_RR(
+        key = "qj_srk921_rr",
+        displayName = "QJ SRK921 RR (test)",
+        modelIds = setOf("37303"),
+        mapTilesRequireCellular = true,
+        supportsScreenTouch = false,
+        defaultAndroidAutoPreset = AndroidAutoVideoPreset.LANDSCAPE_800X480,
+        fallbackTBoxVideoArea = TBoxEvent.VideoArea(800, 352),
+        requiresSockAuth = false,
+        // Echo what the dash reports rather than GENERIC's 0, as the reference fork does for every
+        // unit in this family; it is the only supportFunction this firmware has ever been seen to
+        // send.
+        advertisedSupportFunction = 128,
+        // Both copied from GENERIC verbatim, and both now settled rather than merely untouched:
+        // the ladder denied indexed and plain framing twice each, and 59A7-4A36-6C03 then showed
+        // the dash pulling the whole stream with plain framing honoured. Neither is the variable.
+        allowsPlainVideoFraming = true,
+        requiresProactivePxcHeartbeat = true,
+        encoderKeyframeIntervalSeconds = 2,
+        encoderFrameRate = 10,
+        encoderBitRate = 2_000_000,
+        encoderPlainGopWithoutIntraRefresh = true,
+        // Seventh experiment, and the first one drawn from the official app's own behaviour
+        // rather than from the wire: the phone never told this dash a mirror had started.
+        announcesMirrorState = true
+    ),
+    /**
      * KOVE 800X (and, until they earn their own profiles, other ThinkerRide-family dashes): a
      * 600x1024 portrait TFT paired over BLE, reached through [TBoxTransportFamily.THINKERRIDE].
      * The ThinkerRide protocol never reports a panel size — the phone declares the stream
@@ -367,6 +627,47 @@ enum class TBoxModelProfile(
             ThinkerRideProtocol.DEFAULT_VIDEO_HEIGHT * 3,
         encoderPlainGopWithoutIntraRefresh = true,
         encoderUsesExactVideoArea = true,
+        transportFamily = TBoxTransportFamily.THINKERRIDE
+    ),
+    /**
+     * KOVE 450 Rally (2022 dash, SiQi firmware `SV=3.0.x`): the same ThinkerRide wire as
+     * [KOVE_800X] driving a **1280x640 landscape** panel instead of a 600x1024 portrait one.
+     * The protocol never reports a panel size — the phone declares it — so a rider on this bike
+     * pinned to [KOVE_800X] streams a portrait image into a landscape TFT.
+     *
+     * Geometry, bitrate and GOP come from the ttarlov/kove-dash reverse-engineering of the OEM
+     * `oversea.whbluestar.thinkerride` app plus its own working projection on this exact bike
+     * (`refs/kove-dash/proto-poc/PROTOCOL.md`): 1280x640 confirmed rendering, 30fps, 1s GOP,
+     * `3 * width * height` — the same `r=3` bitrate tier [KOVE_800X] uses, which is why both
+     * profiles compute it the same way rather than sharing a constant.
+     *
+     * **[modelIds] is deliberately empty even though this dash answers the same QR.** The
+     * ThinkerRide QR carries only an SSID and a password, so both KOVE profiles would claim
+     * [ThinkerRideProtocol.PROVISIONING_MODEL_ID] — and [fromModelId] resolves an ambiguous
+     * modelId to [GENERIC], which for this family is not a milder answer but a broken one:
+     * GENERIC is an EasyConn profile, so every existing KOVE rider would silently lose the
+     * ThinkerRide transport entirely. A second profile on this wire can therefore only ever be
+     * a manual pin, until something on the wire tells the two panels apart.
+     */
+    KOVE_450_RALLY(
+        key = "kove_450_rally",
+        displayName = "KOVE 450 Rally (ThinkerRide)",
+        modelIds = emptySet(),
+        mapTilesRequireCellular = true,
+        defaultAndroidAutoDisplayMode = AndroidAutoDisplayMode.FILL,
+        supportsScreenTouch = false,
+        defaultAndroidAutoPreset = AndroidAutoVideoPreset.LANDSCAPE_1280X720,
+        fallbackTBoxVideoArea = TBoxEvent.VideoArea(
+            KOVE_450_RALLY_VIDEO_WIDTH,
+            KOVE_450_RALLY_VIDEO_HEIGHT
+        ),
+        requiresSockAuth = false,
+        advertisedSupportFunction = 0,
+        encoderKeyframeIntervalSeconds = 1,
+        encoderBitRate = KOVE_450_RALLY_VIDEO_WIDTH * KOVE_450_RALLY_VIDEO_HEIGHT * 3,
+        encoderPlainGopWithoutIntraRefresh = true,
+        encoderUsesExactVideoArea = true,
+        bleUsesByteCatFraming = true,
         transportFamily = TBoxTransportFamily.THINKERRIDE
     ),
     /**
@@ -497,9 +798,97 @@ enum class TBoxModelProfile(
         encoderKeyframeIntervalSeconds = 2,
         transportFamily = TBoxTransportFamily.YUNMO,
         yunmoMapNavExperiment = false
+    ),
+
+    /**
+     * KOVE 625X (2026) — a Wi-Fi SoftAP dash (`KY_ADV_…`) that speaks Yunmo on :8200 like the
+     * X-Cape 1200, NOT the BLE-provisioned ThinkerRide chip of the 800X / 450 Rally. Field-proven
+     * 2026-09-03 (HONOR MBH-N49, 1.1.110): the dash reports a 640x480 canvas, confirms map-nav,
+     * never acknowledges one H.264 frame in four sessions (93% refused) and acknowledges EVERY
+     * JPEG still at 7-8 fps in both Android Auto and the Ride Dashboard — it keeps up with the
+     * 10 fps tick at quality 60, where the X-Cape takes 2-5 stills a second.
+     *
+     * Its QR carries no modelId, so the pseudo id is stamped from the network name
+     * ([ssidPrefixes] via [modelIdForSsid]) at pairing time and when the garage is loaded.
+     * Without it the dash resolved to GENERIC, spent 33 s in EasyConn discovery, and then fell
+     * back to the X-Cape's H.264 profile that paints nothing here. Geometry comes from the
+     * dash's own dim-query, so [fallbackTBoxVideoArea] only matters before the first reply.
+     * The dpi is the X-Cape's, because the profile the rider proved this on carried it.
+     */
+    KOVE_625X(
+        key = "kove_625x",
+        displayName = "KOVE 625X (Yunmo, JPEG)",
+        modelIds = setOf(KOVE_625X_PROVISIONING_MODEL_ID),
+        mapTilesRequireCellular = true,
+        supportsScreenTouch = false,
+        defaultAndroidAutoPreset = AndroidAutoVideoPreset.LANDSCAPE_800X480,
+        fallbackTBoxVideoArea = TBoxEvent.VideoArea(640, 480),
+        requiresSockAuth = false,
+        advertisedSupportFunction = 0,
+        encoderFrameRate = 10,
+        virtualDisplayDpi = 187,
+        transportFamily = TBoxTransportFamily.YUNMO,
+        yunmoMapNavExperiment = true,
+        yunmoJpegVideo = true,
+        ssidPrefixes = setOf("KY_ADV_")
     );
 
+    /**
+     * Whether this dashboard is fed JPEG stills instead of an encoded stream.
+     *
+     * Read by every path that starts a projection, and it has to be: a profile that answered this
+     * on one of the four ways into a session and fell back to H.264 on the other three produced
+     * three rounds of field tests that each reported "JPEG does not work" without a single JPEG
+     * having left the phone. The two flags stay separate below because they are different
+     * decisions - one follows the dash, the other overrules it - but nothing choosing a capture
+     * path should have to know which family it is looking at.
+     */
+    val usesJpegStills: Boolean
+        get() = yunmoJpegVideo || easyConnJpegStills
+
     companion object {
+        /**
+         * The pseudo modelId a dashboard earns from its network name alone, or null when no
+         * profile claims that prefix. For a dash whose QR carries no modelId (the KOVE 625X)
+         * the SSID is the only thing that names the model before the first connect.
+         * Case-insensitive, as every SSID comparison in the app already is.
+         */
+        fun modelIdForSsid(ssid: String?): String? {
+            val name = ssid?.trim().orEmpty()
+            if (name.isEmpty()) return null
+            return entries.firstOrNull { profile ->
+                profile.ssidPrefixes.any { name.startsWith(it, ignoreCase = true) }
+            }?.modelIds?.firstOrNull()
+        }
+
+        /**
+         * The profile a remembered transport family routes to. A profile the modelId itself
+         * recognises wins when it belongs to that family — the KOVE 625X must not be handed
+         * the X-Cape's H.264 settings just because both speak Yunmo — otherwise the family's
+         * first entry, which is what the shortcut always picked.
+         */
+        fun shortcutFor(family: TBoxTransportFamily, modelId: String?): TBoxModelProfile? {
+            val recognised = fromModelId(modelId)
+            if (recognised != GENERIC && recognised.transportFamily == family) return recognised
+            return entries.firstOrNull { it.transportFamily == family }
+        }
+
+        /**
+         * The profile whose [key] is [key], or null for an unknown one.
+         *
+         * Exists so a profile can be named across a process boundary. CORE resolves the real
+         * profile of a session - which for a dash that answered Yunmo after EasyConn found
+         * nothing is NOT what the saved motorcycle's modelId resolves to - and the companion app
+         * has to arrive at the same enum entry from the name alone. An unknown key answers null
+         * rather than [GENERIC] so a caller can tell "this build has no such profile" from "this
+         * dash really is generic".
+         */
+        fun byKey(key: String?): TBoxModelProfile? {
+            val normalized = key?.trim().orEmpty()
+            if (normalized.isEmpty()) return null
+            return entries.firstOrNull { it.key == normalized }
+        }
+
         private fun candidatesForModelId(modelId: String?): List<TBoxModelProfile> {
             val normalized = modelId?.trim().orEmpty()
             if (normalized.isEmpty()) return emptyList()
@@ -526,17 +915,33 @@ enum class TBoxModelProfile(
             val byId = fromModelId(modelId)
             if (byId != GENERIC) return byId
             if (capabilities == null) return GENERIC
-            // Restrict scoring to profiles that share the (ambiguous) modelId when one was
-            // provided at all - e.g. only the three CFDL26 variants compete for "37426", never
-            // a profile the modelId itself doesn't claim. Only opens up to every profile when
-            // there was no modelId lead to begin with.
+            return clientInfoContenders(modelId, capabilities)
+                .maxByOrNull { (_, points) -> points }
+                ?.first
+                ?: GENERIC
+        }
+
+        /**
+         * Every profile that CLIENT_INFO says something positive about, with its score, in
+         * declaration order - the shortlist [resolve] then picks the highest scorer from.
+         *
+         * Restricted to profiles that share the (ambiguous) modelId when one was provided at
+         * all - e.g. only the three CFDL26 variants compete for "37426", never a profile the
+         * modelId itself doesn't claim. Only opens up to every profile when there was no
+         * modelId lead to begin with.
+         *
+         * Split out of [resolve] because the winner alone does not say how it won.
+         * [hasValidatedAndroidAutoPreset] needs the whole shortlist: a profile that beat a
+         * rival of the opposite orientation by a point or two was picked, not identified.
+         */
+        internal fun clientInfoContenders(
+            modelId: String?,
+            capabilities: TBoxCapabilities
+        ): List<Pair<TBoxModelProfile, Int>> {
             val candidates = candidatesForModelId(modelId).ifEmpty { entries.filterNot { it == GENERIC } }
             return candidates
                 .map { it to score(it, capabilities) }
                 .filter { (_, points) -> points > 0 }
-                .maxByOrNull { (_, points) -> points }
-                ?.first
-                ?: GENERIC
         }
 
         /**
@@ -556,6 +961,9 @@ enum class TBoxModelProfile(
          * matches), reimplemented against [TBoxCapabilities]. Highest positive score wins; a
          * score of 0 means "no claim" and is never selected over [GENERIC].
          */
+        /** CLIENT_INFO `flavor` of Carbit's white-label EasyConn stack; never a CFMOTO unit. */
+        private const val CARBIT_LICENCE_FLAVOR = "51"
+
         private fun score(profile: TBoxModelProfile, capabilities: TBoxCapabilities): Int {
             // Combined lowercase fallback for the same free-text keyword matching resolve()
             // used before this scoring existed (carModel included) - kept alongside the more
@@ -576,6 +984,15 @@ enum class TBoxModelProfile(
             val mirrorOverlayTouch = capabilities.mirrorOverlayTouch ?: false
             val screenTouch = capabilities.screenTouch ?: false
             val landscapeAdaptive = capabilities.landscapeAdaptive ?: false
+            // CLIENT_INFO's `flavor` names the manufacturer that licensed the EasyConn stack
+            // in this dashboard, and it is the one field here that can rule a family OUT rather
+            // than in. 51 is Carbit's white-label stack - the reference fork scores exactly that
+            // number for the Morini SoftAP / Alltrhike units, and every flavor-51 dash in the
+            // collector is a rebadge (two VOGE, one Benelli) while the CFMOTO reference unit
+            // reports 65540. It is used below only to stop a CFMOTO profile being carried by a
+            // firmware fingerprint with no CFMOTO identity behind it; a dash that names itself
+            // still wins, licence or no licence.
+            val carbitLicensed = capabilities.flavor?.trim() == CARBIT_LICENCE_FLAVOR
 
             fun cfdl26BaseScore(): Int {
                 // Identity signals: things only a CFDL26-family CFMOTO dash reports. A modern
@@ -623,8 +1040,23 @@ enum class TBoxModelProfile(
                 CFMOTO_800NK -> {
                     var points = 0
                     if (identity.contains("800nk") || identity.contains("800 nk")) points += 4
-                    if (sdkVersion.startsWith("0.9.23") && identity.contains("linux_no_package")) points += 3
                     if (identity.contains("crcp")) points += 2
+                    // sdkVersion 0.9.23.x with package linux_no_package is a firmware DIALECT -
+                    // the older CFDL16-family EasyConn, which other manufacturers ship too - and
+                    // it is the only term here that can carry this profile with nothing else
+                    // agreeing. The same discipline cfdl26BaseScore() states applies: it
+                    // corroborates a CFMOTO identity, it must not establish one over a licence
+                    // saying somebody else built this dash. Rider 36ee9d2c's Benelli TRK 702X
+                    // matched on it alone and scored 3, so Core's Android Auto dressed a Benelli
+                    // in a CFMOTO panel's 22px top margin (visible: an 800x480 TFT letterboxed to
+                    // 763x458) while the Ride Dashboard, which had no capabilities to score at
+                    // all, used none.
+                    if (sdkVersion.startsWith("0.9.23") &&
+                        identity.contains("linux_no_package") &&
+                        (points > 0 || !carbitLicensed)
+                    ) {
+                        points += 3
+                    }
                     points
                 }
                 CFMOTO_MTX800 -> {
@@ -657,7 +1089,11 @@ enum class TBoxModelProfile(
                 CL_C450 -> {
                     var points = 0
                     if (identity.contains("48fb4c")) points += 4
-                    if (sdkVersion.startsWith("0.9.23")) points += 1
+                    // Same rule, same reason, and not hypothetical: with CFMOTO_800NK refused
+                    // this lone corroborating point was the next thing standing, and it would
+                    // have moved a Benelli's 800x480 panel onto a 544x512 profile on the strength
+                    // of both dashes running 0.9.23 firmware.
+                    if (sdkVersion.startsWith("0.9.23") && (points > 0 || !carbitLicensed)) points += 1
                     points
                 }
                 MOTO_HUB_SIMULATOR -> {
@@ -672,9 +1108,17 @@ enum class TBoxModelProfile(
                 // Same rule for the Voge stream experiment: a Voge that streams fine today
                 // must never be moved off all-intra by detection.
                 VOGE_TEST -> 0
+                // Claimed by its modelId, never by CLIENT_INFO: the signals this dash reports
+                // (flavor 51, linux_no_package, sdk 0.9.23) are a licence and a firmware dialect
+                // that several other brands ship too, and scoring on them would put a Voge and
+                // two rebadges on a 10 fps stream meant for one QJ - see the profile's own note.
+                QJ_SRK921_RR -> 0
                 // ThinkerRide dashes never produce CLIENT_INFO (an EasyConn concept), so scoring
                 // has nothing to say; they resolve by the QR's pseudo modelId or a manual pin.
                 KOVE_800X -> 0
+                // Same wire, different panel, and nothing on that wire tells them apart: a
+                // manual pin is the only way here (see the profile's own note).
+                KOVE_450_RALLY -> 0
                 // Yunmo dashes never produce CLIENT_INFO either, and the X-Cape 1200 shares its
                 // QR ProductID with EasyConn Morinis, so detection must never claim it: it is a
                 // manual pin only.
@@ -682,7 +1126,7 @@ enum class TBoxModelProfile(
                 // shared with the EasyConn X-Cape 649/700 and the Seiemmezzo, so letting any
                 // of them win on capabilities would route those bikes to the wrong wire.
                 // They are reachable only by a rider pinning them.
-                MORINI_XCAPE_1200, MORINI_XCAPE_1200_MIRROR, MORINI_XCAPE_1200_JPEG -> 0
+                MORINI_XCAPE_1200, MORINI_XCAPE_1200_MIRROR, MORINI_XCAPE_1200_JPEG, KOVE_625X -> 0
                 GENERIC -> 0
             }
         }
@@ -695,19 +1139,57 @@ enum class TBoxModelProfile(
             resolve(modelId, capabilities, profileOverride).defaultAndroidAutoPreset
 
         /**
-         * True when [defaultAndroidAutoPreset] comes from a recognized dash rather than
-         * [GENERIC]. Only a recognized profile's orientation is evidence about the hardware;
-         * see AndroidAutoCapabilityProfiles.usableSavedGeometryForAuto.
+         * True when the resolved [defaultAndroidAutoPreset]'s ORIENTATION is evidence about this
+         * particular dashboard, and may therefore outrank a live projection area the dash
+         * measured and reported about itself; see
+         * AndroidAutoCapabilityProfiles.usableSavedGeometryForAuto, which both reads and saves
+         * behind this answer.
          *
-         * A rider who pinned [ProfileOverride.GENERIC] is stating the opposite — that nothing here
-         * is known-good — so the override has to reach this answer too, otherwise the pin would
-         * silently keep the veto of whichever profile detection had guessed.
+         * Exactly three things count as that evidence:
+         *  - a rider's pin, which is the owner naming their own motorcycle. A rider who pinned
+         *    [ProfileOverride.GENERIC] is stating the opposite — that nothing here is known-good —
+         *    so that pin has to reach this answer too, otherwise it would silently keep the veto
+         *    of whichever profile detection had guessed.
+         *  - a modelId that names exactly one profile, which is the dashboard identifying its own
+         *    hardware in its QR code.
+         *  - a CLIENT_INFO match that no other contender's orientation disputes.
+         *
+         * That last clause is what rider 6e77dcf7 (samsung SM-S948B, 2026-09-06, MOTO-HUB
+         * 1.1.112) cost us. His CFMOTO6627 dash carries modelId 37426, which three profiles
+         * claim: CFDL26_LANDSCAPE and CFDL26_PORTRAIT scored 14 each, CFDL26_NK_TOUCH 16 — and
+         * the entire margin was `supportScreenTouch` plus `supportMirrorOverlayTouch`, two
+         * generic EasyConn capability flags this file warns three separate times must only
+         * corroborate an identity, never establish one. Here they were establishing an
+         * ORIENTATION: NK_TOUCH's portrait 720x1280 preset then vetoed the 784x576 LANDSCAPE
+         * area the dash asked for over CAPTURE_CONFIG, and the same veto refused to save it, so
+         * every session composited Android Auto into 311x554 of a 784x576 panel — 38% of the
+         * screen — forever. Answering "was this profile identified, or merely picked?" instead
+         * of the old "is it non-GENERIC?" lets the measurement correct the guess, while a dash
+         * whose modelId or owner named it keeps the veto that stops a stale portrait area being
+         * saved for a real landscape 800NK.
+         *
+         * Narrowing the veto rather than the CFDL26 scoring is deliberate: the score is a fair
+         * reading of the evidence (this dash IS the touch variant as far as CLIENT_INFO can
+         * tell, and demoting it would break every 800NK Advanced that never reports a live
+         * area). What was wrong was treating a tie-break as a measurement.
          */
         fun hasValidatedAndroidAutoPreset(
             modelId: String?,
             capabilities: TBoxCapabilities?,
             profileOverride: ProfileOverride? = null
-        ): Boolean = resolve(modelId, capabilities, profileOverride) != GENERIC
+        ): Boolean {
+            val resolved = resolve(modelId, capabilities, profileOverride)
+            if (resolved == GENERIC) return false
+            if (profileOverride?.resolve() != null) return true
+            if (fromModelId(modelId) != GENERIC) return true
+            // Unreachable: with no pin and no modelId of its own, a null CLIENT_INFO resolves to
+            // GENERIC above. Kept total rather than forced, so a future caller cannot crash here.
+            val scored = capabilities ?: return true
+            val resolvedIsPortrait = resolved.defaultAndroidAutoPreset.isPortrait
+            return clientInfoContenders(modelId, scored).all { (contender, _) ->
+                contender.defaultAndroidAutoPreset.isPortrait == resolvedIsPortrait
+            }
+        }
 
         fun fallbackVideoArea(
             modelId: String?,

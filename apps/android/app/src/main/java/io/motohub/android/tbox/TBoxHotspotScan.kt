@@ -7,6 +7,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import java.io.File
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -215,6 +216,79 @@ object TBoxHotspotScan {
             ) as Inet4Address
         }
     }
+
+    /**
+     * One device the kernel has seen on a network this phone hosts. [oui] is the first three
+     * octets of its hardware address - the vendor half - because a full MAC is redacted out of
+     * every shared log, and "who joined" is a question the vendor half answers on its own.
+     */
+    data class Neighbour(val address: String, val oui: String, val interfaceName: String)
+
+    /**
+     * The devices currently on the hosted network, or **null when the phone will not say** -
+     * which is a different answer from "none", and the difference is the entire point.
+     *
+     * A rider whose dash never appears has two unrelated problems and no log has been able to
+     * tell them apart: either the dash never joined the hotspot at all (wrong Ssid, wrong
+     * password, a band its radio cannot see, or it was never in that mode) or it joined and is
+     * simply not answering on the port MOTO-HUB probes. One line naming the occupants of the
+     * subnet separates those before the 253-address sweep even starts, and the sweep's own
+     * silence has never been able to.
+     *
+     * `/proc/net/arp` is the only route to that answer an unprivileged app has - the
+     * `TetheringManager` client callback is gated behind a system permission - and Android has
+     * been tightening access to it since 10. Strictly best-effort, therefore: unreadable is
+     * reported as unreadable, and nothing whatsoever is concluded from it.
+     */
+    fun neighbours(interfaceName: String? = null): List<Neighbour>? =
+        runCatching { parseNeighbours(File(ARP_TABLE_PATH).readLines(), interfaceName) }.getOrNull()
+
+    /** The parsing half, kept separate so it can be tested without a motorcycle or a hotspot. */
+    internal fun parseNeighbours(lines: List<String>, interfaceName: String? = null): List<Neighbour>? =
+        run {
+            // Header only is a real answer ("nothing has joined"); no header at all means the
+            // read was refused or emptied, and that is not evidence about the dash.
+            if (lines.isEmpty()) return@run null
+            lines.drop(1).mapNotNull { line ->
+                val fields = line.trim().split(WHITESPACE)
+                if (fields.size < 6) return@mapNotNull null
+                val device = fields[5]
+                if (interfaceName != null && !device.equals(interfaceName, ignoreCase = true)) {
+                    return@mapNotNull null
+                }
+                val flags = fields[2].removePrefix("0x").toIntOrNull(16) ?: 0
+                val hardware = fields[3]
+                // ATF_COM (0x2) is what separates a neighbour from the record of an ARP request
+                // that went unanswered - and the sweep manufactures those by the hundred.
+                if (flags and 0x2 == 0 || hardware == EMPTY_HARDWARE_ADDRESS) return@mapNotNull null
+                Neighbour(
+                    address = fields[0],
+                    oui = hardware.split(':').take(3).joinToString(":"),
+                    interfaceName = device
+                )
+            }
+        }
+
+    /** [neighbours] as the single log line the connect path records. */
+    fun describeNeighbours(interfaceName: String): String {
+        val seen = neighbours(interfaceName)
+        return when {
+            seen == null ->
+                "This phone will not say which devices are on $interfaceName (Android restricts " +
+                    "the neighbour table), so nothing here proves whether the dash joined."
+            seen.isEmpty() ->
+                "Nothing has joined the network this phone is hosting on $interfaceName yet - the " +
+                    "neighbour table is empty. A dash that never associates is a credentials or " +
+                    "band problem, not a discovery one."
+            else ->
+                "${seen.size} device(s) joined the hosted network on $interfaceName: " +
+                    seen.joinToString { "${it.address} (vendor ${it.oui})" } + "."
+        }
+    }
+
+    private val WHITESPACE = Regex("\\s+")
+    private const val EMPTY_HARDWARE_ADDRESS = "00:00:00:00:00:00"
+    private const val ARP_TABLE_PATH = "/proc/net/arp"
 
     /** Live enumeration; [tetheringSubnets] holds the logic worth testing. */
     fun snapshotInterfaces(): List<InterfaceSnapshot> =

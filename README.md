@@ -1,89 +1,362 @@
+<div align="center">
+
+<img src="media/logo.png" alt="MOTO-HUB logo" width="120">
+
 # MOTO-HUB
 
-> [!IMPORTANT]
-> [**JOIN US ON DISCORD TO RECEIVE SUPPORT, HELP THE COMMUNITY AND FOLLOW THE APP DEVELOPMENT**](https://discord.gg/uCUK55nJ5v)
+**Android Auto, live dashboards and motorcycle navigation on your bike's TFT display — free.**
 
->[**You can also add the FREE ADVANCED complementary app**](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases)
+[![Latest release](https://img.shields.io/github/v/release/vincenzobpt/MOTO-HUB?label=release&color=44cc11)](https://github.com/vincenzobpt/MOTO-HUB/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/vincenzobpt/MOTO-HUB/total?color=44cc11)](https://github.com/vincenzobpt/MOTO-HUB/releases)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+[![Android 12+](https://img.shields.io/badge/Android-12%2B-3DDC84?logo=android&logoColor=white)](#requirements)
+[![6 languages](https://img.shields.io/badge/languages-6-orange)](#what-moto-hub-does)
+[![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/jYv7Z2chtP)
 
-> [!NOTE]
-> **MOTO-HUB for iOS is ready for testing.** Places in the beta are handed out one at a time, so it is not downloadable from this page. [**Join us on Discord**](https://discord.gg/uCUK55nJ5v) and ask for iOS beta access.
+<img src="media/hero-bike.jpg" alt="A motorcycle TFT dashboard running MOTO-HUB on the road" width="820">
+
+Your motorcycle already has the screen. MOTO-HUB gives it the software.<br>
+Project **Android Auto**, mirror **any app**, or run a full **GPS ride dashboard** on the TFT —
+and control it all from the **handlebar buttons** you already have.
+
+**CFMOTO · Benelli · Voge · Zontes · QJ Motor · Moto Morini · Longjia · Morbidelli · KOVE** — one app for the EasyConn / Carbit dashboards many brands ship.
+
+<br>
+
+[![Download MOTO-HUB](https://img.shields.io/badge/Download%20MOTO--HUB-free%20·%20open%20source-2ea44f?style=for-the-badge&logo=android&logoColor=white)](https://github.com/vincenzobpt/MOTO-HUB/releases/latest)
+&nbsp;
+[![Add MOTO-HUB ADVANCED](https://img.shields.io/badge/Add%20MOTO--HUB%20ADVANCED-free%20companion%20app-e10600?style=for-the-badge&logo=android&logoColor=white)](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases/releases/latest)
+
+<sub>On the release page, expand **Assets** and download the file ending in `.apk`.</sub>
+
+<br>
+
+### 💬 Come and ride with us
+
+**Every rider here is on Discord** — support when a dashboard misbehaves, help getting your bike working, early builds, and the place where the next features get decided.
+
+[![Join the MOTO-HUB Discord](https://img.shields.io/badge/JOIN%20THE%20MOTO--HUB%20DISCORD-support%20·%20community%20·%20new%20builds-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/jYv7Z2chtP)
+
+</div>
 
 > [!WARNING]
-> **MOTO-HUB is an experimental proof-of-concept, not a production-grade product.** Day-to-day development happens on a CFMOTO **700MT-ADV** dashboard with **OnePlus 13 / Galaxy Z Fold4** phones. Behavior may be unstable, require a retry, or differ on other motorcycles, T-Box firmware versions, or phones. Do not depend on it as your only source of critical navigation information. Plan your route before riding, and use the software at your own risk.
+> **MOTO-HUB is an experimental proof-of-concept, not a production-grade product.** Day-to-day development happens on a CFMOTO **700MT-ADV** with **OnePlus 13 / Galaxy Z Fold4** phones; behavior may differ or require a retry on other motorcycles, T-Box firmware versions, or phones. Do not depend on it as your only source of critical navigation information — plan your route before riding, configure everything while parked, and use the software at your own risk.
 
-<table cellpadding="0" cellspacing="0" border="0">
-  <tr>
-    <td align="center" width="100%">
-      <img src="8.png" alt="Full Android Auto (Waze) projected to the motorcycle TFT" width="560"><br>
-      <sub>MOTO-HUB &mdash; full Android Auto on the motorcycle TFT</sub>
-    </td>
-  </tr>
-</table>
+## Get riding in three steps
 
-MOTO-HUB is an Android 14+ application for connecting a phone to a compatible motorcycle T-Box and projecting content to the motorcycle TFT display.
+1. **Install** the MOTO-HUB APK from the [latest release](https://github.com/vincenzobpt/MOTO-HUB/releases/latest). Android will ask you to allow installs from this source — that is the normal prompt for apps outside Google Play.
+2. **Pair** by scanning the QR code your dashboard shows (or import a photo of it, or enter the network manually). Your bike is saved to the garage.
+3. **Ride** — start Android Auto or mirror your phone on the TFT. Add [MOTO-HUB ADVANCED](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases/releases/latest) for the Ride Dashboard, navigation, trips and everything below.
 
-MOTO-HUB projects **Android Auto** and **phone screen mirroring** (whole screen or a single app) to the TFT, drives Android Auto from the **motorcycle's own handlebar buttons**, and provides local diagnostics. It is designed as a personal, local-first project and is not affiliated with or endorsed by any vehicle or software vendor.
+## Two apps, one ride
 
-## Supported Motorcycles
+MOTO-HUB is deliberately split in two:
 
-MOTO-HUB is **not a CFMOTO-only app**. It talks to the EasyConn / Carbit dashboard stack that many manufacturers license, so it works across brands — among others:
+- **MOTO-HUB** (this repository) is the **free, open-source core**. It owns the connection to the motorcycle — pairing, the T-Box transport, Android Auto, screen mirroring, handlebar buttons. Simple, focused, AGPL-3.0. It is the only app you *need*.
+- **[MOTO-HUB ADVANCED](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases)** is the **free companion app** that turns the same TFT into a full riding computer: a native GPS dashboard, motorcycle navigation, trip recording and replay, AI place discovery, group intercom and more. It installs alongside MOTO-HUB and talks to it over a documented IPC boundary.
 
-| Brand | Notes |
-| --- | --- |
-| **CFMOTO** | The reference hardware this project is developed against (700MT-ADV) |
-| **Voge** | |
-| **Zontes** | |
-| **Moto Morini** | Dashboards paired through the **MotoFun** companion app, whose QR code uses its own dialect |
-| **Benelli** | TRK 702 / 702X |
-| **QJ Motor** | Fort 4.0 |
-| **Morbidelli / MBP** | T1002V |
-
-Nothing in the app filters on brand: the network name always comes from the rider, through the QR code or manual pairing, and is used verbatim. A dashboard MOTO-HUB has never seen is not rejected — an unrecognized QR dialect can still be accepted after a warning, an unknown dashboard falls back to a generic profile instead of failing, and the diagnostics are built so a rider on an unfamiliar motorcycle can send a log that explains what happened.
-
-Each motorcycle model and T-Box firmware still needs its own validation before it can be called supported, and that includes CFMOTO ones.
-
-## MOTO-HUB And MOTO-HUB ADVANCED
-
-MOTO-HUB is split into two applications. **This repository is MOTO-HUB (Core)** — the app that owns the T-Box connection and the Android Auto receiver, and the only one you need to project.
+**ADVANCED requires MOTO-HUB; MOTO-HUB does not require ADVANCED. Both are free — install both to get everything.** The two apps are released together and must be the **same version**.
 
 | | MOTO-HUB (this repository) | [MOTO-HUB ADVANCED](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases) |
-| --- | --- | --- |
-| T-Box pairing, garage, connection | ✅ | uses Core over IPC |
-| Screen mirroring (full screen or one app) | ✅ | — |
-| Android Auto on the TFT | ✅ | — |
-| Handlebar button control | ✅ | — |
+| --- | :---: | :---: |
+| T-Box pairing, garage, connection | ✅ | uses MOTO-HUB |
+| Android Auto on the TFT | ✅ | delegated to MOTO-HUB |
+| Screen mirroring (full screen or one app) | ✅ | ✅ |
+| Handlebar button control | ✅ | ✅ |
 | USB external display (AOA) | ✅ | — |
 | Diagnostics, logs, in-app updates | ✅ | ✅ |
-| Ride Dashboard (native GPS scene on the TFT) | — | ✅ |
-| Navigation (search, routing, route preview) | — | ✅ |
-| Trip recording, history, GPX export | — | ✅ |
+| **Ride Dashboard** — native GPS scene on the TFT | — | ✅ |
+| **Navigation** — search, motorcycle routing, rich route preview | — | ✅ |
+| **Route intelligence** — weather along the route, fuel prices, speed cameras | — | ✅ |
+| **Trips** — full-telemetry recording, replay, analysis, GPX | — | ✅ |
+| **Riding Coach** — post-ride AI evaluation | — | ✅ |
+| **AI place discovery** | — | ✅ |
+| **Group intercom** — rider-to-rider voice | — | ✅ |
+| **Audio notes** pinned to your trips | — | ✅ |
+| **OBD-II diagnostics suite** — hidden somewhere in the app 🤫 | — | 🥚 |
+| Minimum Android version | 12+ | 14+ |
 
-ADVANCED is a free companion app: it is installed alongside MOTO-HUB and reaches this repository's T-Box transport and Android Auto receiver through a documented Binder IPC boundary. **ADVANCED requires MOTO-HUB to be installed; MOTO-HUB does not require ADVANCED.** Install both to get everything.
+<div align="center">
+  <img src="media/phone-core-home.png" alt="MOTO-HUB Core home screen" width="230">
+  &nbsp;&nbsp;
+  <img src="media/phone-adv-home.png" alt="MOTO-HUB ADVANCED home screen with Nav, Trips and AI tabs" width="230">
+  <br>
+  <sub>The same design language, two missions: <b>CORE</b> connects your bike — <b>ADVANCED</b> makes it fly.</sub>
+</div>
 
-<table cellpadding="0" cellspacing="0" border="0">
-  <tr>
-    <td align="center" width="33%">
-      <img src="1.png" alt="Ride Dashboard with GPS speed, live map, and trip stats" width="190"><br>
-      <sub>ADVANCED &mdash; Ride Dashboard</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="5.png" alt="Navigation route preview with weather, curvy roads, and route type" width="190"><br>
-      <sub>ADVANCED &mdash; Navigation preview</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="6.png" alt="Android Auto embedded in the Ride Dashboard map panel" width="190"><br>
-      <sub>ADVANCED &mdash; embedded Android Auto</sub>
-    </td>
-  </tr>
-</table>
+## MOTO-HUB ADVANCED — everything your TFT was waiting for
 
-## Download The Latest APK
+*All of this is implemented, working, and free. It builds on the rider's own GPS — the motorcycle needs no extra hardware.*
 
-For the latest manually published Android package, visit the [latest MOTO-HUB release](https://github.com/vincenzobpt/MOTO-HUB/releases/latest).
+### 🏍️ Ride Dashboard
 
-On the release page, expand **Assets** and download the file ending in `.apk`. Do not download **Source code (zip)** or **Source code (tar.gz)**: those files contain the project source, not an installable application. Android may ask you to allow installation from this source the first time; this is a normal Android security prompt for APKs installed outside Google Play.
+A native, configurable riding scene rendered straight on the TFT: GPS speed, live map, trip stats, weather, phone status — every panel is a widget you choose, and panels can rotate through a carousel on the interval you set. The main panel is yours too: put the **live map** there, run **Android Auto embedded** inside it, or switch it to a full **OBD gauge cluster** with live engine data and gear estimation (ELM327 Bluetooth adapter required). Turn-by-turn guidance from Waze or Google Maps shows up in the Navigation widget.
 
-## Permissions And Privacy
+<div align="center">
+  <img src="media/tft-ride-dashboard.png" alt="Ride Dashboard on the TFT with GPS speed, live map and trip stats" width="410">
+  <img src="media/tft-dashboard-aa.png" alt="Android Auto embedded inside the Ride Dashboard map panel" width="410">
+  <br>
+  <img src="media/tft-obd-dashboard.png" alt="Ride Dashboard with the OBD gauge cluster in the main panel" width="410">
+  <img src="media/phone-widgets.png" alt="Widget customization screen" width="230">
+  <br>
+  <sub>The Ride Dashboard's main panel: live map, embedded Android Auto, or the OBD gauge cluster — your choice. Right: pick the widgets for every panel.</sub>
+</div>
+
+### 🗺️ Navigation, built for motorcycles
+
+Search a destination, get **motorcycle routing** — including *curvy roads* when the fastest line is not the point — preview the full route, add waypoints, and send it to the TFT. The route preview is a briefing, not just a line on a map:
+
+- **Where the curves are** — a strip showing which stretches actually bend, the best stretch called out, and what the twisty line costs you against the fast one.
+- **The shape of the ride** — total ascent, number of turns, and a pinch-to-zoom elevation profile.
+- **Weather along the route** — rain cells with the time you'll meet them, crosswind, ice risk.
+- **Fuel prices on the route** — live official price data in 🇮🇹 🇪🇸 🇫🇷 🇵🇹, merged with the stations on your path.
+- **Speed cameras** — an approaching-camera alert on the dashboard (off by default, and automatically disabled in countries where the law forbids it).
+- **Street-level preview** — tap the route line to open Mapillary street imagery of that exact spot.
+
+<div align="center">
+  <img src="media/phone-nav-preview-1.png" alt="Route preview showing where the curves are and the Fast or Piega route choice" width="230">
+  &nbsp;
+  <img src="media/phone-nav-preview-2.png" alt="Route briefing with ascent, turns, elevation profile and petrol prices on the route" width="230">
+  &nbsp;
+  <img src="media/phone-nav-preview-3.png" alt="Weather along the route with temperature and crosswind at each stage" width="230">
+  <br>
+  <sub>Where the curves are and what they cost you in time &middot; ascent, turns, elevation and petrol on the way &middot; the weather you will actually meet.</sub>
+</div>
+
+### 📈 Trips — record, relive, improve
+
+Every ride can be recorded with **full sensor telemetry**, not just a GPS trace. Browse your history by period, then relive it:
+
+- **Replay** the ride on the map, in a **3D chase-cam POV**, or export a **Google Earth KMZ** flyover.
+- **Post-ride analysis** — speed, altitude, lean angle and G-forces on a dedicated dashboard.
+- **Riding Coach** — an AI evaluation of your riding style after each trip.
+- **Audio notes** — record voice notes mid-ride, pinned to the exact point of the trip.
+- **GPX export**, trip merging, and a period-based archive with multi-select.
+
+<div align="center">
+  <img src="media/phone-trips-archive.png" alt="Trips archive grouped by period" width="230">
+  &nbsp;
+  <img src="media/phone-trip-replay.png" alt="Trip replay in 3D POV view" width="230">
+  &nbsp;
+  <img src="media/phone-trip-analysis.png" alt="Post-ride telemetry analysis with lean angle" width="230">
+</div>
+
+### 🤖 AI place discovery
+
+Ask for "a scenic pass with a café at the top" and let the AI tab rank real OpenStreetMap places for you — the map data is the source of truth, the model just picks well. Bring your own OpenAI-compatible API key; it is stored encrypted on the phone.
+
+<div align="center">
+  <img src="media/phone-ai.png" alt="AI assisted place discovery" width="230">
+</div>
+
+### 🎙️ Group intercom & voice
+
+Riding with a friend? **Group intercom** carries voice between two phones over the rider's own hotspot — no accounts, no servers, no subscription.
+
+<div align="center">
+  <img src="media/phone-intercom.png" alt="Group intercom" width="230">
+  &nbsp;
+  <img src="media/phone-audio-notes.png" alt="Audio notes pinned to a trip" width="230">
+</div>
+
+### 🥚 …and one secret left to find
+
+ADVANCED hides one more toy: a complete **OBD-II diagnostics suite**, tucked behind a door that appears on no menu. How to open it stays a secret — but riders who find it get:
+
+- **Live engine data** — revs, speed, throttle, engine load and temperatures, streamed from a standard ELM327 Bluetooth adapter.
+- **Fuel and air** — fuel trims, oxygen sensors, manifold and timing.
+- **Trouble codes** — read the stored codes, explained by a built-in catalogue, with the distance and warm-ups since they were last cleared.
+- **Full scan** — interrogate every PID your motorcycle supports and share the report as a file.
+
+<div align="center">
+  <img src="media/phone-obd-live-data-1.png" alt="Live data: engine speed, throttle, load and temperatures with one-minute traces" width="230">
+  &nbsp;
+  <img src="media/phone-obd-live-data-2.png" alt="Fuel and air: fuel trims, oxygen sensors, manifold pressure and timing" width="230">
+  &nbsp;
+  <img src="media/phone-obd-live-data-3.png" alt="Full scan: every PID the vehicle claims to support, answered and logged" width="230">
+  <br>
+  <sub>Live data &middot; fuel and air &middot; full scan. No, we won't tell you where the door is. Happy hunting. 🔎</sub>
+</div>
+
+<div align="center">
+
+[![Add MOTO-HUB ADVANCED](https://img.shields.io/badge/Get%20all%20of%20this%20—%20MOTO--HUB%20ADVANCED-free-e10600?style=for-the-badge&logo=android&logoColor=white)](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases/releases/latest)
+
+</div>
+
+## What MOTO-HUB does
+
+The open-source core is a complete product on its own:
+
+- **Android Auto on the TFT** — through an embedded local head-unit receiver, with per-bike `FIT` / `STRETCH` / `CROP` layout, TFT safe margins, and native-shape layout so the map fills the panel instead of sitting between black bars.
+- **Screen mirroring** — the whole phone or a single app, H.264-encoded and streamed to the dashboard.
+- **Handlebar buttons drive everything** — a one-time guided calibration learns what *your* bike actually sends, then maps press / double-press / hold to Android Auto actions, volume, assistant, or one-press navigation to saved destinations.
+
+<div align="center">
+  <img src="media/tft-android-auto.png" alt="Full Android Auto projected on the motorcycle TFT" width="560">
+  <br>
+  <sub>Full Android Auto on the motorcycle TFT — driven from the handlebar.</sub>
+</div>
+
+- **Motorcycle garage** — multiple bikes, each with its own photo, Wi-Fi credentials (encrypted), display format, safe margins and handlebar calibration.
+- **Every QR dialect** — CFMOTO, MotoFun (Moto Morini), YUNMO and more; an unrecognized dashboard falls back to a generic profile instead of being rejected.
+- **USB external display** — stream the phone to an AOA accessory head unit, fully independent of the T-Box.
+- **Bulletproof sessions** — auto-connect on launch, a recovery watchdog that rebuilds a stalled stream, and seamless resume across longer dropouts.
+- **Diagnostics that respect you** — network tests, a full local log you can share as a file, and a master switch that turns all logging off.
+- **In-app updates** — the app checks GitHub releases and shows the notes before installing.
+- **6 languages** — English, Italian, Spanish, French, Portuguese, Korean.
+
+<a id="requirements"></a>**Requirements:** Android 12 or newer and a motorcycle with a compatible dashboard (see below). ADVANCED additionally requires Android 14+.
+
+## Supported motorcycles
+
+MOTO-HUB is **not a CFMOTO-only app**. It speaks to the EasyConn / Carbit dashboard stack that many manufacturers license. The table below is built from what riders actually report back — not from a spec sheet.
+
+| Motorcycle | Status | Notes |
+| --- | :---: | --- |
+| **CFMOTO 700MT-ADV** | ✅ Works | The reference bike this project is developed against |
+| **CFMOTO 800MT** | ✅ Works | Confirmed on a rider's bike |
+| **CFMOTO 675SRR** | ✅ Works on iOS | Pairs over Wi-Fi Direct |
+| **CFMOTO 650NK** | ⚪ Untested | No rider reports yet |
+| **Benelli TRK 702X** | ✅ Works | Android Auto stable; iOS through a SideStore sideload |
+| **Benelli TRK 502 / 702** | ✅ Works | Confirmed by several riders |
+| **Voge DS800X / 800 Rally** | ✅ Works | The dashboard has a clock quirk of its own, which the app works around |
+| **Voge 900DSX** | 🟡 Mixed | Needs deeper testing |
+| **Zontes 368E** | ✅ Works | The reference model for this brand |
+| **Zontes 368G / 703RR** | 🟡 Partial | The 368G uses its own QR dialect; on the 703RR the handlebar buttons send nothing the phone can read |
+| **Zontes 300 / 350** | ⚪ Untested | Older dashboards, unconfirmed |
+| **QJ Motor SRT 550** | ✅ Works | QR pairing and mirroring confirmed on iOS |
+| **Moto Morini X-Cape 650 / 700** | 🟡 Limited | Works on iOS; still incomplete on Android. Paired through the **MotoFun** companion app, whose QR code uses its own dialect |
+| **Longjia N300 / M502N** | ⚪ Untested | Very little data so far |
+| **Morbidelli T502X / T352X** | ⚪ Untested | No reports yet |
+| **KOVE 450 Rally** | ✅ Works | SiQi firmware: projection is started **from the dash**, not from the phone — press and hold **UP** on the dash while MOTO-HUB is connecting. No app can trigger it over the wire, which is why it otherwise just waits and then times out |
+| **KOVE 800X** | ⚪ Untested | ThinkerRide (BLE-provisioned) dashboard; pairing not confirmed working yet |
+| **KOVE 625X** | ✅ Works | A different dashboard from the other KOVEs: Wi-Fi only, speaking the X-Cape 1200 (Yunmo) protocol with still images. Recognised from its `KY_ADV_…` network name, so pairing by QR is enough; Android Auto and the Ride Dashboard confirmed, mirroring from ADVANCED not yet |
+
+<sub>✅ riders confirmed it working &middot; 🟡 works in part, or not on every path &middot; ⚪ nobody has reported back yet</sub>
+
+**Your motorcycle is not on the list?** That does not mean it will not work — it means nobody has told us yet. Try it, then [tell us on Discord](https://discord.gg/jYv7Z2chtP): the app can export a diagnostic log that explains exactly what happened, and that is how every row above got filled in.
+
+Nothing in the app filters on brand: the network name always comes from the rider, through the QR code or manual pairing. A dashboard MOTO-HUB has never seen is not rejected — an unknown QR dialect can be accepted after a warning, an unknown dashboard falls back to a generic profile, and the diagnostics are built so a rider on an unfamiliar motorcycle can send a log that explains what happened. Each motorcycle model and T-Box firmware still needs its own validation before it can be called *supported* — including CFMOTO ones.
+
+## MOTO-HUB for iOS
+
+Riding with an iPhone? **MOTO-HUB for iOS is available now** — the ride dashboard, navigation, trips and projection to the same motorcycle dashboards, on iOS 17 or later.
+
+Install it through **AltStore Classic** (add the MOTO-HUB source) or sideload the IPA yourself with a tool such as Sideloadly. Everything you need is on its own page:
+
+<div align="center">
+
+[![MOTO-HUB for iOS](https://img.shields.io/badge/MOTO--HUB%20for%20iOS-download%20·%20AltStore%20source-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/vincenzobpt/MOTO-HUB-IOS-releases)
+
+</div>
+
+## Community
+
+MOTO-HUB is built ride by ride, with testers on real motorcycles across many brands. Support, feature discussion and beta access all happen in one place:
+
+<div align="center">
+
+[![Discord](https://img.shields.io/badge/JOIN%20US%20ON%20DISCORD-support%20·%20community%20·%20development-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/jYv7Z2chtP)
+
+</div>
+
+---
+
+## The fine print
+
+<details>
+<summary><b>🚗 Android Auto does not start?</b></summary>
+
+<br>
+
+Android Auto 17.4 removed the entry points an app could use to ask it to project: the activity it used is no longer exported and the receiver behind it ships disabled, so MOTO-HUB's request is refused or silently ignored. This affects every app of this kind, not only MOTO-HUB — the `headunit-revived` project reports the same in its issue #698. Android Auto 17.2.662634 is verified working; 17.4.663004 is not.
+
+There is no need to install an older Android Auto. Android Auto can be asked to listen instead, using the head unit server its own Desktop Head Unit connects to, and MOTO-HUB connects to that:
+
+1. Open the **Android Auto** app, scroll to the bottom and tap **Version** ten times to reveal Developer settings.
+2. In Developer settings, enable **Add new cars to Android Auto** (older wording: *Unknown sources*).
+3. Open the **⋮ menu at the top right** of Developer settings and choose **Start head unit server**. It lives in that menu, not in the list of settings below it. A notification confirms it is running, and it stays running until stopped or the phone restarts.
+4. Start Android Auto from MOTO-HUB as usual. MOTO-HUB polls that server and connects on its own.
+
+The same instructions are in the app under `Settings ▸ Android Auto does not start`, and the error shown when projection fails links to them.
+
+</details>
+
+<details>
+<summary><b>📋 Full feature reference</b></summary>
+
+<br>
+
+### Everything MOTO-HUB does
+
+- Pair with a motorcycle T-Box by scanning its QR code, importing a photo of it, or entering the network manually.
+- Read the QR dialects other manufacturers use — such as Moto Morini's MotoFun code — and accept an unrecognized one after a warning rather than refusing it.
+- Store multiple motorcycle profiles and select the active motorcycle.
+- Store a private motorcycle photo and use it throughout the app UI.
+- Connect to the T-Box Wi-Fi access point without requiring manual SSID entry, with a separate Wi-Fi Direct path for dashboards that advertise a `DIRECT-` network.
+- Discover the EasyConn service and establish the T-Box session.
+- Mirror the entire phone screen or a single Android app.
+- Start Android Auto through an embedded local head-unit receiver, including on Android Auto versions that no longer accept a direct start request.
+- Drive Android Auto from the motorcycle's handlebar buttons, after a short guided calibration, with per-motorcycle mappings for press, double press and hold.
+- Control music volume, jump to a saved destination, or open the assistant from the handlebar without touching the phone.
+- Stream the phone screen to a USB (AOA) external display, independently of the T-Box.
+- Choose the Android Auto TFT layout per motorcycle: `FIT` (preserve the complete image, black bars when necessary), `STRETCH` (use the complete TFT area with geometric stretching), or `CROP` (use the complete TFT area without stretching, cropping edges when necessary).
+- Calibrate per-motorcycle TFT safe margins so Android Auto video and touch stay inside the projection area not occupied by native motorcycle UI.
+- Let Android Auto lay out at the dashboard's real shape instead of a letterboxed band inside it.
+- Keep the phone preview available for Android Auto touch control, or disable the touchscreen entirely and ride with focus and handlebar controls.
+- Select Smoother, Balanced or Sharper image detail, and a Smooth/Balanced/Saver/adaptive power behavior for the next stream.
+- Override Android Auto with landscape or portrait SD/HD source resolutions, or keep automatic selection.
+- Optionally connect to the saved motorcycle when MOTO-HUB opens.
+- Optionally recover or seamlessly resume a stalled or dropped TFT stream when the T-Box returns.
+- Show persistent diagnostics, run network tests, and share application logs as an exported file for troubleshooting.
+- Check GitHub releases and pre-releases from inside the app, showing release notes before installing a newer APK.
+- Run in English, Italian, Spanish, French, Portuguese or Korean, or follow the phone language.
+
+### Motorcycle Garage
+
+The garage stores multiple motorcycle profiles. Each profile can contain the T-Box SSID and encrypted Wi-Fi password, QR-provided metadata, a user-defined display name, a private motorcycle photo, the Android Auto display format (`FIT`, `STRETCH`, or `CROP`), TFT safe margins, its own handlebar button calibration and mapping, and observed T-Box capability snapshots. Existing single-profile data is migrated automatically when the app is upgraded.
+
+### Projection Modes
+
+`Mirror` uses Android `MediaProjection` and supports either the complete phone display or an app selected through Android's system picker.
+
+`Auto` runs Android Auto through a local Android Auto Projection receiver. The decoded Android Auto video is composited, encoded as H.264, and sent to the T-Box through the ridedaemon transport. The compositor supports `FIT`, `STRETCH`, and `CROP` against the usable TFT projection area. When Android Auto declares internal letterbox margins, `STRETCH` uses the active Android Auto content rather than stretching black bars. By default MOTO-HUB asks Android Auto to lay out at the dashboard's real shape, so the map fills the panel instead of sitting between black bars; the per-motorcycle TFT safe margins can be advertised instead by switching content insets to `Manual`.
+
+`External` appears only when a USB (AOA) accessory head unit is attached. It captures the phone screen and writes H.264 access units straight to the USB accessory endpoint, completely independently of the T-Box, EasyConn and ridedaemon path.
+
+The Ride Dashboard, Navigation and Trips are not part of this app — they live in [MOTO-HUB ADVANCED](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases), which connects through this app's IPC boundary.
+
+### Handlebar Buttons
+
+These dashboards forward their handlebar buttons to the phone as ordinary Bluetooth media commands — a volume change, a play/pause, a next/previous track — and which physical press produces which command differs per motorcycle, and per brand. MOTO-HUB therefore starts from a **calibration**: the rider performs each press once, and the app learns what that motorcycle actually sends. Nothing is assumed from the model name.
+
+Each calibrated press (`Up`, `Down`, `Left`, `Right`, `Select`, each as press, double press or hold) can then be mapped to an Android Auto action: rotary forward/back, D-pad, Select, Back, Home, the assistant, or one-press navigation to one of three saved destinations. Mapping, calibration and the on/off switch are stored per motorcycle. The feature is on by default, and MOTO-HUB keeps the media session it needs alive so the dashboard keeps sending presses instead of handing them to another app.
+
+Music volume is expressed in **presses**, not steps, because that is how the dashboard rocker behaves.
+
+### Settings
+
+`Video quality` sets image detail against the negotiated base bitrate: `Balanced` is the recommended default, `Smoother` uses 70% and `Sharper` 160%. `Power mode` selects `Auto` (adapt bitrate and frame rate to phone temperature and Wi-Fi quality), `Smooth` (30 FPS), `Balanced` (24 FPS) or `Saver` (20 FPS). `Disable touchscreen` lets the rider use focus and handlebar controls even on a dashboard that reports a touch display.
+
+`Android Auto` selects the source resolution — `Auto` (dynamic orientation from the learned T-Box geometry), 800 x 480, 1280 x 720, 720 x 1280 or 1080 x 1920 — and how content insets are advertised. The T-Box output canvas is still negotiated at runtime and is not replaced by the Android Auto source resolution.
+
+`Connection & automation` holds auto-connect, which requests the saved motorcycle network and discovers EasyConn on app launch and after deliberate projection stops, and the optional recovery watchdog, which monitors outgoing TFT frame progress and rebuilds the T-Box network, discovery, handshake, and encoder path after a post-start stall while keeping the local Android Auto receiver alive. Seamless resume can park a projection across a longer T-Box interruption and resume when the motorcycle network returns.
+
+`Diagnostics` provides network tests (T-Box discovery, Wi-Fi binding, cellular routes), the application log with copy/share/clear, a master switch that stops all logging — and with it the error reports described under crash and error reporting — and verbose T-Box logging for protocol-level troubleshooting.
+
+The general section holds the app language, launch-time update checks, and seamless resume.
+
+### Network Behavior
+
+The T-Box Wi-Fi network is a local display transport and may not provide Internet access. MOTO-HUB requests the T-Box network explicitly and keeps the T-Box transport separate from normal phone connectivity where Android allows it. OEM network behavior can vary, especially on OnePlus devices.
+
+</details>
+
+<details>
+<summary><b>🔐 Permissions and privacy</b></summary>
+
+<br>
 
 MOTO-HUB is a local-first app. The permissions below are used to connect to the motorcycle, scan its pairing QR code, keep an active projection running, and give the rider controls. The app does not require an account and does not upload screen content.
 
@@ -116,45 +389,41 @@ The Android Auto receiver also declares package visibility for Android Auto and 
 
 The app should continue to open normally. Only the related feature is unavailable: without Camera, use QR import from a photo, manual pairing, or an already saved motorcycle; without Nearby Wi-Fi or Location, the T-Box connection cannot be discovered; without Notifications, projection cannot be kept as a managed foreground session; without screen-capture approval, mirroring cannot start; without Bluetooth, handlebar buttons cannot be identified; without Microphone, the Android Auto assistant has no voice input. Optional display dimming simply remains disabled unless overlay access is granted.
 
-## What It Does
+### Privacy notes
 
-- Pair with a motorcycle T-Box by scanning its QR code, importing a photo of it, or entering the network manually.
-- Read the QR dialects other manufacturers use — such as Moto Morini's MotoFun code — and accept an unrecognized one after a warning rather than refusing it.
-- Store multiple motorcycle profiles and select the active motorcycle.
-- Store a private motorcycle photo and use it throughout the app UI.
-- Connect to the T-Box Wi-Fi access point without requiring manual SSID entry, with a separate Wi-Fi Direct path for dashboards that advertise a `DIRECT-` network.
-- Discover the EasyConn service and establish the T-Box session.
-- Mirror the entire phone screen or a single Android app.
-- Start Android Auto through an embedded local head-unit receiver, including on Android Auto versions that no longer accept a direct start request.
-- Drive Android Auto from the motorcycle's handlebar buttons, after a short guided calibration, with per-motorcycle mappings for press, double press and hold.
-- Control music volume, jump to a saved destination, or open the assistant from the handlebar without touching the phone.
-- Stream the phone screen to a USB (AOA) external display, independently of the T-Box.
-- Choose the Android Auto TFT layout per motorcycle:
-  - `FIT`: preserve the complete image and use black bars when necessary.
-  - `STRETCH`: use the complete available TFT area with geometric stretching.
-  - `CROP`: use the complete available TFT area without stretching and crop edges when necessary.
-- Calibrate per-motorcycle TFT safe margins so Android Auto video and touch stay inside the projection area not occupied by native motorcycle UI.
-- Let Android Auto lay out at the dashboard's real shape instead of a letterboxed band inside it.
-- Keep the phone preview available for Android Auto touch control, or disable the touchscreen entirely and ride with focus and handlebar controls.
-- Select Smoother, Balanced or Sharper image detail, and a Smooth/Balanced/Saver/adaptive power behavior for the next stream.
-- Override Android Auto with landscape or portrait SD/HD source resolutions, or keep automatic selection.
-- Optionally connect to the saved motorcycle when MOTO-HUB opens.
-- Optionally recover or seamlessly resume a stalled or dropped TFT stream when the T-Box returns.
-- Show persistent diagnostics, run network tests, and share application logs as an exported file for troubleshooting.
-- Check GitHub releases and pre-releases from inside the app, showing release notes before installing a newer APK.
-- Run in English, Italian, Portuguese or Korean, or follow the phone language.
+MOTO-HUB is designed to operate without an account or proprietary telemetry service. It handles screen content, T-Box credentials, and diagnostic data on the phone. Wi-Fi passwords are encrypted with Android Keystore. Screen frames are processed in memory for the active projection and are not intentionally recorded to disk.
 
-## Current Status
+This app contacts two Internet hosts on its own: GitHub, to check for a newer release when you ask it to or when launch-time update checks are enabled, and Sentry, for crash and error reporting (see below). It has no maps, geocoding, routing or weather features, requests no location updates, and sends no ride or position data anywhere. Anything Android Auto itself does over the network is Android Auto's own traffic, under your Google account, not MOTO-HUB's.
 
-The current Android client is version `1.1.33` (`127`) and targets Android 14/API 34 and newer.
+### Crash and error reporting
 
-This build has been tested end-to-end for mirroring and Android Auto on a OnePlus 13 and a CFMOTO 700MT-ADV T-Box, which is simply the hardware available to the maintainer. Other brands are supported by design rather than by daily testing — see [Supported Motorcycles](#supported-motorcycles) — and compatibility with a given phone, motorcycle model, T-Box firmware version, or Android Auto version is not guaranteed and must be validated separately.
+Official MOTO-HUB release APKs report crashes and connection failures to [Sentry](https://sentry.io/), in its EU region. This exists because the failures that matter here — a dashboard that will not associate, a stream that dies mid-ride — take a motorcycle and a rider to reproduce, and a single rider's report rarely says whether it is one bike or one model.
 
-Mirroring, Android Auto, handlebar controls and diagnostics are implemented, but every motorcycle model and T-Box firmware still requires explicit validation before it can be considered supported. The USB external display path is newer and has had less validation than the T-Box path.
+What is sent:
 
-This is still an experimental project. Do not rely on it as the only navigation or safety system, and configure navigation while stationary.
+- Crashes, and why a previous process of the app ended.
+- Errors already written to the in-app diagnostic log, **redacted** and capped at 50 per app run. They are sent as plain messages, never as raw exception objects, precisely because the local log can contain connection details that must not leave the phone.
+- Coarse tags used to group reports across riders — for example whether the dashboard's Wi-Fi network was visible at all in the moment before a failed join. Values are deliberately kept low-cardinality, so they describe a situation rather than a rider.
+- The app version and build number, so a report can be attributed to a release.
 
-## Repository Layout
+What is not sent: Sentry's "default PII" collection is switched off, so no account, contact, device identifier or IP-derived user data is attached. Screen content, T-Box passwords, trips and position are never sent — the app has no position data to begin with.
+
+Turning off `Settings ▸ Diagnostics ▸ Enable logging` stops the diagnostic log entirely, and with it the error events described above. Crash reports are handled by the Sentry SDK itself and are not covered by that switch.
+
+**Builds from this source send nothing.** The Sentry DSN is supplied at build time from a private properties file or CI secret, exactly like the Android Auto identity. A source build without it has telemetry disabled outright, not merely unconfigured.
+
+Review [Security and Privacy](documentation/SECURITY_AND_PRIVACY.md) before distributing an APK outside personal use.
+
+The public source does not include the Android Auto identity or APK-signing keystore. APKs attached to official MOTO-HUB releases are complete runtime builds and include Android Auto support.
+
+</details>
+
+<details>
+<summary><b>🛠️ Build from source</b></summary>
+
+<br>
+
+### Repository layout
 
 ```text
 MOTO-HUB/
@@ -168,9 +437,9 @@ MOTO-HUB/
 └── README.md               Project overview and setup instructions
 ```
 
-The public repository contains only the MOTO-HUB source, documentation, build metadata, and non-sensitive required artifacts. External projects are referenced by their public URLs below and are not vendored into this repository.
+The public repository contains only the MOTO-HUB source, documentation, build metadata, and non-sensitive required artifacts. External projects are referenced by their public URLs and are not vendored into this repository.
 
-## Build Requirements
+### Build requirements
 
 - **JDK 21.** Gradle 8.13 / AGP 8.12.3 do not run on newer JDKs, and the JDK bundled with current Android Studio versions is too new — point `JAVA_HOME` at a JDK 21 explicitly.
 - Android SDK platform/API 36.
@@ -197,7 +466,7 @@ To rebuild it, install Go and `gomobile`, then run these commands from the direc
 ```bash
 git clone https://github.com/vincenzobpt/ridedaemon-lib ridedaemon-lib
 cd ridedaemon-lib
-gomobile bind -target=android -androidapi 34 -o ../MOTO-HUB/apps/android/app/libs/hudlib.aar ./hud/api
+gomobile bind -target=android -androidapi 31 -o ../MOTO-HUB/apps/android/app/libs/hudlib.aar ./hud/api
 ```
 
 The source commit and AAR checksum must be updated in [`tooling/ridedaemon.lock`](tooling/ridedaemon.lock) whenever the artifact changes.
@@ -222,81 +491,12 @@ For a local build without Android Auto identity files, use the default build:
 
 Maintainers can find the complete release process and required GitHub secret names in [`documentation/PUBLIC_RELEASE.md`](documentation/PUBLIC_RELEASE.md).
 
-## Android Features
+</details>
 
-### Motorcycle Garage
+<details>
+<summary><b>📚 Documentation</b></summary>
 
-The garage stores multiple motorcycle profiles. Each profile can contain:
-
-- T-Box SSID and encrypted Wi-Fi password.
-- QR-provided metadata when available.
-- A user-defined display name.
-- A private motorcycle photo.
-- Android Auto display format: `FIT`, `STRETCH`, or `CROP`.
-- TFT safe margins used to exclude motorcycle-owned display regions from Android Auto video and touch.
-- Its own handlebar button calibration and mapping.
-- Observed T-Box capability snapshots, including model/profile hints where available.
-
-Existing single-profile data is migrated automatically when the app is upgraded.
-
-### Projection Modes
-
-`Mirror` uses Android `MediaProjection` and supports either the complete phone display or an app selected through Android's system picker.
-
-`Auto` runs Android Auto through a local Android Auto Projection receiver. The decoded Android Auto video is composited, encoded as H.264, and sent to the T-Box through the ridedaemon transport. The compositor supports `FIT`, `STRETCH`, and `CROP` against the usable TFT projection area. When Android Auto declares internal letterbox margins, `STRETCH` uses the active Android Auto content rather than stretching black bars. By default MOTO-HUB asks Android Auto to lay out at the dashboard's real shape, so the map fills the panel instead of sitting between black bars; the per-motorcycle TFT safe margins can be advertised instead by switching content insets to `Manual`.
-
-`External` appears only when a USB (AOA) accessory head unit is attached. It captures the phone screen and writes H.264 access units straight to the USB accessory endpoint, completely independently of the T-Box, EasyConn and ridedaemon path.
-
-The Ride Dashboard, Navigation and Trips are not part of this app — they live in [MOTO-HUB ADVANCED](https://github.com/vincenzobpt/MOTO-HUB-PRO-releases), which connects through this app's IPC boundary.
-
-### If Android Auto does not start
-
-Android Auto 17.4 removed the entry points an app could use to ask it to project: the activity it
-used is no longer exported and the receiver behind it ships disabled, so MOTO-HUB's request is
-refused or silently ignored. This affects every app of this kind, not only MOTO-HUB — the
-`headunit-revived` project reports the same in its issue #698. Android Auto 17.2.662634 is verified
-working; 17.4.663004 is not.
-
-There is no need to install an older Android Auto. Android Auto can be asked to listen instead,
-using the head unit server its own Desktop Head Unit connects to, and MOTO-HUB connects to that:
-
-1. Open the **Android Auto** app, scroll to the bottom and tap **Version** ten times to reveal
-   Developer settings.
-2. In Developer settings, enable **Add new cars to Android Auto** (older wording: *Unknown
-   sources*).
-3. Open the **⋮ menu at the top right** of Developer settings and choose **Start head unit
-   server**. It lives in that menu, not in the list of settings below it. A notification confirms
-   it is running, and it stays running until stopped or the phone restarts.
-4. Start Android Auto from MOTO-HUB as usual. MOTO-HUB polls that server and connects on its own.
-
-The same instructions are in the app under `Settings ▸ Android Auto does not start`, and the error
-shown when projection fails links to them.
-
-### Handlebar Buttons
-
-These dashboards forward their handlebar buttons to the phone as ordinary Bluetooth media commands — a volume change, a play/pause, a next/previous track — and which physical press produces which command differs per motorcycle, and per brand. MOTO-HUB therefore starts from a **calibration**: the rider performs each press once, and the app learns what that motorcycle actually sends. Nothing is assumed from the model name.
-
-Each calibrated press (`Up`, `Down`, `Left`, `Right`, `Select`, each as press, double press or hold) can then be mapped to an Android Auto action: rotary forward/back, D-pad, Select, Back, Home, the assistant, or one-press navigation to one of three saved destinations. Mapping, calibration and the on/off switch are stored per motorcycle. The feature is on by default, and MOTO-HUB keeps the media session it needs alive so the dashboard keeps sending presses instead of handing them to another app.
-
-Music volume is expressed in **presses**, not steps, because that is how the dashboard rocker behaves.
-
-### Settings
-
-`Video quality` sets image detail against the negotiated base bitrate: `Balanced` is the recommended default, `Smoother` uses 70% and `Sharper` 160%. `Power mode` selects `Auto` (adapt bitrate and frame rate to phone temperature and Wi-Fi quality), `Smooth` (30 FPS), `Balanced` (24 FPS) or `Saver` (20 FPS). `Disable touchscreen` lets the rider use focus and handlebar controls even on a dashboard that reports a touch display.
-
-`Android Auto` selects the source resolution — `Auto` (dynamic orientation from the learned T-Box geometry), 800 x 480, 1280 x 720, 720 x 1280 or 1080 x 1920 — and how content insets are advertised. The T-Box output canvas is still negotiated at runtime and is not replaced by the Android Auto source resolution.
-
-`Connection & automation` holds auto-connect, which requests the saved motorcycle network and discovers EasyConn on app launch and after deliberate projection stops, and the optional recovery watchdog, which monitors outgoing TFT frame progress and rebuilds the T-Box network, discovery, handshake, and encoder path after a post-start stall while keeping the local Android Auto receiver alive. Seamless resume can park a projection across a longer T-Box interruption and resume when the motorcycle network returns.
-
-`Diagnostics` provides network tests (T-Box discovery, Wi-Fi binding, cellular routes), the application log with copy/share/clear, a master switch that stops all logging — and with it the error reports described under [Crash and error reporting](#crash-and-error-reporting) — and verbose T-Box logging for protocol-level troubleshooting.
-
-The general section holds the app language, launch-time update checks, and seamless resume.
-
-### Network Behavior
-
-The T-Box Wi-Fi network is a local display transport and may not provide Internet access. MOTO-HUB requests the T-Box network explicitly and keeps the T-Box transport separate from normal phone connectivity where Android allows it. OEM network behavior can vary, especially on OnePlus devices.
-
-## Documentation
+<br>
 
 - [Architecture](documentation/ARCHITECTURE.md)
 - [Android implementation](documentation/ANDROID_IMPLEMENTATION.md)
@@ -305,16 +505,15 @@ The T-Box Wi-Fi network is a local display transport and may not provide Interne
 - [Dynamic Android Auto profile](documentation/DYNAMIC_ANDROID_AUTO_PROFILE.md)
 - [Security, privacy, and licensing](documentation/SECURITY_AND_PRIVACY.md)
 - [Test strategy](documentation/TEST_STRATEGY.md)
-- [Roadmap](documentation/ROADMAP.md)
-- [Risk register](documentation/RISK_REGISTER.md)
-- [OpenCfMoto comparative audit](documentation/OPEN_CFMOTO_COMPARATIVE_AUDIT.md)
 - [Projection settings](documentation/PROJECTION_SETTINGS.md)
 - [Public release process](documentation/PUBLIC_RELEASE.md)
-- [Architecture decisions](documentation/decisions/README.md)
 
-The [Ride Dashboard](documentation/RIDE_DASHBOARD.md), [Navigation](documentation/NAVIGATION.md) and [Trip recording](documentation/TRIP_RECORDING.md) documents describe features that now ship in MOTO-HUB ADVANCED. They are kept here because they were written against this repository's history.
+</details>
 
-## Technical Sources And Attribution
+<details>
+<summary><b>🙏 Technical sources and attribution</b></summary>
+
+<br>
 
 MOTO-HUB was developed using the following public projects as technical sources. The links below are references and attribution; they are not claims of endorsement.
 
@@ -344,56 +543,39 @@ These services are not contacted by this app. They are used by MOTO-HUB ADVANCED
 - [Valhalla](https://github.com/valhalla/valhalla) - the open-source routing engine used for turn-by-turn motorcycle routing.
 - [Stadia Maps](https://stadiamaps.com/) - hosts the Valhalla routing API used by default, with the rider's own free API key.
 - [FOSSGIS public Valhalla demo server](https://github.com/valhalla/valhalla/discussions/3373) - an optional, rate-limited, keyless routing fallback.
-- [Open-Meteo](https://open-meteo.com/) - free weather API used for the route-preview weather-at-arrival estimate.
+- [Open-Meteo](https://open-meteo.com/) - free weather API used for the route weather estimates.
+- [Mapillary](https://www.mapillary.com/) - street-level imagery, with the rider's own token.
 
 ### Vendor and platform references
 
 - [EasyConn](https://www.easyconn.net/) - vendor context for the T-Box ecosystem.
-- [Sentry](https://sentry.io/) - crash and error reporting in official release builds; see [Crash and error reporting](#crash-and-error-reporting).
+- [Sentry](https://sentry.io/) - crash and error reporting in official release builds; see the permissions and privacy section.
 - [Android MediaProjection](https://developer.android.com/media/grow/media-projection) - Android screen capture API.
 - [Android MediaCodec](https://developer.android.com/reference/android/media/MediaCodec) - hardware video encoding and decoding API.
 - [Android Open Accessory](https://developer.android.com/develop/connectivity/usb/accessory) - USB accessory protocol used by the external display mode.
 - [Android Wi-Fi network requests](https://developer.android.com/develop/connectivity/wifi/wifi-suggest) - Android Wi-Fi provisioning APIs.
 
-## Licensing And Publication Gate
+</details>
+
+<details>
+<summary><b>⚖️ Licensing</b></summary>
+
+<br>
 
 This section is intentionally explicit because the project combines original MOTO-HUB code with external components and research.
 
 - **MOTO-HUB (this repository) is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0)** — see [`LICENSE`](LICENSE). AGPL-3.0 was chosen because the repository combines GPL-3.0 material (`hudlib.aar`, the T-Box transport) with AGPL-3.0-derived material (`aa/`, the Android Auto receiver technique ported from `headunit-revived`); AGPL-3.0 satisfies both components' obligations for a combined work and additionally covers network-facing use.
 - `ridedaemon-lib` and the reference Android project are distributed under AGPL-3.0 according to their repositories and license files; the generated `hudlib.aar` is derived from that fork. Redistributing it (including inside this repository) must comply with the applicable AGPL obligations — the corresponding source must remain available to anyone who interacts with it, including over a network.
-- The `open-cfmoto` project used for research **is licensed under AGPL-3.0-or-later** (it carries both a `LICENSE` and a `NOTICE`, and an SPDX header on each source file). That statement replaces an earlier note here that it had no license file, which was true of the snapshot reviewed at the time and is no longer true. Code may therefore flow in either direction under the AGPL, provided the copyright notices and the modification notices required by section 5 travel with it. The influence recorded in [Android Auto and CFMOTO research](#android-auto-and-cfmoto-research) is behavioural — bitrate, source profiles, startup automation, stream recovery — not source. In the other direction, `EcBtpProtocol.kt` was written here on 2026-08-13 and appears in OpenCfMoto the same day; see the note in that file.
+- The `open-cfmoto` project used for research **is licensed under AGPL-3.0-or-later** (it carries both a `LICENSE` and a `NOTICE`, and an SPDX header on each source file). That statement replaces an earlier note here that it had no license file, which was true of the snapshot reviewed at the time and is no longer true. Code may therefore flow in either direction under the AGPL, provided the copyright notices and the modification notices required by section 5 travel with it. The influence recorded in the research references above is behavioural — bitrate, source profiles, startup automation, stream recovery — not source. In the other direction, `EcBtpProtocol.kt` was written here on 2026-08-13 and appears in OpenCfMoto the same day; see the note in that file.
 - **MOTO-HUB ADVANCED** is a separate, closed-source companion application maintained in a private repository. It contains no GPL-3.0 or AGPL-3.0 code — it reaches this repository's T-Box transport and Android Auto receiver exclusively through a documented Binder IPC boundary (`apps/android/ipc-contract/`, `IpcBridgeService`), which is why it can be distributed under different terms. ADVANCED requires MOTO-HUB to be installed to function; MOTO-HUB does not require ADVANCED.
-- CFMOTO, Voge, Zontes, Moto Morini, MotoFun, Benelli, QJ Motor, Morbidelli, MBP, EasyConn, Carbit, MotoPlay, Android Auto, Google, and related names remain the property of their respective owners. MOTO-HUB is an independent project and must not imply official support from any of them.
+- CFMOTO, Voge, Zontes, Moto Morini, MotoFun, Benelli, QJ Motor, Morbidelli, MBP, KOVE, ThinkerRide, EasyConn, Carbit, MotoPlay, Android Auto, Google, and related names remain the property of their respective owners. MOTO-HUB is an independent project and must not imply official support from any of them.
 
 This README documents the project's licensing rationale; it is not a substitute for legal advice.
 
-## Privacy Notes
+</details>
 
-MOTO-HUB is designed to operate without an account or proprietary telemetry service. It handles screen content, T-Box credentials, and diagnostic data on the phone. Wi-Fi passwords are encrypted with Android Keystore. Screen frames are processed in memory for the active projection and are not intentionally recorded to disk.
+---
 
-This app contacts two Internet hosts on its own: GitHub, to check for a newer release when you ask it to or when launch-time update checks are enabled, and Sentry, for crash and error reporting (see below). It has no maps, geocoding, routing or weather features, requests no location updates, and sends no ride or position data anywhere. Anything Android Auto itself does over the network is Android Auto's own traffic, under your Google account, not MOTO-HUB's.
-
-### Crash and error reporting
-
-Official MOTO-HUB release APKs report crashes and connection failures to [Sentry](https://sentry.io/), in its EU region. This exists because the failures that matter here — a dashboard that will not associate, a stream that dies mid-ride — take a motorcycle and a rider to reproduce, and a single rider's report rarely says whether it is one bike or one model.
-
-What is sent:
-
-- Crashes, and why a previous process of the app ended.
-- Errors already written to the in-app diagnostic log, **redacted** and capped at 50 per app run. They are sent as plain messages, never as raw exception objects, precisely because the local log can contain connection details that must not leave the phone.
-- Coarse tags used to group reports across riders — for example whether the dashboard's Wi-Fi network was visible at all in the moment before a failed join. Values are deliberately kept low-cardinality, so they describe a situation rather than a rider.
-- The app version and build number, so a report can be attributed to a release.
-
-What is not sent: Sentry's "default PII" collection is switched off, so no account, contact, device identifier or IP-derived user data is attached. Screen content, T-Box passwords, trips and position are never sent — the app has no position data to begin with.
-
-Turning off `Settings ▸ Diagnostics ▸ Enable logging` stops the diagnostic log entirely, and with it the error events described above. Crash reports are handled by the Sentry SDK itself and are not covered by that switch.
-
-**Builds from this source send nothing.** The Sentry DSN is supplied at build time from a private properties file or CI secret, exactly like the Android Auto identity. A source build without it has telemetry disabled outright, not merely unconfigured.
-
-Review [Security and Privacy](documentation/SECURITY_AND_PRIVACY.md) before distributing an APK outside personal use.
-
-The public source does not include the Android Auto identity or APK-signing keystore. APKs attached to official MOTO-HUB releases are complete runtime builds and include Android Auto support.
-
-## Disclaimer
-
-Use MOTO-HUB only while parked during setup and testing. The project is provided for experimentation with personally owned hardware and without any safety guarantee or vendor support.
+<div align="center">
+<sub>Use MOTO-HUB only while parked during setup and testing. The project is provided for experimentation with personally owned hardware and without any safety guarantee or vendor support.</sub>
+</div>

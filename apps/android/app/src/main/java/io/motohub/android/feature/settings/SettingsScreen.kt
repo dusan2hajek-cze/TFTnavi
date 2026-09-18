@@ -54,24 +54,33 @@ import io.motohub.android.feature.controls.HandlebarHidCaptureService
 import io.motohub.android.feature.controls.HandlebarInputMode
 import io.motohub.android.feature.controls.HandlebarMappingScreen
 import io.motohub.android.feature.controls.MediaButtonBridge
+import io.motohub.android.feature.diagnostics.report.SupportIdSection
+import io.motohub.android.data.MotorcycleProfileStore
 import io.motohub.android.session.ProjectionEventLog
+import io.motohub.android.tbox.TBoxCapabilityStore
+import io.motohub.android.tbox.TBoxClockAskRegistry
+import io.motohub.android.tbox.TBoxWireLadder
 import io.motohub.android.ui.components.MonoLabel
 import io.motohub.android.ui.components.MotoHubActionRow
 import io.motohub.android.ui.components.MotoHubCardGroup
 import io.motohub.android.ui.components.MotoHubDetailScreen
 import io.motohub.android.ui.components.MotoHubRadioRow
+import io.motohub.android.feature.controls.HandlebarPressHud
 import io.motohub.android.ui.components.ToggleRow
 
 private enum class SettingsDetail {
-    GENERAL, LANGUAGE, AUTOSTART, VIDEO, ANDROID_AUTO, HANDLEBAR, HANDLEBAR_MAPPING, AUTOMATION,
+    GENERAL, LANGUAGE, AUTOSTART, VIDEO, ANDROID_AUTO, ANDROID_AUTO_RESOLUTION, ANDROID_AUTO_DENSITY, HANDLEBAR, HANDLEBAR_MAPPING, AUTOMATION,
     DIAGNOSTICS
 }
 
 @Composable
 fun SettingsTabContent(
     onOpenNetworkDiagnostics: () -> Unit,
+    onOpenClockLab: () -> Unit,
+    onOpenBleExplorer: () -> Unit,
     onOpenApplicationLogs: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenAdvanced: () -> Unit,
     onOpenAndroidAutoHelp: () -> Unit,
     seamlessResumeEnabled: Boolean,
     onSeamlessResumeChanged: (Boolean) -> Unit
@@ -84,6 +93,8 @@ fun SettingsTabContent(
     BackHandler(enabled = detail != null) {
         detail = when (detail) {
             SettingsDetail.LANGUAGE, SettingsDetail.AUTOSTART -> SettingsDetail.GENERAL
+            SettingsDetail.ANDROID_AUTO_RESOLUTION, SettingsDetail.ANDROID_AUTO_DENSITY ->
+                SettingsDetail.ANDROID_AUTO
             else -> null
         }
     }
@@ -93,10 +104,10 @@ fun SettingsTabContent(
         transitionSpec = {
             if (targetState != null) {
                 (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
-                    (slideOutHorizontally { -it / 3 } + fadeOut())
+                        (slideOutHorizontally { -it / 3 } + fadeOut())
             } else {
                 (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith
-                    (slideOutHorizontally { it / 3 } + fadeOut())
+                        (slideOutHorizontally { it / 3 } + fadeOut())
             }
         },
         label = "settings"
@@ -107,6 +118,7 @@ fun SettingsTabContent(
                 onOpenNetworkDiagnostics = onOpenNetworkDiagnostics,
                 onOpenApplicationLogs = onOpenApplicationLogs,
                 onOpenAbout = onOpenAbout,
+                onOpenAdvanced = onOpenAdvanced,
                 onOpenAndroidAutoHelp = onOpenAndroidAutoHelp
             )
             SettingsDetail.GENERAL -> GeneralDetail(
@@ -119,7 +131,17 @@ fun SettingsTabContent(
             SettingsDetail.LANGUAGE -> LanguageDetail(onBack = { detail = SettingsDetail.GENERAL })
             SettingsDetail.AUTOSTART -> AutostartDetail(onBack = { detail = SettingsDetail.GENERAL })
             SettingsDetail.VIDEO -> VideoQualityDetail(onBack = { detail = null })
-            SettingsDetail.ANDROID_AUTO -> AndroidAutoDetail(onBack = { detail = null })
+            SettingsDetail.ANDROID_AUTO -> AndroidAutoDetail(
+                onBack = { detail = null },
+                onOpenResolution = { detail = SettingsDetail.ANDROID_AUTO_RESOLUTION },
+                onOpenDensity = { detail = SettingsDetail.ANDROID_AUTO_DENSITY }
+            )
+            SettingsDetail.ANDROID_AUTO_RESOLUTION -> AndroidAutoResolutionDetail(
+                onBack = { detail = SettingsDetail.ANDROID_AUTO }
+            )
+            SettingsDetail.ANDROID_AUTO_DENSITY -> AndroidAutoDensityDetail(
+                onBack = { detail = SettingsDetail.ANDROID_AUTO }
+            )
             SettingsDetail.HANDLEBAR -> HandlebarControlsDetail(
                 onBack = { detail = null },
                 onOpenMapping = { detail = SettingsDetail.HANDLEBAR_MAPPING }
@@ -135,6 +157,8 @@ fun SettingsTabContent(
             SettingsDetail.DIAGNOSTICS -> DiagnosticsDetail(
                 onBack = { detail = null },
                 onOpenNetworkDiagnostics = onOpenNetworkDiagnostics,
+                onOpenClockLab = onOpenClockLab,
+                onOpenBleExplorer = onOpenBleExplorer,
                 onOpenApplicationLogs = onOpenApplicationLogs
             )
         }
@@ -147,6 +171,7 @@ private fun SettingsMainList(
     onOpenNetworkDiagnostics: () -> Unit,
     onOpenApplicationLogs: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenAdvanced: () -> Unit,
     onOpenAndroidAutoHelp: () -> Unit
 ) {
     val context = LocalContext.current
@@ -174,13 +199,14 @@ private fun SettingsMainList(
                 title = motoHubText("Video quality"),
                 description = motoHubText("Encoder detail and power mode for all streams"),
                 value = "${strings.getString(MotoHubSettings.videoQuality(context).labelRes)} · " +
-                    strings.getString(MotoHubSettings.videoPowerMode(context).labelRes),
+                        strings.getString(MotoHubSettings.videoPowerMode(context).labelRes),
                 onClick = { onOpenDetail(SettingsDetail.VIDEO) }
             )
             MotoHubActionRow(
                 title = motoHubText("Android Auto"),
                 description = motoHubText("Resolution and display mode"),
-                value = strings.getString(MotoHubSettings.androidAutoResolution(context).labelRes),
+                value = "${strings.getString(MotoHubSettings.androidAutoResolution(context).labelRes)} · " +
+                        strings.getString(MotoHubSettings.androidAutoDensity(context).labelRes),
                 onClick = { onOpenDetail(SettingsDetail.ANDROID_AUTO) }
             )
             MotoHubActionRow(
@@ -208,10 +234,20 @@ private fun SettingsMainList(
                 onClick = onOpenAndroidAutoHelp
             )
             MotoHubActionRow(
-                title = motoHubText("About MOTO-HUB"),
+                title = motoHubText("About MOTO-HUB").replace("MOTO-HUB", "TFTnavi"),
                 description = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 onClick = onOpenAbout
             )
+            // The always-reachable way to the ADV-SOLO page. The promo card at the foot of Home
+            // is the one a rider meets by accident; this is the one they come looking for - and
+            // it costs no slot in a bottom bar a gloved thumb has to hit.
+            if (!BuildConfig.IS_PRO) {
+                MotoHubActionRow(
+                    title = motoHubText("MOTO-HUB ADV-SOLO"),
+                    description = motoHubText("Dashboard, navigation and trips - the free app that replaces this one"),
+                    onClick = onOpenAdvanced
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -337,8 +373,8 @@ private fun AutostartDetail(onBack: () -> Unit) {
         Text(
             motoHubText(
                 "With this on, MOTO-HUB skips the \"what should I show?\" screen and puts the " +
-                    "chosen screen on the TFT as soon as the motorcycle link comes up. It runs " +
-                    "once per app launch - stop a screen and you are back in control."
+                        "chosen screen on the TFT as soon as the motorcycle link comes up. It runs " +
+                        "once per app launch - stop a screen and you are back in control."
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -415,24 +451,30 @@ private fun LanguageDetail(onBack: () -> Unit) {
 }
 
 @Composable
-private fun AndroidAutoDetail(onBack: () -> Unit) {
+private fun AndroidAutoDetail(
+    onBack: () -> Unit,
+    onOpenResolution: () -> Unit,
+    onOpenDensity: () -> Unit
+) {
     val context = LocalContext.current
-    var resolution by remember { mutableStateOf(MotoHubSettings.androidAutoResolution(context)) }
     var aspectMatching by remember { mutableStateOf(MotoHubSettings.androidAutoAspectMatching(context)) }
     MotoHubDetailScreen(title = motoHubText("Android Auto"), backLabel = motoHubText("‹ Settings"), onBack = onBack) {
-        MonoLabel(motoHubText("RESOLUTION"))
-        AndroidAutoResolutionMode.entries.forEach { candidate ->
-            MotoHubRadioRow(
-                title = context.getString(candidate.labelRes),
-                description = context.getString(candidate.descriptionRes),
-                selected = resolution == candidate,
-                onClick = {
-                    resolution = candidate
-                    MotoHubSettings.setAndroidAutoResolution(context, candidate)
-                    ProjectionEventLog.record("SETTINGS", "Android Auto resolution changed to ${candidate.name}.")
-                }
-            )
-        }
+        // Nine coded sources and seven densities do not belong on one scrolling page next to the
+        // insets picker: each is its own question, so each gets its own screen and this one shows
+        // the answers. Read straight from the store rather than remembered - returning from a
+        // child recomposes this screen, and a remembered copy would show the old choice.
+        MotoHubActionRow(
+            title = motoHubText("Resolution"),
+            description = motoHubText("The video source Android Auto sends to the dashboard"),
+            value = context.getString(MotoHubSettings.androidAutoResolution(context).labelRes),
+            onClick = onOpenResolution
+        )
+        MotoHubActionRow(
+            title = motoHubText("Interface size"),
+            description = motoHubText("How large Android Auto draws itself on that source"),
+            value = context.getString(MotoHubSettings.androidAutoDensity(context).labelRes),
+            onClick = onOpenDensity
+        )
         HorizontalDivider()
         MonoLabel(motoHubText("ANDROID AUTO CONTENT INSETS"))
         AndroidAutoAspectMatchingMode.entries.forEach { candidate ->
@@ -457,6 +499,18 @@ private fun AutomationDetail(onBack: () -> Unit) {
     var autoRecovery by remember { mutableStateOf(MotoHubSettings.autoRecovery(context)) }
     var keepWifiDirect by remember { mutableStateOf(MotoHubSettings.keepWifiDirectAfterDisconnect(context)) }
     var bluetoothClock by remember { mutableStateOf(MotoHubSettings.bluetoothClockSync(context)) }
+    var dashClock by remember { mutableStateOf(MotoHubSettings.dashClockSync(context)) }
+    // Some firmware asks MOTO-HUB for the time, is answered, and goes on counting from its own
+    // power-on anyway. On those the switch below cannot do anything in either position, and a
+    // rider with no way of knowing that spends the evening toggling it - so it is said here,
+    // from what that dashboard has actually been seen doing on this phone.
+    val dashDiscardsClock = remember {
+        runCatching {
+            val motorcycle = MotorcycleProfileStore(context).load()
+            val capabilities = motorcycle?.let { TBoxCapabilityStore(context).load(it)?.capabilities }
+            TBoxClockAskRegistry.discardsTime(context, TBoxWireLadder.fingerprintOf(capabilities))
+        }.getOrDefault(false)
+    }
     MotoHubDetailScreen(title = motoHubText("Connection & automation"), backLabel = motoHubText("‹ Settings"), onBack = onBack) {
         ToggleRow(
             title = motoHubText("Auto-connect on launch"),
@@ -479,12 +533,37 @@ private fun AutomationDetail(onBack: () -> Unit) {
             }
         )
         ToggleRow(
+            title = motoHubText("Set the dash clock over Wi-Fi"),
+            description = if (dashDiscardsClock) {
+                motoHubText(
+                    "Your dashboard has been seen asking for the time, being answered, and going " +
+                            "on counting from its own power-on regardless. This switch changes " +
+                            "nothing on it in either position: that clock is kept by the dashboard, " +
+                            "not by the phone."
+                )
+            } else {
+                motoHubText(
+                    "On by default, and what sets the time on most dashboards. Turn it off only if " +
+                            "your dash asks MOTO-HUB for the time, ignores the answer, and shows " +
+                            "01.01.1970 anyway: on those units writing the clock changes nothing and can " +
+                            "overwrite a time you set by hand on the dashboard itself. With this off the " +
+                            "bike connects normally, it is simply never told what time it is."
+                )
+            },
+            checked = dashClock,
+            onCheckedChange = {
+                dashClock = it
+                MotoHubSettings.setDashClockSync(context, it)
+                ProjectionEventLog.record("SETTINGS", "Dash clock sync changed to enabled=$it.")
+            }
+        )
+        ToggleRow(
             title = motoHubText("Set the dash clock over Bluetooth (experimental)"),
             description = motoHubText(
                 "Some dashboards ask for the time over Bluetooth instead of Wi-Fi, and sit at " +
-                    "00:00 without it. Needs the bike already paired to this phone in Android's " +
-                    "Bluetooth settings. Off by default; MOTO-HUB only ever replies to a device " +
-                    "that asks in the dashboard's own protocol."
+                        "00:00 without it. Needs the bike already paired to this phone in Android's " +
+                        "Bluetooth settings. Off by default; MOTO-HUB only ever replies to a device " +
+                        "that asks in the dashboard's own protocol."
             ),
             checked = bluetoothClock,
             onCheckedChange = {
@@ -497,9 +576,9 @@ private fun AutomationDetail(onBack: () -> Unit) {
             title = motoHubText("Stay linked to the bike's Wi-Fi after disconnecting"),
             description = motoHubText(
                 "Some dashboards forget settings like the clock when the Wi-Fi Direct link " +
-                    "fully drops. Keeps the phone associated to the bike's network until you " +
-                    "leave the app or turn Wi-Fi off. Off by default; only turn on if your " +
-                    "dash loses the time after disconnecting."
+                        "fully drops. Keeps the phone associated to the bike's network until you " +
+                        "leave the app or turn Wi-Fi off. Off by default; only turn on if your " +
+                        "dash loses the time after disconnecting."
             ),
             checked = keepWifiDirect,
             onCheckedChange = {
@@ -515,18 +594,32 @@ private fun AutomationDetail(onBack: () -> Unit) {
 private fun DiagnosticsDetail(
     onBack: () -> Unit,
     onOpenNetworkDiagnostics: () -> Unit,
+    onOpenClockLab: () -> Unit,
+    onOpenBleExplorer: () -> Unit,
     onOpenApplicationLogs: () -> Unit
 ) {
     val context = LocalContext.current
     var loggingEnabled by remember { mutableStateOf(MotoHubSettings.loggingEnabled(context)) }
     var verboseLogging by remember { mutableStateOf(MotoHubSettings.verboseTBoxLogging(context)) }
+    var pressBanner by remember { mutableStateOf(HandlebarPressHud.isEnabled(context)) }
 
     MotoHubDetailScreen(title = motoHubText("Diagnostics"), backLabel = motoHubText("‹ Settings"), onBack = onBack) {
+        SupportIdSection(loggingEnabled = loggingEnabled)
         MotoHubCardGroup {
             MotoHubActionRow(
                 title = motoHubText("Network diagnostics"),
                 description = motoHubText("T-Box discovery, Wi-Fi binding, cellular routes"),
                 onClick = onOpenNetworkDiagnostics
+            )
+            MotoHubActionRow(
+                title = motoHubText("Dash clock lab"),
+                description = motoHubText("Experiments for dashes that reset the clock (Zontes, Voge)"),
+                onClick = onOpenClockLab
+            )
+            MotoHubActionRow(
+                title = motoHubText("Bluetooth LE explorer"),
+                description = motoHubText("Scan, connect and read any BLE device byte by byte"),
+                onClick = onOpenBleExplorer
             )
             MotoHubActionRow(
                 title = motoHubText("Application logs"),
@@ -537,8 +630,8 @@ private fun DiagnosticsDetail(
         ToggleRow(
             title = motoHubText("Enable logging"),
             description = motoHubText("Master switch for the diagnostic log. Off means nothing is recorded ") +
-                "at all - not just less detail. On by default; turn off only if you don't want " +
-                "MOTO-HUB keeping any local diagnostic history.",
+                    "at all - not just less detail. On by default; turn off only if you don't want " +
+                    "MOTO-HUB keeping any local diagnostic history.",
             checked = loggingEnabled,
             onCheckedChange = {
                 // Record the "why" before flipping off, and after flipping back on - the
@@ -558,15 +651,29 @@ private fun DiagnosticsDetail(
         ToggleRow(
             title = motoHubText("Verbose T-Box logging"),
             description = motoHubText("Full CLIENT_INFO, every candidate profile's score, unknown command ") +
-                "hex dumps, and Wi-Fi link quality. On by default so a problem's first " +
-                "occurrence is already captured; turn off for a lighter log. Has no effect " +
-                "while logging above is off.",
+                    "hex dumps, and Wi-Fi link quality. On by default so a problem's first " +
+                    "occurrence is already captured; turn off for a lighter log. Has no effect " +
+                    "while logging above is off.",
             checked = verboseLogging,
             enabled = loggingEnabled,
             onCheckedChange = {
                 verboseLogging = it
                 MotoHubSettings.setVerboseTBoxLogging(context, it)
                 ProjectionEventLog.record("SETTINGS", "Verbose T-Box logging changed to enabled=$it.")
+            }
+        )
+        ToggleRow(
+            title = motoHubText("Show button presses on the dashboard"),
+            description = motoHubText("Every handlebar press ") +
+                    "- puts a black banner on the TFT for one second naming the button and the " +
+                    "action it ran. It is how you find out whether a press arrived at all, and " +
+                    "what it did, without reading a log. Works in Android Auto and on the Ride " +
+                    "Dashboard alike.",
+            checked = pressBanner,
+            onCheckedChange = {
+                pressBanner = it
+                HandlebarPressHud.setEnabled(context, it)
+                ProjectionEventLog.record("SETTINGS", "Press banner changed to enabled=$it.")
             }
         )
     }
@@ -601,8 +708,8 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
         Text(
             motoHubText(
                 "The motorcycle's buttons reach the phone over Bluetooth as media keys. " +
-                    "While a session is streaming, MOTO-HUB can capture them and drive " +
-                    "Android Auto navigation instead of the music player."
+                        "While a session is streaming, MOTO-HUB can capture them and drive " +
+                        "Android Auto navigation instead of the music player."
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -614,8 +721,8 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
             Text(
                 motoHubText(
                     "Managed by the companion app: its Controls screen re-applies its own " +
-                        "handlebar configuration every time a session starts, overwriting " +
-                        "what is set here. Configure the handlebar there."
+                            "handlebar configuration every time a session starts, overwriting " +
+                            "what is set here. Configure the handlebar there."
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error
@@ -625,8 +732,8 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
         Text(
             motoHubText(
                 "Most dashboards send buttons as AVRCP media keys — leave this on AVRCP. Pick " +
-                    "HID only if the remote pairs as a Bluetooth keyboard and its presses never " +
-                    "register below."
+                        "HID only if the remote pairs as a Bluetooth keyboard and its presses never " +
+                        "register below."
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -639,6 +746,10 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
                 onClick = {
                     inputMode = candidate
                     HandlebarControlStore.setInputMode(context, candidate)
+                    // A session may well be running while the rider is in here - that is when
+                    // they discover the protocol is wrong. Without this the switch takes effect
+                    // only at the next session start.
+                    MediaButtonBridge.inputModeChanged()
                     ProjectionEventLog.record(
                         "SETTINGS",
                         "Handlebar input mode changed to ${candidate.name}."
@@ -651,7 +762,7 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
                 Text(
                     motoHubText(
                         "HID mode also needs MOTO-HUB's Accessibility Service turned on, or " +
-                            "presses will not be seen."
+                                "presses will not be seen."
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error
@@ -676,9 +787,9 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
                 Text(
                     motoHubText(
                         "Was MOTO-HUB's switch greyed out? Android blocks it for apps that " +
-                            "were not installed from a store, and MOTO-HUB is downloaded from " +
-                            "GitHub. Open App info, tap ⋮ at the top right, choose \"Allow " +
-                            "restricted settings\", then come back and turn the switch on."
+                                "were not installed from a store, and MOTO-HUB is downloaded from " +
+                                "GitHub. Open App info, tap ⋮ at the top right, choose \"Allow " +
+                                "restricted settings\", then come back and turn the switch on."
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error
@@ -695,7 +806,7 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
             title = motoHubText("Buttons control Android Auto"),
             description = motoHubText(
                 "Requires the phone paired to the motorcycle's Bluetooth. Music keeps playing " +
-                    "but its buttons are captured while a session runs."
+                        "but its buttons are captured while a session runs."
             ),
             checked = enabled,
             onCheckedChange = { value ->
@@ -721,7 +832,7 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
         Text(
             motoHubText(
                 "While capture is on, the volume buttons navigate instead of changing " +
-                    "volume — set your listening level here."
+                        "volume — set your listening level here."
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -738,3 +849,85 @@ private fun HandlebarControlsDetail(onBack: () -> Unit, onOpenMapping: () -> Uni
     }
 }
 
+@Composable
+private fun AndroidAutoResolutionDetail(onBack: () -> Unit) {
+    val context = LocalContext.current
+    var resolution by remember { mutableStateOf(MotoHubSettings.androidAutoResolution(context)) }
+    val select: (AndroidAutoResolutionMode) -> Unit = { candidate ->
+        resolution = candidate
+        MotoHubSettings.setAndroidAutoResolution(context, candidate)
+        ProjectionEventLog.record("SETTINGS", "Android Auto resolution changed to ${candidate.name}.")
+    }
+    MotoHubDetailScreen(
+        title = motoHubText("Resolution"),
+        backLabel = "‹ ${motoHubText("Android Auto")}",
+        onBack = onBack
+    ) {
+        // Every source the Android Auto protocol defines, split the way a rider thinks about
+        // them - the shape of their dashboard first, the number of pixels second.
+        AndroidAutoResolutionMode.entries.filter { it.preset == null }.forEach { candidate ->
+            AndroidAutoResolutionRow(candidate, resolution == candidate) { select(candidate) }
+        }
+        HorizontalDivider()
+        MonoLabel(motoHubText("LANDSCAPE"))
+        AndroidAutoResolutionMode.entries.filter { it.preset != null && it.landscape }
+            .forEach { candidate ->
+                AndroidAutoResolutionRow(candidate, resolution == candidate) { select(candidate) }
+            }
+        HorizontalDivider()
+        MonoLabel(motoHubText("PORTRAIT"))
+        AndroidAutoResolutionMode.entries.filter { it.preset != null && !it.landscape }
+            .forEach { candidate ->
+                AndroidAutoResolutionRow(candidate, resolution == candidate) { select(candidate) }
+            }
+    }
+}
+
+@Composable
+private fun AndroidAutoResolutionRow(
+    candidate: AndroidAutoResolutionMode,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val description = context.getString(candidate.descriptionRes)
+    MotoHubRadioRow(
+        title = context.getString(candidate.labelRes),
+        // The warning is part of the sentence rather than a badge: these sources are not worse,
+        // they are unproven, and a rider choosing one should read why before they ride on it.
+        description = if (candidate.experimental) {
+            "${motoHubText("Experimental")} · $description"
+        } else {
+            description
+        },
+        selected = selected,
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun AndroidAutoDensityDetail(onBack: () -> Unit) {
+    val context = LocalContext.current
+    var density by remember { mutableStateOf(MotoHubSettings.androidAutoDensity(context)) }
+    MotoHubDetailScreen(
+        title = motoHubText("Interface size"),
+        backLabel = "‹ ${motoHubText("Android Auto")}",
+        onBack = onBack
+    ) {
+        AndroidAutoDensityMode.entries.forEach { candidate ->
+            MotoHubRadioRow(
+                title = context.getString(candidate.labelRes),
+                description = context.getString(candidate.descriptionRes),
+                selected = density == candidate,
+                onClick = {
+                    density = candidate
+                    MotoHubSettings.setAndroidAutoDensity(context, candidate)
+                    ProjectionEventLog.record(
+                        "SETTINGS",
+                        "Android Auto density changed to ${candidate.name}."
+                    )
+                }
+            )
+        }
+    }
+}

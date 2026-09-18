@@ -21,10 +21,70 @@ interface VideoDimensionsListener {
     fun onVideoDimensionsChanged(width: Int, height: Int)
 }
 
+/**
+ * Verdict on a decoder that has stopped producing output while input keeps arriving.
+ *
+ * The two cases look identical from inside the decoder and need opposite responses, which is the
+ * whole reason this is a named type rather than a boolean: see [diagnoseStall].
+ */
+internal enum class StallVerdict {
+    /** No stall: either output is flowing, or Android Auto has stopped sending. */
+    NONE,
+
+    /** The decoder itself is wedged. Restarting it is the fix. */
+    DECODER,
+
+    /** Something downstream stopped taking frames. Restarting the decoder fixes nothing. */
+    DOWNSTREAM
+}
+
+/**
+ * Reads a stalled decoder's surroundings and says which stage actually stopped.
+ *
+ * [downstreamBlockedMs] is how long the consumer of this decoder's frames spent blocked writing
+ * them onward during the same window - see `AaCompositor.downstreamBlockedMillis`. When the pipe
+ * behind the compositor is full, the compositor stops taking frames, the decoder runs out of
+ * output buffers, and it looks precisely as broken as a decoder that has genuinely died.
+ *
+ * Rider 4d8a4c5b's log (2026-08-26) is what this exists for: seven forced restarts in ninety
+ * seconds, none of which recovered anything, while the transport was demonstrably alive. A restart
+ * costs a black frame and a fresh keyframe, so guessing wrong is not free.
+ *
+ * Half the window is the threshold because a downstream that blocks for most of it cannot also be
+ * the case this watchdog was built for: a dead decoder starves a compositor that then sits idle,
+ * blocking on nothing.
+ */
+internal fun diagnoseStall(
+    stallGapMs: Long,
+    inputGapMs: Long,
+    downstreamBlockedMs: Long
+): StallVerdict = when {
+    stallGapMs <= STALL_GAP_MS -> StallVerdict.NONE
+    // No input means Android Auto paused video (UI transition, a call, its own decoder recovery).
+    // Staying idle lets it resume; the compositor keep-alive holds the bike connection meanwhile.
+    inputGapMs >= STALL_INPUT_GAP_MS -> StallVerdict.NONE
+    downstreamBlockedMs * 2 >= stallGapMs -> StallVerdict.DOWNSTREAM
+    else -> StallVerdict.DECODER
+}
+
+private const val STALL_GAP_MS = 3_000L
+private const val STALL_INPUT_GAP_MS = 1_000L
+
 class VideoDecoder {
     companion object {
         private const val TIMEOUT_US = 10000L
+
+        /** One line per stalled stretch, not one per poll of a pipe that is still blocked. */
+        private const val DOWNSTREAM_STALL_LOG_INTERVAL_MS = 30_000L
     }
+
+    /**
+     * How long the consumer of this decoder's frames has spent blocked passing them on.
+     *
+     * Null where nothing downstream can apply back pressure, which leaves every stall attributed
+     * to the decoder - the behaviour this class had before the probe existed.
+     */
+    @Volatile var downstreamBlockedMillis: (() -> Long)? = null
 
     private var codec: MediaCodec? = null
     private var codecBufferInfo: MediaCodec.BufferInfo? = null
@@ -314,6 +374,10 @@ class VideoDecoder {
         AaLog.i("Output thread started")
         var consecutiveErrors = 0
         var lastOutputMs = 0L
+        // Sampled when output was last seen, so the stall window and the downstream-blocked window
+        // are the same window - a cumulative counter compared against nothing means nothing.
+        var downstreamBlockedAtLastOutput = downstreamBlockedMillis?.invoke() ?: 0L
+        var lastDownstreamStallLogMs = 0L
 
         while (running) {
             val currentCodec = codec
@@ -328,6 +392,8 @@ class VideoDecoder {
                     currentCodec.releaseOutputBuffer(outputIndex, true) // render=true → to Surface
                     lastFrameRenderedMs = SystemClock.elapsedRealtime()
                     lastOutputMs = lastFrameRenderedMs
+                    downstreamBlockedAtLastOutput = downstreamBlockedMillis?.invoke() ?: 0L
+                    lastDownstreamStallLogMs = 0L
                     consecutiveErrors = 0
                     onFirstFrameListener?.let { it(); onFirstFrameListener = null }
 
@@ -347,15 +413,35 @@ class VideoDecoder {
                     val now = SystemClock.elapsedRealtime()
                     val stallGap = now - lastOutputMs
                     val inputGap = now - lastInputMs
-                    // Real stall = we're actively feeding input but getting no output → restart.
-                    // If no input is arriving, Android Auto has just paused video (UI transition, call,
-                    // decoder recovery) — stay idle and let it resume; the compositor keep-alive holds
-                    // the bike connection meanwhile. This avoids tearing down a healthy decoder and
-                    // fighting AA's own Media Stop/Start sequence.
-                    if (stallGap > 3000L && inputGap < 1000L) {
-                        AaLog.w("Decoder stall detected (no output for ${stallGap}ms, input ${inputGap}ms ago). Forcing restart.")
-                        scheduleRestart("sync_stall")
-                        break
+                    val blockedDuringStall =
+                        ((downstreamBlockedMillis?.invoke() ?: 0L) - downstreamBlockedAtLastOutput)
+                            .coerceAtLeast(0L)
+                    when (diagnoseStall(stallGap, inputGap, blockedDuringStall)) {
+                        StallVerdict.NONE -> Unit
+                        StallVerdict.DECODER -> {
+                            AaLog.w(
+                                "Decoder stall detected (no output for ${stallGap}ms, input " +
+                                    "${inputGap}ms ago, downstream blocked ${blockedDuringStall}ms " +
+                                    "of that). Forcing restart."
+                            )
+                            scheduleRestart("sync_stall")
+                            break
+                        }
+                        StallVerdict.DOWNSTREAM -> {
+                            // Deliberately no restart: the decoder is fine and will resume by
+                            // itself the moment the pipe drains. A restart here costs a black
+                            // frame and a keyframe request and changes nothing - rider 4d8a4c5b's
+                            // log has seven of them in ninety seconds proving it.
+                            if (now - lastDownstreamStallLogMs >= DOWNSTREAM_STALL_LOG_INTERVAL_MS) {
+                                lastDownstreamStallLogMs = now
+                                AaLog.w(
+                                    "No decoder output for ${stallGap}ms, but the consumer of its " +
+                                        "frames was blocked ${blockedDuringStall}ms of that: the " +
+                                        "video path is jammed downstream, not at the decoder. Not " +
+                                        "restarting it."
+                                )
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {

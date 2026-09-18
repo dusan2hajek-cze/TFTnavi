@@ -178,4 +178,50 @@ class TBoxHotspotScanTest {
         assertEquals(5, hosts.size)
         assertTrue(hosts.all { it.hostAddress!!.startsWith("192.168.49.") })
     }
+
+    @Test
+    fun readsTheDashOutOfTheNeighbourTableAndIgnoresTheRidersOtherNetworks() {
+        val neighbours = TBoxHotspotScan.parseNeighbours(
+            lines = listOf(
+                "IP address       HW type     Flags       HW address            Mask     Device",
+                "192.168.43.37    0x1         0x2         3c:2e:f5:11:22:33     *        ap_br_swlan0",
+                // The rider's home network, on the interface the phone joined: not on the hotspot.
+                "192.168.1.1      0x1         0x2         aa:bb:cc:dd:ee:ff     *        wlan0"
+            ),
+            interfaceName = "ap_br_swlan0"
+        )
+
+        assertEquals(1, neighbours?.size)
+        assertEquals("192.168.43.37", neighbours?.first()?.address)
+        // The vendor half only: a full hardware address is redacted out of every shared log.
+        assertEquals("3c:2e:f5", neighbours?.first()?.oui)
+    }
+
+    @Test
+    fun doesNotCountAnUnansweredArpRequestAsADeviceThatJoined() {
+        // Exactly what the 253-address sweep manufactures: incomplete entries, no hardware
+        // address behind them. Counting those would report a full hotspot every time.
+        val neighbours = TBoxHotspotScan.parseNeighbours(
+            lines = listOf(
+                "IP address       HW type     Flags       HW address            Mask     Device",
+                "192.168.43.9     0x1         0x0         00:00:00:00:00:00     *        ap_br_swlan0"
+            ),
+            interfaceName = "ap_br_swlan0"
+        )
+
+        assertEquals(emptyList<TBoxHotspotScan.Neighbour>(), neighbours)
+    }
+
+    @Test
+    fun tellsAnUnreadableTableApartFromAnEmptyOne() {
+        // Android has been restricting /proc/net/arp since 10. "Cannot say" must never be
+        // reported as "nothing has joined": they point at opposite problems.
+        assertEquals(null, TBoxHotspotScan.parseNeighbours(lines = emptyList()))
+        assertEquals(
+            emptyList<TBoxHotspotScan.Neighbour>(),
+            TBoxHotspotScan.parseNeighbours(
+                lines = listOf("IP address       HW type     Flags       HW address            Mask     Device")
+            )
+        )
+    }
 }

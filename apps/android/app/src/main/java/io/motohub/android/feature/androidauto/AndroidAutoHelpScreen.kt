@@ -36,6 +36,18 @@ import io.motohub.android.ui.components.MotoHubDetailScreen
  * of taps in another app, buried behind a hidden menu — exactly the kind of thing that belongs in
  * front of the rider rather than in a support thread.
  *
+ * The head unit server leads, and "Add new cars to Android Auto" follows it. That order is the
+ * other way round from how this page first read, and field case FF3D-A418 is why: a rider on
+ * 17.4.663054 turned the switch on, took it for the whole fix because it was named first, and
+ * spent an hour retrying a path his release had already closed.
+ *
+ * The two live in different places, which this page used to get wrong: tapping "Version" ten
+ * times unlocks Android Auto's developer options, and "Add new cars" is then a switch inside
+ * the Developer settings list - but "Start head unit server" is not in that list at all. It is
+ * in the three-dot menu at the top right of Android Auto's ordinary settings screen. Step 2
+ * says so in as many words, because the rider who scrolls Developer settings looking for it
+ * finds nothing and concludes the whole page is wrong.
+ *
  * Shown as a full-screen overlay straight from MainActivity, not inside the hub, so it has to
  * bring its own background and its own back handling the way the About and diagnostics screens
  * do. Without [MotoHubBackground] the theme never provides a content colour and every
@@ -58,52 +70,57 @@ fun AndroidAutoHelpScreen(onBack: () -> Unit) {
             Text(
                 motoHubText(
                     "Android Auto 17.4 removed the way an app can ask it to project. MOTO-HUB still " +
-                        "tries, and on older versions it works — but when it does not, Android Auto " +
-                        "can be started from its own developer menu instead. You do not need to " +
+                        "tries, and on older versions it works — but when it does not, the four " +
+                        "steps below start Android Auto from its own developer menu instead. This " +
+                        "is the part that works when nothing else does, and you do not need to " +
                         "install anything."
                 ),
                 style = MaterialTheme.typography.bodyMedium
             )
 
             HorizontalDivider()
-            MonoLabel(motoHubText("ONE-TIME SETUP"))
+            MonoLabel(motoHubText("START ANDROID AUTO YOURSELF"))
             HelpStep(
                 number = "1",
                 text = motoHubText(
-                    "Open the Android Auto app, scroll to the bottom and tap \"Version\" ten times. " +
-                        "Developer settings appear."
+                    "Open the Android Auto app's settings, scroll to the bottom and tap " +
+                        "\"Version\" ten times. That unlocks its developer options — you only have " +
+                        "to do it once."
                 )
             )
             HelpStep(
                 number = "2",
                 text = motoHubText(
-                    "In Developer settings, turn on \"Add new cars to Android Auto\" (older versions " +
-                        "call it \"Unknown sources\")."
+                    "Stay on that same Android Auto settings screen, open the three-dot menu at " +
+                        "the top right and choose \"Start head unit server\". It is in that menu, " +
+                        "not inside Developer settings. This is the step that does it."
                 )
             )
-
-            HorizontalDivider()
-            MonoLabel(motoHubText("EVERY TIME ANDROID AUTO WILL NOT START"))
             HelpStep(
                 number = "3",
-                text = motoHubText(
-                    "In Android Auto's Developer settings, open the ⋮ menu at the top right and " +
-                        "choose \"Start head unit server\". It is in that menu, not in the list of " +
-                        "settings below it."
-                )
-            )
-            HelpStep(
-                number = "4",
                 text = motoHubText(
                     "A notification confirms the server is running. Leave it running: it stays up " +
                         "until you stop it or restart the phone."
                 )
             )
             HelpStep(
-                number = "5",
+                number = "4",
                 text = motoHubText(
                     "Go back to MOTO-HUB and start Android Auto. It connects on its own within a " +
                         "couple of seconds — there is nothing else to press."
+                )
+            )
+
+            HorizontalDivider()
+            MonoLabel(motoHubText("WHILE YOU ARE IN THERE"))
+            HelpStep(
+                number = "5",
+                text = motoHubText(
+                    "Open Developer settings from that same screen and turn on \"Add new cars to " +
+                        "Android Auto\" (older versions call it \"Unknown sources\"). On Android " +
+                        "Auto 17.2 and older that switch on its own is often enough. From 17.3 on " +
+                        "it is not — step 2 is — so do not stop here if Android Auto still will " +
+                        "not start."
                 )
             )
 

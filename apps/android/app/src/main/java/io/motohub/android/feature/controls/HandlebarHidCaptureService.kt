@@ -62,8 +62,22 @@ class HandlebarHidCaptureService : AccessibilityService() {
             KeyEvent.ACTION_UP -> "up"
             else -> "action=${event.action}"
         }
+        // The device is what tells a handlebar remote apart from the phone's own volume rocker,
+        // and it is the missing half of every HID support case so far: a rider reporting "nothing
+        // happens" and a rider reporting "my phone's volume moved instead" produced the same log.
+        val device = event.device
+        val descriptor = device?.descriptor
+        val deviceName = device?.name.orEmpty()
         val trace = "[HID] raw ${KeyEvent.keyCodeToString(event.keyCode)} $actionName " +
-            "repeat=${event.repeatCount} source=${event.source}"
+            "repeat=${event.repeatCount} source=${event.source} " +
+            "device=${deviceName.ifBlank { "?" }} descriptor=${descriptor ?: "?"}"
+
+        // Said before every gate below: the rider watching the TFT gets told a key arrived
+        // even when every gate below throws it away.
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            HandlebarPressHud.pressed(applicationContext, HandlebarPressHud.buttonName(event.keyCode))
+        }
+
         if (HandlebarControlStore.inputMode(applicationContext) != HandlebarInputMode.HID) {
             ProjectionEventLog.debug("HID_BTN", "$trace (AVRCP mode selected; ignored)")
             return false

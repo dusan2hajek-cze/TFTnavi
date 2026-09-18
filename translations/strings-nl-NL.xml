@@ -1,0 +1,2001 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Locale: nl-NL. Translated from the en-US catalogue, which stays the source of truth. -->
+    <!-- Application identity -->
+    <string name="app_name">MOTO-HUB</string>
+
+    <!-- Settings > General > Language. Names are kept in their native form. -->
+    <string name="language_system_default">Systeemstandaard</string>
+    <string name="language_english">English</string>
+    <string name="language_italian">Italiano</string>
+    <string name="language_portuguese">Português</string>
+    <string name="language_korean">한국어 (대한민국)</string>
+    <string name="language_french">Français</string>
+    <string name="language_spanish">Español</string>
+    <string name="language_german">Deutsch</string>
+    <string name="language_dutch">Nederlands</string>
+    <string name="language_czech">Čeština</string>
+    <string name="language_turkish">Türkçe</string>
+    <string name="language_title">Taal</string>
+    <string name="language_description">Kies de taal die MOTO-HUB gebruikt</string>
+    <string name="language_detail_description">MOTO-HUB volgt standaard de taal van de telefoon. Kies hieronder een taal om die alleen voor deze app te vervangen.</string>
+
+    <!-- Settings main page -->
+    <string name="legacy_download_anyway_c17b27fb">Toch downloaden</string>
+    <string name="legacy_download_over_1_s_23fdd550">Downloaden via %1$s?</string>
+    <string name="legacy_moto_hub_1_s_is_2_s_and_right_now_the_only_conne_8ebbc51c">MOTO-HUB %1$s is %2$s groot, en de enige verbinding die nu het internet bereikt is %3$s, waarvoor je provider kosten rekent. Op de motor is dat normaal: de wifi van het dashboard heeft helemaal geen internet.</string>
+    <string name="legacy_waiting_for_wi_fi_costs_nothing_the_update_stays_3f38fec8">Wachten op wifi kost niets: de update blijft in deze lijst staan.</string>
+    <string name="settings_configuration">CONFIGURATIE</string>
+    <string name="settings_title">Instellingen</string>
+    <string name="settings_general">Algemeen</string>
+    <string name="settings_general_description">Taal, naadloos hervatten en appgedrag</string>
+
+    <!-- Settings > General -->
+    <string name="settings_general_title">Algemeen</string>
+    <string name="settings_check_updates_on_launch">Bij het starten op updates controleren</string>
+    <string name="settings_check_updates_on_launch_description">Controleert GitHub-releases automatisch, hooguit eens per 24 uur</string>
+    <string name="settings_enable_seamless_resume">Naadloos hervatten inschakelen</string>
+    <string name="settings_seamless_resume_enabled_description">Android Auto kan na een lange T-Box-onderbreking hervatten met het scherm uit</string>
+    <string name="settings_seamless_resume_disabled_description">Laat Android Auto op de achtergrond hervatten wanneer de motor terugkomt; bij de eerste keer inschakelen is toestemming nodig</string>
+
+    <!-- Settings option labels. These are also used by the route and projection pickers. -->
+    <string name="video_quality_smoother">Vloeiender</string>
+    <string name="video_quality_smoother_description">Lagere bitrate, minder warmte en netwerkbelasting.</string>
+    <string name="video_quality_balanced">Gebalanceerd</string>
+    <string name="video_quality_balanced_description">Huidige MOTO-HUB-kwaliteit en aanbevolen standaard.</string>
+    <string name="video_quality_sharper">Scherper</string>
+    <string name="video_quality_sharper_description">Hogere bitrate voor scherpere kaarten en tekst.</string>
+    <string name="video_power_auto">Auto</string>
+    <string name="video_power_auto_description">Bitrate en framerate aanpassen aan telefoontemperatuur en wifikwaliteit.</string>
+    <string name="video_power_smooth">Vloeiend</string>
+    <string name="video_power_smooth_description">30 FPS met de gekozen videokwaliteit.</string>
+    <string name="video_power_balanced">Gebalanceerd</string>
+    <string name="video_power_balanced_description">Stabiele 24 FPS met de gekozen videokwaliteit.</string>
+    <string name="video_power_saver">Zuinig</string>
+    <string name="video_power_saver_description">20 FPS voor minder warmte en batterijverbruik.</string>
+    <string name="android_auto_resolution_auto">Auto</string>
+    <string name="android_auto_resolution_auto_description">MOTO-HUB de oriëntatie automatisch laten bepalen uit de geleerde T-Box-geometrie.</string>
+    <string name="android_auto_resolution_landscape_sd">Liggend 800 x 480</string>
+    <string name="android_auto_resolution_landscape_sd_description">Standaard liggende Android Auto-bron.</string>
+    <string name="android_auto_resolution_landscape_hd">Liggend 1280 x 720</string>
+    <string name="android_auto_resolution_landscape_hd_description">Scherpere liggende HD-bron met hogere belasting van de telefoon.</string>
+    <string name="android_auto_resolution_landscape_fhd">Liggend 1920 x 1080</string>
+    <string name="android_auto_resolution_landscape_fhd_description">Full HD-bron in liggend formaat. Op geen enkel bekend dashboard gevalideerd.</string>
+    <string name="android_auto_resolution_landscape_qhd">Liggend 2560 x 1440</string>
+    <string name="android_auto_resolution_landscape_qhd_description">Quad HD-bron in liggend formaat. Zwaar voor de telefoon en op geen enkel bekend dashboard gevalideerd.</string>
+    <string name="android_auto_resolution_landscape_uhd">Liggend 3840 x 2160</string>
+    <string name="android_auto_resolution_landscape_uhd_description">4K-bron in liggend formaat. De telefoon codeert en decodeert 4K tegelijk; reken op warmte en haperingen.</string>
+    <string name="android_auto_resolution_portrait_sd">Staand 720 x 1280</string>
+    <string name="android_auto_resolution_portrait_sd_description">Standaard staande Android Auto-bron.</string>
+    <string name="android_auto_resolution_portrait_hd">Staand 1080 x 1920</string>
+    <string name="android_auto_resolution_portrait_hd_description">Scherpere staande HD-bron met hogere belasting van de telefoon.</string>
+    <string name="android_auto_resolution_portrait_qhd">Staand 1440 x 2560</string>
+    <string name="android_auto_resolution_portrait_qhd_description">Quad HD-bron in staand formaat. Zwaar voor de telefoon en op geen enkel bekend dashboard gevalideerd.</string>
+    <string name="android_auto_resolution_portrait_uhd">Staand 2160 x 3840</string>
+    <string name="android_auto_resolution_portrait_uhd_description">4K-bron in staand formaat. De telefoon codeert en decodeert 4K tegelijk; reken op warmte en haperingen.</string>
+    <string name="android_auto_density_auto">Auto</string>
+    <string name="android_auto_density_auto_description">Gebruik de dichtheid die bij de gekozen resolutie hoort.</string>
+    <string name="android_auto_density_120">120 dpi</string>
+    <string name="android_auto_density_120_description">Kleinste interface, meer kaart op het scherm. Lastig te lezen op een kleine TFT.</string>
+    <string name="android_auto_density_160">160 dpi</string>
+    <string name="android_auto_density_160_description">Kleine interface. Dit is de dichtheid die de liggende bronnen standaard gebruiken.</string>
+    <string name="android_auto_density_213">213 dpi</string>
+    <string name="android_auto_density_213_description">Ertussenin. Handig als 160 te krap is en 240 te grof.</string>
+    <string name="android_auto_density_240">240 dpi</string>
+    <string name="android_auto_density_240_description">Standaardinterface. Dit is de dichtheid die de staande bronnen standaard gebruiken.</string>
+    <string name="android_auto_density_320">320 dpi</string>
+    <string name="android_auto_density_320_description">Grote interface, beter leesbaar en makkelijker te raken met handschoenen. Minder kaart op het scherm.</string>
+    <string name="android_auto_density_480">480 dpi</string>
+    <string name="android_auto_density_480_description">Grootste interface. Alleen zinvol op de hogeresolutiebronnen.</string>
+    <string name="android_auto_insets_auto">Auto</string>
+    <string name="android_auto_insets_auto_description">De volledige Android Auto-bron gebruiken; het T-Box-projectiegebied voegt geen AA-marges toe.</string>
+    <string name="android_auto_insets_manual">Handmatig</string>
+    <string name="android_auto_insets_manual_description">De TFT-veiligheidsmarges van de motor aan Android Auto doorgeven.</string>
+    <string name="distance_units_kilometers">Kilometers</string>
+    <string name="distance_units_kilometers_description">Afstanden en snelheden in km en km/u.</string>
+    <string name="distance_units_miles">Mijlen</string>
+    <string name="distance_units_miles_description">Afstanden en snelheden in mi en mph.</string>
+    <string name="route_preference_fastest">Snelste</string>
+    <string name="route_preference_fastest_description">Snelste route, snelwegen toegestaan.</string>
+    <string name="route_preference_scenic">Landschappelijk</string>
+    <string name="route_preference_scenic_description">Kiest liever binnenwegen en mijdt snelwegen.</string>
+
+    <!-- Core/Pro bridge notification -->
+    <string name="core_bridge_channel_name">MOTO-HUB Core-brug</string>
+    <string name="core_bridge_channel_description">Houdt de T-Box-verbinding open terwijl MOTO-HUB Pro die gebruikt</string>
+    <string name="core_bridge_notification_title">MOTO-HUB Core is actief</string>
+    <string name="core_bridge_notification_text">Bedient MOTO-HUB Pro.</string>
+
+    <!-- Projection notifications -->
+    <string name="projection_channel_name">MOTO-HUB-projectie</string>
+    <string name="projection_channel_description">Streamingstatus voor het motordisplay</string>
+    <string name="projection_notification_title">MOTO-HUB is actief</string>
+    <string name="projection_notification_text">De schermprojectie is actief.</string>
+    <string name="projection_notification_dimmed_text">Projectie actief, telefoonscherm gedimd.</string>
+    <string name="stop_projection">Stoppen</string>
+    <string name="dim_phone_display">Scherm dimmen</string>
+    <string name="restore_phone_display">Scherm herstellen</string>
+
+    <!-- Android Auto notifications -->
+    <string name="android_auto_channel_name">MOTO-HUB Android Auto</string>
+    <string name="android_auto_notification_title">MOTO-HUB Android Auto-sessie</string>
+    <string name="android_auto_notification_text">Sessie actief. Open MOTO-HUB voor de live projectiestatus.</string>
+    <string name="stop_android_auto">Android Auto stoppen</string>
+
+    <!-- Ride Dashboard notifications -->
+    <string name="ride_dashboard_channel_name">MOTO-HUB Ride Dashboard</string>
+    <string name="ride_dashboard_channel_description">Streamingstatus van live ritgegevens</string>
+    <string name="ride_dashboard_notification_title">MOTO-HUB Ride Dashboard</string>
+    <string name="ride_dashboard_notification_text">GPS-telemetrie en dashboardstreaming zijn actief.</string>
+    <string name="stop_ride_dashboard">Dashboard stoppen</string>
+    <!-- Source: MainActivity.kt -->
+    <string name="legacy_moto_hub_diagnostics_ba6420b1">MOTO-HUB-diagnostiek</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_about_the_project_2feef1f7">OVER HET PROJECT</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_check_for_updates_66a2b53b">Op updates controleren</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_close_3e2edd8">Sluiten</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_experimental_software_e22071df">EXPERIMENTELE SOFTWARE</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_no_network_called_1_s_has_been_seen_but_this_pho_3174d343">Er is geen netwerk met de naam “%1$s” gezien, maar deze telefoon kent “%2$s”, dat alleen in spaties verschilt. Sla nogmaals op om te behouden wat je hebt getypt.</string>
+    <string name="legacy_open_github_repository_80f9bf71">GitHub-repository openen</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_platform_9e635873">PLATFORM</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_source_support_aa797bf0">BRONCODE &amp; ONDERSTEUNING</string>
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_use_1_s_ef5e7994">%1$s gebruiken</string>
+    <string name="legacy_version_3fc0a8b8">VERSIE</string>
+    <!-- Source: feature/androidauto/AndroidAutoPreviewScreen.kt -->
+    <string name="legacy_fullscreen_7d6157db">Volledig scherm</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_address_or_coordinates_9e7a90a">Adres of coördinaten</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_back_1f7907">Terug</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_controls_e20faad6">Bediening</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_cycle_panels_c623ab89">Panelen doorlopen</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_everything_on_this_page_controls_the_projection__88534bf1">Alles op deze pagina bestuurt de projectie die nu op de motor te zien is.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_exit_fullscreen_b7c93dd">Volledig scherm sluiten</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_fullscreen_map_bafc2397">Kaart op volledig scherm</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_handlebar_controls_cf2abe6b">Stuurbediening</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_home_2268ff">Home</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_open_glove_friendly_fullscreen_controller_2d746356">Handschoenvriendelijke schermvullende bediening openen</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_reset_default_mapping_bd7464fe">Standaardtoewijzing herstellen</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_scroll_ebe1cfb8">Scrollen +</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_scroll_ebe1f19f">Scrollen −</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_the_value_is_restored_when_handlebar_capture_is__ea95c499">De waarde wordt hersteld wanneer de stuurregistratie wordt uitgeschakeld.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_timing_9551dc6a">Timing</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_use_the_motorcycle_buttons_without_looking_down__1b06094c">Gebruik de motorknoppen zonder naar beneden te kijken. De actieve projectie krijgt de opdrachten als eerste.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_voice_4eff112">Spraakopdracht</string>
+    <!-- Source: feature/controls/MediaButtonBridge.kt -->
+    <string name="legacy_motorcycle_buttons_control_targetname_c5bca78f">Motorknoppen bedienen $targetName</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_application_logs_ca54c69f">App-logboeken</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_clear_3e2c62d">Wissen</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_copy_log_e59a8039">Logboek kopiëren</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_no_diagnostic_events_have_been_recorded_290567d5">Er zijn geen diagnostische gebeurtenissen vastgelegd.</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_persistent_events_from_wi_fi_t_box_mirroring_enc_679d01c0">Blijvende gebeurtenissen van wifi, T-Box, mirroring, encoder en Android Auto.</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_share_4c25fbf">Delen</string>
+    <!-- Source: feature/diagnostics/ApplicationLogScreen.kt -->
+    <string name="legacy_troubleshooting_f6bb8e3a">PROBLEEMOPLOSSING</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_check_t_box_and_cellular_routes_without_starting_7ae11348">T-Box- en mobiele routes controleren zonder een VPN te starten of het standaardnetwerk te wijzigen.</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_network_diagnostics_a4fc929a">Netwerkdiagnostiek</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_no_network_snapshot_available_5baf5bb0">Geen netwerkmomentopname beschikbaar.</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_result_8fe0bc1d">RESULTAAT</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_system_lab_433267fc">SYSTEEMLAB</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_start_a_projection_to_populate_the_log_23fff8de">Start een projectie om het logboek te vullen.</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_add_a_motorcycle_by_scanning_its_t_box_qr_code_a77ba91f">Voeg een motor toe door de T-Box-QR-code te scannen.</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_add_motorcycle_397b0e90">Motor toevoegen</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_edit_20e22a">Bewerken</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_motorcycles_2c9478e2">Motoren</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_no_qr_connect_manually_8ad804ea">Geen QR? Handmatig verbinden</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_options_18bf1e7e">Opties</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_saved_motorcycles_181a24a9">OPGESLAGEN MOTOREN</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_scan_a_qr_code_5a21ea0a">QR-code scannen</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_use_this_motorcycle_1204179a">Deze motor gebruiken</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_your_garage_c0aeffb4">JOUW GARAGE</string>
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_your_garage_is_empty_f25b99e3">Je garage is leeg</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_connection_eeae6ade">VERBINDING</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_cancel_77df1a9a">Annuleren</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_changes_are_saved_immediately_3ab73352">Wijzigingen worden meteen opgeslagen.</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_choose_how_the_complete_android_auto_image_is_fi_cb149112">Kies hoe het volledige Android Auto-beeld op het TFT wordt gepast.</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_display_name_6697cf49">Weergavenaam</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_exclude_pixels_occupied_by_the_motorcycle_ui_the_c5210089">Pixels uitsluiten die door de motorinterface worden bezet. Deze waarden worden voor deze </string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_for_example_300_1aa3b7a">Bijvoorbeeld: 300</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_for_example_mt700_adventure_4c1ae7c7">Bijvoorbeeld: MT700 Adventure</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_fuel_2195d6">Brandstof</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_full_tank_range_on_a_fill_up_powers_the_fuel_ran_68a667ae">Bereik met een volle tank. Voedt de bereikwaarschuwing in de navigatie.</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_identity_fbc2d4de">Identiteit</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_motorcycle_profile_bd90ddfa">MOTORPROFIEL</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_make_it_yours_9dfd813d">Maak het je eigen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_override_the_automatic_profile_detection_for_thi_dcc5245b">De automatische profieldetectie voor deze motor overschrijven. Alleen gebruiken als de </string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_remove_91afe4a4">Verwijderen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_remove_motorcycle_c0498b52">Motor verwijderen?</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_remove_photo_7fa92bb6">Foto verwijderen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_remove_this_motorcycle_f21e94d7">Deze motor verwijderen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_reset_margins_ff05a94">Marges herstellen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_t_box_identifier_modelid_2c1c9ebd">T-Box-identificatie: $modelId</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_tank_range_km_f16147b8">Tankbereik (km)</string>
+    <!-- Garage tank-range field label when the rider selects miles. -->
+    <string name="legacy_tank_range_mi_f1614ebe">Tankbereik (mi)</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_the_wi_fi_password_is_stored_securely_on_this_ph_b6fb6382">Het wifiwachtwoord wordt veilig op deze telefoon bewaard.</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_the_name_is_only_used_inside_moto_hub_10a5f3a4">De naam wordt alleen binnen MOTO-HUB gebruikt.</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_the_saved_connection_profile_and_its_photo_will__c6d581e2">Het opgeslagen verbindingsprofiel en de bijbehorende foto worden uit MOTO-HUB verwijderd.</string>
+    <!-- Source: feature/garage/TBoxCapabilityScreen.kt -->
+    <string name="legacy_could_not_derive_a_peer_ip_this_network_may_not__3fa3f2d0">Kon geen peer-IP afleiden - dit netwerk heeft mogelijk nog geen bruikbare route.</string>
+    <!-- Source: feature/garage/TBoxCapabilityScreen.kt -->
+    <string name="legacy_if_easyconn_discovery_keeps_failing_briefly_reco_ced96e0d">Als de EasyConn-detectie blijft mislukken, maak dan kort opnieuw verbinding met deze T-Box en test </string>
+    <!-- Source: feature/garage/TBoxCapabilityScreen.kt -->
+    <string name="legacy_scan_common_easyconn_ports_835f5172">Gangbare EasyConn-poorten scannen</string>
+    <!-- Source: feature/garage/TBoxCapabilityScreen.kt -->
+    <string name="legacy_t_box_capability_inspector_937ec87d">T-BOX-CAPACITEITSINSPECTIE</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_another_easyconn_app_can_keep_the_t_box_link_occ_fd2f2f53">Een andere EasyConn-app kan de T-Box-verbinding bezet houden, ook nadat die naar de achtergrond is gegaan.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_connection_failed_3b5c2fbf">VERBINDING MISLUKT</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_choose_what_the_ride_dashboard_shows_for_navigat_793eeb07">Kies wat het Ride Dashboard voor navigatie toont.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_connect_your_motorcycle_2e5794e6">Verbind je motor.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_connecting_48965ad8">Verbinden</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_dashboard_map_5dae1b0">Dashboardkaart</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_disconnect_966f34bc">Verbinding verbreken</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_first_time_setup_d929eaa7">EERSTE INSTALLATIE</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_session_actions_bc6aa933">SESSIE-ACTIES</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_scan_the_t_box_qr_code_to_save_the_network_crede_67df5b62">Scan de T-Box-QR-code om de netwerkgegevens automatisch op te slaan.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_setting_up_network_and_t_box_7769a762">Netwerk en T-Box worden ingesteld</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_what_to_show_122be0b9">Wat tonen?</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_back_fe3a848e">‹ Terug</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_arrived_ff08704d">AANGEKOMEN</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_calculating_your_route_86fbe56d">Je route wordt berekend…</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_done_2097a2">Klaar</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_exact_destination_pin_used_for_routing_tap_the_m_10786cc">Exacte bestemmingspin voor de routeberekening. Tik op de kaart om die te wijzigen.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_guidance_to_your_destination_will_end_27d69f">De begeleiding naar je bestemming wordt beëindigd.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_info_225cae">INFO</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_keep_going_6d8f25bf">Doorgaan</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_live_navigation_70ce19c8">LIVENAVIGATIE</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_map_location_9df6ea19">KAARTLOCATIE</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_navigation_needs_attention_7f3ab90f">NAVIGATIE VRAAGT AANDACHT</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_no_9c1">NEE</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_name_24eeab">Naam</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_navigation_will_start_either_way_open_the_ride_d_b34bca11">De navigatie start hoe dan ook. Het Ride Dashboard op het TFT van de motor openen?</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_no_favorites_yet_save_one_from_a_route_preview_o_b8e45fac">Nog geen favorieten. Sla er een op vanuit een routevoorbeeld of een aankomstscherm.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_no_matches_e3c700ba">Geen resultaten.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_not_every_address_number_is_mapped_in_openstreet_cf7708fe">Nog niet elk huisnummer staat in OpenStreetMap, dus kan de pin </string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_off_route_recalculating_1f5a422b">Van de route – opnieuw berekenen…</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_open_ride_dashboard_202629d">Ride Dashboard openen?</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_optional_label_267da254">Optioneel label</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_route_type_519caed1">ROUTETYPE</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_reroute_a49323d6">Herberekenen</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_save_27359d">Opslaan</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_save_a_destination_as_a_favorite_from_a_route_pr_5669fe67">Sla een bestemming op als favoriet vanuit een routevoorbeeld.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_save_favorite_85e74bf">Favoriet opslaan</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_save_this_route_d63094aa">Deze route opslaan</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_search_address_or_paste_coordinates_daf446f5">Adres zoeken of coördinaten plakken</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_start_navigation_2d34b0b2">Navigatie starten</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_stop_277c22">Stoppen</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_stop_navigation_8a243dad">Navigatie stoppen?</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_tap_to_dismiss_d17702a2">Tik om te sluiten</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_work_293b31">Werk</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_yes_156c7">JA</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_you_have_arrived_e0a68436">Je bent aangekomen</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_e_g_sunday_loop_1dd6a810">bijv. zondagrondje</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_label_27143b17">‹ $label</string>
+    <!-- Source: feature/navigation/RouteMap.kt -->
+    <string name="legacy_clear_all_5a4e690e">ALLES WISSEN</string>
+    <!-- Source: feature/navigation/RouteMap.kt -->
+    <string name="legacy_dest_2072c2">Doel</string>
+    <!-- Source: feature/navigation/RouteMap.kt -->
+    <string name="legacy_fit_113f1">Passend</string>
+    <!-- Source: feature/navigation/RouteMap.kt -->
+    <string name="legacy_full_screen_22a47efd">Volledig scherm</string>
+    <!-- Source: feature/navigation/RouteMap.kt -->
+    <string name="legacy_select_all_ba2cd45d">ALLES SELECTEREN</string>
+    <!-- Source: feature/navigation/RouteMap.kt -->
+    <string name="legacy_openstreetmap_contributors_692ada40">© OpenStreetMap-bijdragers</string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_auto_detects_direct_networks_choose_wi_fi_direct_a24126ac">Auto herkent netwerken met het voorvoegsel DIRECT-. Kies Wi-Fi Direct voor een display dat P2P-groepseigenaar is.</string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_connect_without_a_qr_code_bd61ac9f">Verbinden zonder QR-code</string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_manual_setup_176cc583">HANDMATIGE INSTALLATIE</string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_some_motorcycles_don_t_show_a_pairing_qr_code_on_c3361949">Sommige motoren tonen geen koppelings-QR-code op het display. Als je al </string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_t_box_wi_fi_transport_2b8fdfb9">T-Box-wifitransport</string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_wi_fi_network_name_ssid_4e8cc3a7">Wifi-netwerknaam (SSID)</string>
+    <!-- Source: feature/pairing/ManualPairingScreen.kt -->
+    <string name="legacy_wi_fi_password_aa1722dd">Wifiwachtwoord</string>
+    <!-- Source: feature/pairing/TBoxQrScannerScreen.kt -->
+    <string name="legacy_t_box_scan_eb4ea12b">T-BOX-SCAN</string>
+    <!-- Source: feature/ridedashboard/RideDashboardPreviewScreen.kt -->
+    <string name="legacy_uses_this_phone_s_gps_no_t_box_needed_same_rende_58537da7">Gebruikt de gps van deze telefoon - geen T-Box nodig. Dezelfde renderer en koers-/zoom</string>
+    <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
+    <string name="legacy_elevation_last_hour_10deed1a">HOOGTE / AFGELOPEN UUR</string>
+    <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
+    <string name="legacy_now_12eb6">NU</string>
+    <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
+    <string name="legacy_waiting_for_gnss_elevation_f069100e">WACHTEN OP GNSS-HOOGTE</string>
+    <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
+    <string name="legacy_battery_7593afdc">$battery%</string>
+    <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
+    <string name="legacy_g_force_fca415c5">G-KRACHT</string>
+    <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
+    <string name="legacy_motion_sensors_b224e96f">BEWEGINGSSENSOREN</string>
+    <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
+    <string name="legacy_phone_system_b2b20c1d">TELEFOON // SYSTEEM</string>
+    <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
+    <string name="legacy_turn_rate_9cfa82a3">DRAAISNELHEID</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_ahead_3b5bda1">VOORUIT</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_compass_sun_45d9eeda">KOMPAS // ZON</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_left_239807">LINKS</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_right_4a5c9fc">RECHTS</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_sun_horizon_6a3f3196">ZON / HORIZON</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_sun_behind_2679a1ae">ZON ACHTER</string>
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_waiting_for_position_heading_75ece8e0">WACHTEN OP POSITIE + KOERS</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_dashboard_customization_b85f9307">DASHBOARD AANPASSEN</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_grant_41dd0fc">Toestaan</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_live_layout_cdba0cde">LIVE-INDELING</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_map_1293c">KAART</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_map_stays_in_the_centre_f108a4fb">De kaart blijft in het midden</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_needs_notification_access_44d40c16">Vereist toegang tot meldingen</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_reset_defaults_6000a23">Standaard herstellen</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_swap_2785b3">Wisselen</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_tap_to_assign_d1b41d7">TIK OM TOE TE WIJZEN</string>
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_widget_library_cb7316bf">WIDGETBIBLIOTHEEK</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_current_location_5f369a9c">HUIDIGE LOCATIE</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_eta_10d72">AANKOMST</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_nav_route_20ffc4db">NAV / ROUTE</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_off_route_recalculating_7a9dcf5c">VAN DE ROUTE — HERBEREKENEN</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_remaining_d9f0bdd6">RESTEREND</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_rise_2662c9">OPKOMST</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_set_14042">ONDERGANG</string>
+    <!-- Source: feature/ridedashboard/widget/NavigationWidget.kt -->
+    <string name="legacy_sun_1422c">ZON</string>
+    <!-- Source: feature/ridedashboard/widget/NowPlayingWidget.kt -->
+    <string name="legacy_no_media_session_5cbc8365">-- GEEN MEDIASESSIE --</string>
+    <!-- Source: feature/ridedashboard/widget/NowPlayingWidget.kt -->
+    <string name="legacy_no_artwork_2acf3875">GEEN HOES</string>
+    <!-- Source: feature/ridedashboard/widget/NowPlayingWidget.kt -->
+    <string name="legacy_now_playing_media_session_45191bd6">NU AAN HET SPELEN // MEDIASESSIE</string>
+    <!-- Source: feature/ridedashboard/widget/SatelliteWidget.kt -->
+    <string name="legacy_signal_coverage_fef46060">SIGNAALDEKKING</string>
+    <!-- Source: feature/ridedashboard/widget/SpeedGaugeWidget.kt -->
+    <string name="legacy_ground_speed_gps_c8f77ac7">GRONDSNELHEID / GPS</string>
+    <!-- Source: feature/ridedashboard/widget/SpeedGaugeWidget.kt -->
+    <string name="legacy_km_h_233edb">KM/U</string>
+    <!-- Speed-unit label when the rider selects miles in Settings. -->
+    <string name="legacy_mph_12b05">MPH</string>
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_average_km_h_d2517b1e">GEMIDDELD KM/U</string>
+    <!-- Trip-metrics average-speed label when the rider selects miles. -->
+    <string name="legacy_average_mph_6c8da62">GEMIDDELD MPH</string>
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_recent_8fd93a5b">RECENT</string>
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_speed_profile_2c1ba290">SNELHEIDSPROFIEL</string>
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_trip_performance_8c26f32b">TOCHT // PRESTATIE</string>
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_waiting_for_speed_data_91032a2d">WACHTEN OP SNELHEIDSGEGEVENS</string>
+    <!-- Source: feature/ridedashboard/widget/WeatherWidget.kt -->
+    <string name="legacy_check_cellular_data_b94ccb68">MOBIELE DATA CONTROLEREN</string>
+    <!-- Source: feature/ridedashboard/widget/WeatherWidget.kt -->
+    <string name="legacy_live_23a8ec">LIVE</string>
+    <!-- Source: feature/ridedashboard/widget/WeatherWidget.kt -->
+    <string name="legacy_loading_3edc6d1c">LADEN</string>
+    <!-- Source: feature/ridedashboard/widget/WeatherWidget.kt -->
+    <string name="legacy_open_meteo_gps_2cc3134f">OPEN-METEO • GPS</string>
+    <!-- Source: feature/ridedashboard/widget/WeatherWidget.kt -->
+    <string name="legacy_rain_probability_9ad3fd28">REGEN $probability%</string>
+    <!-- Source: feature/ridedashboard/widget/WeatherWidget.kt -->
+    <string name="legacy_retrying_every_15s_e5e3f7a4">OPNIEUW ELKE 15 S</string>
+    <!-- Source: feature/safety/SafetyDisclaimerDialog.kt -->
+    <string name="legacy_i_understand_and_continue_7ea73adb">Ik begrijp het en ga verder</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_android_auto_content_insets_7046c7dd">ANDROID AUTO-INHOUDSMARGES</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_choose_image_detail_and_how_moto_hub_balances_sm_577123e1">Kies de beelddetails en hoe MOTO-HUB vloeiendheid, warmte, batterij en wifibelasting afweegt.</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_default_route_type_b528b630">STANDAARDROUTETYPE</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_motorcycle_features_1ef519ec">MOTORFUNCTIES</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_power_mode_357a57fe">ENERGIEMODUS</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_resolution_bd8b64ac">RESOLUTIE</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_turn_by_turn_routing_uses_your_own_stadia_maps_a_76117a71">De navigatie met afslagaanwijzingen gebruikt je eigen Stadia Maps-API-sleutel, nooit een </string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_units_4d25f4f">EENHEDEN</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_delete_79cb71cb">Verwijderen</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_delete_this_trip_b2d7ee2d">Deze tocht verwijderen?</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_delete_trip_1d14595a">Tocht verwijderen</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_discard_c6d7a07e">Weggooien</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_export_gpx_83319643">GPX exporteren</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_finish_save_39e52944">Beëindigen &amp; opslaan</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_gps_logging_works_with_the_phone_locked_37383170">Gps-registratie werkt ook met de telefoon vergrendeld</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_not_saved_d22da6ba">NIET OPGESLAGEN</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_name_this_ride_9a657605">Geef deze rit een naam</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_opening_the_saved_trip_now_c583b843">De opgeslagen tocht wordt geopend.</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_recorded_rides_823a26eb">OPGENOMEN RITTEN</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_recording_unavailable_9bbb7461">OPNAME NIET BESCHIKBAAR</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_ride_archive_c06bf17a">RITARCHIEF</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_record_a_ride_ce0c4be6">Een rit opnemen</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_recording_was_too_short_to_keep_6761ae14">De opname was te kort om te bewaren</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_rename_trip_584eaba7">Tocht hernoemen</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_ride_recordings_need_at_least_100_m_15_s_of_move_260f0993">Ritopnames hebben minstens 100 m, 15 s beweging en twee gps-punten nodig.</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_saved_4b07667">OPGESLAGEN</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_start_new_recording_36e83013">Nieuwe opname starten</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_start_recording_836b8b93">Opname starten</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_track_details_6b05b82d">TRACKDETAILS</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_the_gps_trace_and_all_recorded_statistics_will_b_6d59f1b7">Het gps-spoor en alle opgenomen statistieken worden definitief verwijderd.</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_trip_name_5c3de586">Naam van de tocht</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_trip_saved_to_recorded_rides_31c5533c">Tocht opgeslagen bij Opgenomen ritten</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_trips_4d520ce">Tochten</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_try_again_25aeb09b">Opnieuw proberen</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_view_2832a5">BEKIJKEN</string>
+    <!-- Source: feature/trips/TripsScreen.kt -->
+    <string name="legacy_trips_ca1b8627">‹ Tochten</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_allow_apk_installation_a3116df5">APK-installatie toestaan</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_checking_github_releases_7e509ccb">GitHub-releases worden gecontroleerd...</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_moto_hub_updates_c98ab24f">MOTO-HUB-updates</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_no_apk_asset_attached_to_this_release_7a89904d">Bij deze release is geen APK-bestand gevoegd.</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_no_newer_version_is_available_b79316a1">Er is geen nieuwere versie beschikbaar.</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_pre_release_6bd19a9d">PRERELEASE</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_retry_4b33288">Opnieuw</string>
+    <!-- Source: feature/update/GithubUpdateDialog.kt -->
+    <string name="legacy_skip_this_version_c2d1da37">Deze versie overslaan</string>
+    <!-- Source: session/ProjectionForegroundService.kt -->
+    <string name="legacy_projection_is_running_8c249b1a">De projectie loopt</string>
+    <!-- Source: androidauto/AndroidAutoDisplayProfile.kt -->
+    <string name="legacy_fill_and_crop_8b8b5d16">Vullen en bijsnijden</string>
+    <!-- Source: androidauto/AndroidAutoDisplayProfile.kt -->
+    <string name="legacy_preserve_aspect_ratio_b340e377">Beeldverhouding behouden</string>
+    <!-- Source: androidauto/AndroidAutoDisplayProfile.kt -->
+    <string name="legacy_show_the_complete_image_with_black_side_bars_whe_90d880eb">Het volledige beeld tonen, indien nodig met zwarte balken aan de zijkanten.</string>
+    <!-- Source: androidauto/AndroidAutoDisplayProfile.kt -->
+    <string name="legacy_stretch_display_45b17e87">Beeld uitrekken</string>
+    <!-- Source: androidauto/AndroidAutoDisplayProfile.kt -->
+    <string name="legacy_use_the_whole_tft_and_keep_all_content_visible_w_6c1c6337">Het hele TFT gebruiken en met lichte uitrekking alle inhoud zichtbaar houden.</string>
+    <!-- Source: androidauto/AndroidAutoDisplayProfile.kt -->
+    <string name="legacy_use_the_whole_tft_without_stretching_crop_the_ed_8f0ac706">Het hele TFT gebruiken zonder uitrekken; de randen bijsnijden als de beeldverhoudingen verschillen.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_adjust_the_phone_media_level_while_handlebar_cap_a55dd55a">Het mediavolume van de telefoon aanpassen terwijl de stuurregistratie actief is.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_advanced_handlebar_mapping_d94a5a3b">Geavanceerde stuurtoewijzing</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_choose_the_day_night_style_used_by_android_auto_c4b5df26">Kies de dag-/nachtstijl die Android Auto gebruikt.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_customize_double_taps_holds_and_android_auto_com_59078421">Dubbeltikken, ingedrukt houden en Android Auto-opdrachten aanpassen.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_destinations_available_to_one_press_handlebar_na_19306aee">Bestemmingen die met één druk op het stuur beschikbaar zijn.</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_double_tap_a52552f4">Dubbeltik</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_map_appearance_b4c189c8">Kaartweergave</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_media_volume_142f4af6">Mediavolume</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_saved_places_f8158025">Opgeslagen plaatsen</string>
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_select_hold_6cc41543">Selecteren vasthouden</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_detected_networks_fa8527c3">Gedetecteerde netwerken</string>
+    <!-- Source: feature/diagnostics/NetworkDiagnosticsScreen.kt -->
+    <string name="legacy_session_events_1a7f9e03">Sessiegebeurtenissen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_android_auto_display_56c75982">Android Auto-weergave</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_choose_widgets_for_each_side_panel_c04b42c9">Widgets kiezen voor elk zijpaneel</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_customize_dashboard_3d094ab7">Dashboard aanpassen</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_endpoint_geometry_protocol_and_feature_flags_7f197859">Endpoint, geometrie, protocol en feature flags</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_exclude_pixels_occupied_by_the_motorcycle_ui_c69e3740">Pixels uitsluiten die door de motorinterface worden bezet</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_how_the_complete_android_auto_image_fits_the_tft_11c8bbf2">Hoe het volledige Android Auto-beeld op het TFT past</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_override_automatic_profile_detection_b102be5">Automatische profieldetectie overschrijven</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_t_box_capability_inspector_e5159c9d">T-Box-capaciteitsinspectie</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_t_box_profile_override_f6f6b251">T-Box-profieloverschrijving</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_tft_safe_margins_d1e86e30">TFT-veiligheidsmarges</string>
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_motorcycle_15a347f8">‹ Motor</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_customize_d780ac23">Aanpassen</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_dim_phone_display_4f190e58">Telefoonscherm dimmen</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_draw_recorded_points_on_the_dashboard_map_d0764c05">Opgenomen punten op de dashboardkaart tekenen.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_keep_the_tft_active_while_reducing_phone_distrac_f9df0d5a">Het TFT actief houden en tegelijk de afleiding van de telefoon beperken.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_open_the_on_screen_android_auto_controls_55f559a3">De Android Auto-bediening op het scherm openen.</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_preview_50417ba8">Voorbeeld</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_preview_touch_c103ae4d">Voorbeeld &amp; aanraken</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_show_gps_track_2ed7fcf2">Gps-spoor tonen</string>
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_view_android_auto_and_interact_from_your_phone_1e4d3a53">Android Auto bekijken en vanaf je telefoon bedienen.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_review_your_route_before_starting_guidance_48917adb">Bekijk je route voordat de begeleiding start.</string>
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_take_me_home_bb1e43ee">Breng me naar huis</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_about_moto_hub_6966e1f8">Over MOTO-HUB</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_android_auto_cb210d00">Android Auto</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_announce_upcoming_maneuvers_while_navigating_7c1d9f50">Aankomende manoeuvres tijdens het navigeren aankondigen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_auto_connect_on_launch_9e7cd0e0">Automatisch verbinden bij starten</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_auto_connect_recovery_trip_recording_1bf7551f">Automatisch verbinden, herstel, tochtopname</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_auto_record_rides_3d1b712a">Ritten automatisch opnemen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_auto_recover_stalled_android_auto_and_ride_dashb_5da6ea2d">Vastgelopen Android Auto- en Ride Dashboard-streams automatisch herstellen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_bluetooth_capture_and_mapping_3e23fd19">Bluetooth-registratie en -toewijzing</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_connect_and_discover_t_box_when_app_opens_fe05f1ea">Bij het openen van de app verbinden en de T-Box zoeken</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_connection_automation_93f3bb33">Verbinding &amp; automatisering</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_diagnostics_3748418c">Diagnostiek</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_disable_touchscreen_4f636f13">Touchscreen uitschakelen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_draw_detected_curved_segments_in_a_distinct_colo_906c94c">Herkende bochtige stukken op de TFT-kaart in een eigen kleur tekenen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_enable_logging_e57825e2">Registratie inschakelen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_encoder_detail_and_power_mode_for_all_streams_9c18fdcf">Encoderdetail en energiemodus voor alle streams</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_fuel_range_warning_e301d2ef">Bereikwaarschuwing</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_full_client_info_every_candidate_profile_s_score_fb2a321f">Volledige CLIENT_INFO, de score van elk kandidaatprofiel, onbekende opdracht</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_golden_hour_hint_26c00b9f">Tip voor het gouden uur</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_highlight_curvy_roads_6d7866a">Bochtige wegen markeren</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_master_switch_for_the_diagnostic_log_off_means_n_1d7e2b81">Hoofdschakelaar voor het diagnostisch logboek. Uit betekent dat er niets wordt vastgelegd </string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_navigation_e5d7e634">Navigatie</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_network_tests_and_application_logs_6064f99">Netwerktests en app-logboeken</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_preview_ride_dashboard_cf294e4">Ride Dashboard-voorbeeld</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_recovery_watchdog_eb0fb218">Herstelwaakhond</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_resolution_and_display_mode_70f7a2be">Resolutie en weergavemodus</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_review_copy_share_or_clear_events_fa00934b">Gebeurtenissen bekijken, kopiëren, delen of wissen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_routes_through_fossgis_s_free_public_valhalla_se_5f3fb227">Berekent routes via de gratis openbare Valhalla-server van FOSSGIS in plaats van </string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_see_the_tft_render_on_this_phone_using_its_own_g_d21ea9ba">Bekijk de TFT-weergave op deze telefoon, met de eigen gps - geen T-Box nodig</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_show_forecast_conditions_at_your_destination_in__d467471f">De weersverwachting op je bestemming in het routevoorbeeld tonen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_show_minutes_to_the_nearest_sunrise_sunset_golde_840f15d">De minuten tot het eerstvolgende gouden uur bij zonsopkomst of -ondergang tonen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_start_gps_logging_with_projection_sessions_1c3d9c89">Gps-registratie starten samen met projectiesessies</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_t_box_discovery_wi_fi_binding_cellular_routes_32d84d5f">T-Box-detectie, wifibinding, mobiele routes</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_try_without_a_key_demo_server_74e379d4">Proberen zonder sleutel (demoserver)</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_use_focus_and_handlebar_controls_even_when_the_t_d1be0479">Focus- en stuurbediening ook gebruiken wanneer de T-Box een aanraakscherm meldt</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_verbose_t_box_logging_ee12f7b3">Uitgebreide T-Box-registratie</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_video_quality_3ed2f63a">Videokwaliteit</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_voice_guidance_a2d4eea6">Gesproken begeleiding</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_warn_when_a_route_would_exceed_your_motorcycle_s_c31a0f09">Waarschuwen wanneer een route het tankbereik van je motor overschrijdt (in te stellen in de Garage)</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_weather_at_arrival_44ffc4d8">Weer bij aankomst</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_your_own_routing_api_key_for_turn_by_turn_94d8b202">Je eigen routerings-API-sleutel voor navigatie met afslagaanwijzingen</string>
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_settings_7469104a">‹ Instellingen</string>
+    <!-- Source: feature/trips/TripRecordingService.kt -->
+    <string name="legacy_gps_ride_recording_and_trip_statistics_28992d34">Gps-ritopname en tochtstatistieken</string>
+    <!-- Source: session/PhoneDisplayDimmer.kt -->
+    <string name="legacy_moto_hub_display_dimmer_57b6244b">MOTO-HUB-schermdimmer</string>
+    <!-- Dynamic UI templates. Keep positional placeholders unchanged. -->
+    <string name="legacy_filter_1_d_497daa14">FILTER %1$d</string>
+    <string name="legacy_recording_1_s_b01f3573">OPNAME · %1$s</string>
+    <string name="legacy_1_d_optimized_gps_points_de88df06">%1$d geoptimaliseerde gps-punten</string>
+    <string name="legacy_place_1_d_name_6bdc57c6">Naam voor plaats %1$d</string>
+    <string name="legacy_save_place_1_d_39c7a048">Plaats %1$d opslaan</string>
+    <string name="legacy_t_box_identifier_1_s_531e2638">T-Box-identificatie: %1$s</string>
+    <string name="legacy_1_s_fe2c9a02">‹ %1$s</string>
+    <string name="legacy_motorcycle_buttons_control_1_s_6e2f90ac">Motorknoppen bedienen %1$s</string>
+    <string name="legacy_rain_1_d_84b55e18">REGEN %1$d%%</string>
+    <string name="legacy_1_d_c_41e7b8ff">%1$d°C</string>
+    <string name="legacy_1_d_km_h_6ce8c40f">%1$d KM/U</string>
+    <!-- Weather forecast wind speed when the rider selects miles. -->
+    <string name="legacy_1_d_mph_669c2f51">%1$d MPH</string>
+    <string name="legacy_moto_hub_258caaa5">MOTO-HUB</string>
+    <string name="legacy_recording_this_ride_1aceedab">Deze rit wordt opgenomen</string>
+    <string name="legacy_moto_hub_controls_f72ba5d1">MOTO-HUB-bediening</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_d_available_e7e32615">%1$d beschikbaar</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_s_remaining_e0c291">%1$s resterend</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_s_2_s_a1c6054a">%1$s · %2$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1000_mt_x_cfdl26_a07555df">1000 MT-X (CFDL26)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_200_ms_snappier_singles_bddf5c9a">200 ms - snellere enkele tikken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_300_ms_balanced_17f78a68">300 ms - gebalanceerd</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_450_ms_forgiving_doubles_3234effd">450 ms - tolerantere dubbeltikken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_500_ms_quicker_hold_a1cbda27">500 ms - sneller vasthouden</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_600_ms_balanced_9f5246b">600 ms - gebalanceerd</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_800_ms_deliberate_hold_32e73399">800 ms - bewust vasthouden</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_800mt_cfdl26_9a9a6453">800MT (CFDL26)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_800nk_advanced_cfdl26_8796cfe5">800NK Advanced (CFDL26)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_active_profile_dcb9be6f">ACTIEF PROFIEL</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_android_auto_4d461ce0">ANDROID AUTO</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_atms_1ed139">Geldautomaten</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_avg_feb2">GEM</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_avg_speed_7231cd39">GEM. SNELHEID</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_access_point_2a7fd7f4">Toegangspunt</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_airports_db81a128">Luchthavens</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_album_cover_current_track_and_progress_5704cf2c">Albumhoes, huidige track en voortgang</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_altitude_7d3daec2">Hoogte</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_android_auto_map_9e2be3c">Android Auto-kaart</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_arc_speedometer_bearing_and_gnss_lock_status_a1dab290">Boogsnelheidsmeter, koers en GNSS-fixstatus</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_assistant_ccab92be">Assistent</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_attractions_ab6135cc">Bezienswaardigheden</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_auto_1f51cf">Auto</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_auto_day_night_808f223b">Auto (dag/nacht)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_backward_left_7f90d6f7">Achteruit - Links</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_backward_double_tap_left_bf920c29">Achteruit dubbeltik - Links</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bakery_7628ee00">Bakkerij</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_banks_3cfd197">Banken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bars_pubs_8301b610">Bars &amp; cafés</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_battery_phone_fc45d1a1">Batterij &amp; telefoon</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_battery_charging_connectivity_temperature_and_mo_59cfa2d5">Batterij, opladen, connectiviteit, temperatuur en bewegingssensoren</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bicycle_rental_cee64385">Fietsverhuur</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bluetooth_absolute_volume_change_3096ab72">Bluetooth-wijziging van absoluut volume</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bluetooth_next_track_command_7a7046ee">Bluetooth-opdracht volgende track</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bluetooth_play_pause_command_a9252e58">Bluetooth-opdracht afspelen/pauzeren</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_bluetooth_previous_track_command_d68a66f2">Bluetooth-opdracht vorige track</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_cfdl16_450sr_style_non_touch_b3fdf770">CFDL16 / 450SR-stijl zonder touch</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_cfdl16_legacy_b0fd3b8a">CFDL16 / Legacy</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_cfdl26_motoplay_landscape_touch_a52d575c">CFDL26 MotoPlay liggend met touch</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_cfdl26_motoplay_portrait_handlebar_primary_c724cad9">CFDL26 MotoPlay staand, stuur primair</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_cfmoto_800nk_97f23a55">CFMOTO 800NK</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_cl_c450_5c8b3190">CL-C450</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_crcp_sdk_0_9_23_x_non_touch_5621c1f8">CRCP / sdk 0.9.23.x zonder touch</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_campsites_75e7180b">Campings</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_car_service_917649">Autogarage</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_charging_5973c691">Opladen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_choose_a_widget_for_1_s_26345a66">Kies een widget voor %1$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_compass_9bdfd4f2">Kompas</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_current_conditions_wind_humidity_via_open_meteo_4e58c8f3">Actuele omstandigheden, wind, luchtvochtigheid via Open-Meteo</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_down_1de05778">D-pad omlaag</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_left_1de3d2dd">D-pad links</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_right_9eecea06">D-pad rechts</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_up_a8ebfef1">D-pad omhoog</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_6049d29c">D-pad ▲</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_6049d2a0">D-pad ▶</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_6049d2a6">D-pad ▼</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_d_pad_6049d2aa">D-pad ◀</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_dist_2005a6">AFST</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_distance_3fd77bf5">AFSTAND</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_day_light_2f4e1b57">Dag (licht)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_detect_from_the_motorcycle_recommended_9fd07c6f">Detecteren via de motor (aanbevolen)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_development_simulator_profile_45f9bdc8">Ontwikkelsimulatorprofiel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_do_nothing_a83eb158">Niets doen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_down_double_press_c52a55d2">Omlaag dubbel drukken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_down_press_6ec23765">Omlaag drukken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_down_double_f6f5f8f8">Omlaag · dubbel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_down_single_1037016f">Omlaag · enkel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_drinking_water_6ae0dde1">Drinkwater</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_elapsed_c777dd5c">VERSTREKEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_elevation_857ea708">HOOGTE +</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_editing_1_s_a5399c23">%1$s bewerken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_elevation_profile_climb_rate_and_gps_accuracy_d7b5d893">Hoogteprofiel, stijgsnelheid en gps-nauwkeurigheid</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_favorites_3baf7a37">FAVORIETEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_favorite_427c2dbc">Favoriet</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_fire_stations_e5a3dc49">Brandweerkazernes</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_food_21807e">Eten</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_forward_right_ed1ba1ce">Vooruit - Rechts</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_forward_double_tap_right_50824858">Vooruit dubbeltik - Rechts</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_gnss_satellite_visibility_and_fix_status_55616e56">GNSS-satellietzicht en fixstatus</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_gps_search_f2175dfe">GPS ZOEKEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_gps_1_d_m_85cd2614">GPS ±%1$d m</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_guiding_to_destination_1328e050">Begeleiding naar bestemming</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_heading_sun_altitude_and_rider_relative_sun_posi_8620d321">Koers, zonshoogte en zonnestand ten opzichte van de rijder</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_hospitals_466ae959">Ziekenhuizen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_hotels_stays_e91bd2ff">Hotels &amp; overnachtingen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_in_use_1_s_9a0bc66d">IN GEBRUIK • %1$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_key_configured_d2c8ebf">SLEUTEL INGESTELD</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_large_glove_friendly_actions_for_the_active_dash_ae3e3599">Grote, handschoenvriendelijke acties voor het actieve dashboard.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_larger_absolute_volume_change_c11a1729">Grotere wijziging van absoluut volume</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_left_panel_9dcb38cb">Linkerpaneel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_left_double_f4a67f33">Links · dubbel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_left_single_de787aa">Links · enkel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_log_copied_to_clipboard_a7cbe711">Logboek naar het klembord gekopieerd</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_max_12944">MAX</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_max_speed_6338424b">MAX SNELHEID</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_mode_2431a3">MODUS</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_moto_hub_simulator_72ee829">MOTO-HUB Simulator</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_moving_87e69c4e">IN BEWEGING</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_manage_88ef8985">Beheren</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_manage_guidance_search_a_new_destination_or_resu_7899102a">Begeleiding beheren, een nieuwe bestemming zoeken of je route hervatten.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_manual_recording_73634e37">Handmatige opname</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_mirroring_8b513fa3">Mirroring</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_mirrors_android_auto_s_own_map_5091f0fa">Spiegelt de eigen kaart van Android Auto</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_motoplay_landscape_cfdl16_47ddf145">MotoPlay liggend (CFDL16)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_motorcycle_service_4f005f46">Motorgarage</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_navigation_8beff614">NAVIGATIE</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_no_key_set_25cc0b82">GEEN SLEUTEL INGESTELD</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_native_turn_by_turn_navigation_rendered_on_the_t_96caa565">Eigen navigatie met afslagaanwijzingen, weergegeven op het TFT</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_nav_place_1_9c6fda12">Nav · plaats 1</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_nav_place_2_9c6fda13">Nav · plaats 2</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_nav_place_3_9c6fda14">Nav · plaats 3</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_navigate_place_1_8cdacefb">Navigeren → plaats 1</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_navigate_place_2_8cdacefc">Navigeren → plaats 2</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_navigate_place_3_8cdacefd">Navigeren → plaats 3</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_near_square_panel_544x512_7dfae4b9">Bijna vierkant paneel, 544x512</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_near_square_touch_panel_720x712_644c47fc">Bijna vierkant aanraakpaneel, 720x712</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_next_turn_eta_sun_position_daylight_remaining_48ea2589">Volgende afslag, aankomst, zonnestand, resterend daglicht</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_night_dark_e807e573">Nacht (donker)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_none_252358">Geen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_now_playing_774920a4">Nu aan het spelen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_ok_select_85c307d1">OK / selecteren</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_off_1354f">Uit</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_openstreetmap_12cdd70f">OpenStreetMap</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_phone_489454e">TELEFOON</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_pad_fullscreen_screen_stays_on_tap_exit_to_leave_fed4fb3e">Pad op volledig scherm — het scherm blijft aan. Tik op Sluiten om te verlaten.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_parking_33f14b98">Parkeren</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_pharmacies_3d1e90b1">Apotheken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_picnic_8e7a005e">Picknick</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_police_8ed2913e">Politie</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_post_offices_828381d7">Postkantoren</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_quick_controls_b6d227a9">Snelbediening</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_recent_destinations_4acda7ca">RECENTE BESTEMMINGEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_recorded_route_823d22b9">OPGENOMEN ROUTE</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_ride_dashboard_7a0ca94c">RIDE DASHBOARD</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_rides_4a5be5b">RITTEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_route_options_30bc2f87">ROUTEOPTIES</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_route_preview_683e8cb1">ROUTEVOORBEELD</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_requires_a_real_bluetooth_key_up_e9aa900c">Vereist een echte Bluetooth-key-up</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_rest_areas_9d275e5a">Rustplaatsen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_ride_dashboard_ae928d6c">Ride Dashboard</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_right_panel_f3a982e0">Rechterpaneel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_right_double_8bb580fe">Rechts · dubbel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_right_single_a4f68975">Rechts · enkel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_rotary_back_875f5656">Draaiwiel terug</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_rotary_forward_5bd716f6">Draaiwiel vooruit</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_saved_routes_18cdcb23">OPGESLAGEN ROUTES</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_search_results_3469955e">ZOEKRESULTATEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_selected_for_1_s_49f82b77">GESELECTEERD VOOR %1$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_satellites_110a3ab8">Satellieten</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_save_route_5f739206">Route opslaan</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_search_a_destination_pick_a_favorite_or_start_fr_a4048c1b">Zoek een bestemming, kies een favoriet of start vanaf een opgeslagen route.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_ok_6ca8fff1">Selecteren / OK</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_double_tap_enter_star_8a562c06">Selecteren dubbeltik - Enter / Ster</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_hold_enter_star_217fe7bb">Selecteren vasthouden - Enter / Ster</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_tap_enter_star_b26a1adf">Selecteren tik - Enter / Ster</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_double_44fd35de">Selecteren · dubbel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_hold_ce87ce0c">Selecteren · vasthouden</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_select_tap_2ff408b6">Selecteren · tik</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_send_navigation_and_selection_commands_to_androi_887e42f0">Navigatie- en selectieopdrachten naar Android Auto sturen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_speed_gauge_85be8ba0">Snelheidsmeter</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_start_android_auto_to_enable_the_controller_2a5eb409">Start Android Auto om de bediening in te schakelen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_start_the_dashboard_to_enable_these_actions_1fe53fdf">Start het dashboard om deze acties in te schakelen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_supermarkets_5e8b87fc">Supermarkten</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_t_box_connected_35a5911b">T-Box verbonden</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_time_274acd">TIJD</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_total_4c4e324">TOTAAL</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_toilets_1eefa3e6">Toiletten</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_touch_controller_53c8733d">Aanraakbediening</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_trip_metrics_7c88c7c8">Tochtgegevens</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_trip_distance_duration_average_speed_and_speed_p_97ed123f">Tochtafstand, duur, gemiddelde snelheid en snelheidsprofiel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_two_next_track_presses_inside_the_window_7db072f9">Twee keer volgende-track binnen het venster</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_two_presses_inside_the_double_tap_window_cc11c279">Twee keer drukken binnen het dubbeltikvenster</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_unable_to_create_log_file_9dac9184">Kan geen logbestand aanmaken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_unable_to_save_the_motorcycle_photo_d9e617d">Kan de motorfoto niet opslaan</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_up_double_press_5e63a079">Omhoog dubbel drukken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_up_press_df788a9e">Omhoog drukken</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_up_double_6854af1f">Omhoog · dubbel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_up_single_8195b796">Omhoog · enkel</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_viewpoints_390623e8">Uitzichtpunten</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_weather_ac24cfd4">Weer</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_where_are_you_going_f697966b">Waar ga je heen?</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_wi_fi_direct_p2p_5247f7ce">Wi-Fi Direct (P2P)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_your_route_is_live_e56afe3e">Je route is actief</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_modelid_66660742_wi_fi_direct_non_touch_f23f0c0b">modelId 66660742, Wi-Fi Direct, zonder touch</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_absolute_volume_change_53b165a0">wijziging van absoluut volume</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_play_pause_command_31202f86">afspelen/pauzeren-opdracht</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_previous_track_command_f9a52120">vorige-track-opdracht</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_next_track_command_26b481c">volgende-track-opdracht</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_both_1f3381">BEIDE</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_android_auto_live_564f882c">ANDROID AUTO LIVE</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_android_auto_standby_9525974d">ANDROID AUTO STAND-BY</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_phone_preview_live_290cbf6">TELEFOONVOORBEELD LIVE</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_starting_7d22d040">STARTEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_live_on_tft_d375f015">LIVE OP TFT</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_preparing_69cf13e4">VOORBEREIDEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_recording_route_df2cfb1a">ROUTE OPNEMEN</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_s_is_ready_to_connect_6b95609b">%1$s is klaar om te verbinden.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_allow_moto_hub_notifications_to_keep_streaming_v_4700fc1e">Sta MOTO-HUB-meldingen toe zodat het streamen zichtbaar en bedienbaar blijft.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_allow_nearby_devices_and_location_to_detect_the__a4c1fa2c">Sta Apparaten in de buurt en Locatie toe om het T-Box-wifinetwerk te vinden.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_android_is_requesting_a_connection_to_1_s_ffe67969">Android vraagt om een verbinding met %1$s.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_camera_permission_is_required_to_read_the_t_box__4e87d105">Cameratoestemming is nodig om de T-Box-QR-code te lezen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_connection_cancelled_you_can_try_again_at_any_ti_19906357">Verbinding geannuleerd. Je kunt het altijd opnieuw proberen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_disconnected_372b4933">Verbinding verbroken.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_motorcycle_8dd33db1">Motor</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_network_connected_searching_for_the_easyconn_ser_851763f6">Netwerk verbonden. Er wordt naar de EasyConn-dienst gezocht.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_no_known_phone_location_yet_move_outdoors_and_re_47df6139">Nog geen bekende telefoonlocatie; ga naar buiten en probeer het opnieuw.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_pair_a_motorcycle_in_garage_before_starting_navi_76f923b3">Koppel eerst een motor in de Garage voordat je de navigatie start.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_permission_granted_starting_the_capture_session_4805d845">Toestemming verleend. De opnamesessie wordt gestart.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_profile_saved_connect_to_the_t_box_network_and_s_a9069261">Profiel opgeslagen. Maak verbinding met het T-Box-netwerk en start de detectie.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_qr_code_scanned_but_the_profile_was_not_saved_1__e3b6164f">QR-code gescand, maar het profiel is niet opgeslagen: %1$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_ride_dashboard_streaming_is_active_on_the_motorc_3729a921">Het streamen van het Ride Dashboard is actief op het TFT van de motor.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_set_up_the_motorcycle_network_to_get_started_32bb831">Stel het motornetwerk in om te beginnen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_sharing_cancelled_by_the_user_72c1171e">Het delen is door de gebruiker geannuleerd.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_something_went_wrong_try_again_b634c6cc">Er ging iets mis. Probeer het opnieuw.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_starting_the_ride_dashboard_pipeline_f27c3ca7">De Ride Dashboard-pijplijn wordt gestart.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_starting_the_native_ride_dashboard_d28cae88">Het native Ride Dashboard wordt gestart.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_starting_the_projection_pipeline_bcc6994a">De projectiepijplijn wordt gestart.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_stop_the_current_mirroring_or_android_auto_sessi_5390e262">Stop de lopende mirroring- of Android Auto-sessie voordat je het Ride Dashboard hiervandaan opent.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_streaming_active_to_the_motorcycle_tft_b881d9a3">Streamen naar het TFT van de motor is actief.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_t_box_qr_code_scanned_and_saved_1_s_is_ready_to__d28dd75d">T-Box-QR-code gescand en opgeslagen. %1$s is klaar om te verbinden.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_t_box_connection_lost_reconnect_to_the_motorcycl_cb4aa98e">T-Box-verbinding verbroken. Maak opnieuw verbinding met het motornetwerk.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_t_box_found_you_can_now_choose_an_app_or_screen__163f7c13">T-Box gevonden. Je kunt nu een app of scherm kiezen om te delen.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_t_box_not_found_1_s_656efb68">T-Box niet gevonden: %1$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_that_search_is_too_long_try_a_shorter_search_e54badba">Die zoekopdracht is te lang. Probeer een kortere.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_d_curved_segments_detected_af1abc2b">%1$d bochtige stukken herkend</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_d_entries_newest_first_7c18f089">%1$d items  /  nieuwste eerst</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_d_km_remaining_after_this_route_1b9e2ebf">%1$d km over na deze route</string>
+    <!-- Fuel-range warning when the rider selects miles. -->
+    <string name="legacy_1_d_mi_remaining_after_this_route_aaf9da45">%1$d mi over na deze route</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_s_2_s_3_s_4fcb415a">%1$s  %2$s: %3$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_1_s_2_d_c_4859b80e">%1$s · %2$d°C</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_connect_a_motorcycle_before_customizing_its_dash_cc281859">Verbind een motor voordat je het dashboard aanpast.</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_curvy_roads_ahead_15524f7">Bochtige wegen vooruit</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_golden_hour_in_1_d_min_5c769914">Gouden uur over %1$d min</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_golden_hour_now_ab52d7b1">Gouden uur nu</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_installed_version_1_s_2_d_29cd3201">Geïnstalleerde versie: %1$s (%2$d)</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_location_and_notifications_are_required_while_re_4f6ceb2b">Locatie en meldingen zijn vereist tijdens het opnemen van een tocht</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_opening_in_1_d_s_42389c34">Wordt over %1$d s geopend…</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_peer_1_s_2_s_521b5084">Peer %1$s -&gt; %2$s</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_port_1_d_b6522e8b">Poort %1$d</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_unable_to_open_github_8bdb9881">Kan GitHub niet openen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_unable_to_open_wi_fi_settings_537aaf03">Kan de wifi-instellingen niet openen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_unable_to_open_the_companion_app_settings_c0a83e03">Kan de instellingen van de begeleidende app niet openen</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_no_open_ports_found_8533cd9d">geen open poorten gevonden</string>
+    <!-- Source: localized UI literal / enum label -->
+    <string name="legacy_open_1_s_e55a596b">open: %1$s</string>
+    <!-- Android Auto pre-flight: an OEM companion app is installed, but may not be active. %1$s is
+         its name as shown on the phone (CFMOTO, Zontes Smart, Carbit Ride, ...). -->
+    <string name="legacy_1_s_detected_66208287">%1$s gedetecteerd</string>
+    <string name="legacy_moto_hub_starts_google_android_auto_not_1_s_3a77813f">MOTO-HUB start Google Android Auto, niet %1$s.</string>
+    <string name="legacy_1_s_can_still_take_over_the_dashboard_connection_5bc85002">%1$s kan de dashboardverbinding ook op de achtergrond overnemen. Voor een betrouwbare projectie forceer je die app eerst af in de Android-instellingen.</string>
+    <string name="legacy_continue_with_android_auto_f6c7ef01">Doorgaan met Android Auto</string>
+    <string name="legacy_open_1_s_settings_470b74f2">Instellingen van %1$s openen</string>
+    <string name="legacy_do_not_show_this_warning_again_d3abf59b">Deze waarschuwing niet meer tonen</string>
+    <!-- Source: tbox/ProfileOverride.kt -->
+    <string name="legacy_generic_dashboard_53d1376b">Algemeen display</string>
+    <!-- Source: tbox/ProfileOverride.kt -->
+    <string name="legacy_neutral_defaults_for_a_dashboard_that_is_not_rec_8d299cf0">Neutrale standaardwaarden voor een niet-herkend display</string>
+    <!-- Source: feature/pairing/UnverifiedQrDialog.kt -->
+    <string name="legacy_unfamiliar_pairing_code_714f8ce7">Onbekende koppelcode</string>
+    <!-- Source: feature/pairing/UnverifiedQrDialog.kt -->
+    <string name="legacy_this_code_carries_wi_fi_details_for_1_s_but_it_w_422a5994">Deze code bevat wifigegevens voor %1$s, maar is niet uitgegeven door een Carbit-adres zoals de displays die MOTO-HUB kent.</string>
+    <!-- Source: feature/pairing/UnverifiedQrDialog.kt -->
+    <string name="legacy_several_manufacturers_ship_the_same_dashboard_so_49305d38">Meerdere fabrikanten leveren dezelfde displaysoftware onder hun eigen merk, dus dit kan best jouw motor zijn. Ga alleen verder als je hem van je eigen display hebt gescand.</string>
+    <!-- Source: feature/pairing/UnverifiedQrDialog.kt -->
+    <string name="legacy_use_these_details_52f852ac">Deze gegevens gebruiken</string>
+
+    <!-- ===========================================================         Catalogue sweep, 2026-08-13: strings this worktree draws but had
+         no identifier for. Values come from the pro-poc catalogues, where
+         the same source strings are already translated.
+         ================================================================== -->
+
+    <!-- Source: MainActivity.kt -->
+    <string name="legacy_unable_to_open_discord_50e2e02e">Kan Discord niet openen</string>
+
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_d_taps_away_from_the_prototype_779bf960">Nog %d tikken tot het prototype</string>
+    <string name="legacy_community_source_fe28bfcc">COMMUNITY &amp; BRONCODE</string>
+    <string name="legacy_discord_c6d7d50c">Discord</string>
+    <string name="legacy_github_7f258fe3">GitHub</string>
+    <string name="legacy_map_rendering_by_maplibre_native_bsd_2_clause_ve_1f7cda7f">Kaartweergave door MapLibre Native (BSD-2-Clause). Vectortegels van OpenFreeMap, volgens het OpenMapTiles-schema; rastertegels van de OpenStreetMap Foundation. Adreszoeken door Photon. Routering door Valhalla, gehost door Stadia Maps of de FOSSGIS-demoserver. Plaatsen door Overpass. Weer door Open-Meteo. Brandstofprijzen gepubliceerd als open data door het Spaanse Ministerio para la Transición Ecológica, het Portugese DGEG, het Franse Ministère de l\'Économie en het Italiaanse MIMIT. De gegevens van DGEG mogen niet commercieel worden gebruikt.</string>
+    <string name="legacy_maps_data_b256210d">KAARTEN &amp; GEGEVENS</string>
+    <string name="legacy_maps_addresses_and_routes_are_built_on_data_by_o_f0b02b91">Kaarten, adressen en routes zijn gebaseerd op gegevens van © OpenStreetMap-bijdragers, gelicentieerd onder de ODbL.</string>
+    <string name="legacy_prototype_unlocked_856a4841">Prototype ontgrendeld</string>
+
+    <!-- Source: feature/androidauto/AndroidAutoHelpScreen.kt -->
+    <string name="legacy_a_notification_confirms_the_server_is_running_le_eacf82e">Een melding bevestigt dat de server draait. Laat hem draaien: hij blijft actief tot je hem stopt of de telefoon herstart.</string>
+    <string name="legacy_android_auto_17_4_removed_the_way_an_app_can_ask_890c8f24">Android Auto 17.4 heeft de manier verwijderd waarop een app om projectie kan vragen. MOTO-HUB probeert het nog steeds, en op oudere versies werkt het — lukt het niet, dan kun je Android Auto in plaats daarvan starten via zijn eigen ontwikkelaarsmenu. Je hoeft niets te installeren.</string>
+    <string name="legacy_android_auto_does_not_start_2266b70e">Android Auto start niet</string>
+    <string name="legacy_every_time_android_auto_will_not_start_18ff3ab9">ELKE KEER DAT ANDROID AUTO NIET START</string>
+    <string name="legacy_go_back_to_moto_hub_and_start_android_auto_it_co_ff8cc50d">Ga terug naar MOTO-HUB en start Android Auto. Het verbindt zichzelf binnen een paar seconden — je hoeft verder niets in te drukken.</string>
+    <string name="legacy_in_android_auto_s_developer_settings_open_the_me_1ea3a8cf">Open in de ontwikkelaarsinstellingen van Android Auto rechtsboven het menu ⋮ en kies \"Head unit-server starten\". Het staat in dat menu, niet in de lijst met instellingen eronder.</string>
+    <string name="legacy_in_developer_settings_turn_on_add_new_cars_to_an_19f79566">Zet in de ontwikkelaarsinstellingen \"Nieuwe auto\'s aan Android Auto toevoegen\" aan (oudere versies noemen het \"Onbekende bronnen\").</string>
+    <string name="legacy_jumps_straight_to_the_app_where_the_menu_above_l_7c8b2093">Springt direct naar de app waar het bovenstaande menu zit</string>
+    <string name="legacy_normally_moto_hub_waits_and_asks_android_auto_to_6c183bab">Normaal wacht MOTO-HUB en vraagt het Android Auto om verbinding te maken. Versie 17.4 sloot die deur voor elke app van dit soort, niet alleen voor deze. De head unit-server draait de richting om — Android Auto wacht en MOTO-HUB verbindt ermee — een deur die Google voor zijn eigen testgereedschap heeft opengelaten.</string>
+    <string name="legacy_one_time_setup_ca24c531">EENMALIGE INSTELLING</string>
+    <string name="legacy_open_android_auto_settings_48a5120d">Android Auto-instellingen openen</string>
+    <string name="legacy_open_the_android_auto_app_scroll_to_the_bottom_a_69ae9e53">Open de Android Auto-app, scroll helemaal naar beneden en tik tien keer op \"Versie\". De ontwikkelaarsinstellingen verschijnen.</string>
+    <string name="legacy_why_14fa8">WAAROM</string>
+
+    <!-- Source: feature/controls/BluetoothStatus.kt -->
+    <string name="legacy_allow_bluetooth_access_so_the_app_can_see_whethe_8754f4c2">Sta Bluetooth-toegang toe zodat de app kan zien of de motor verbonden is.</string>
+    <string name="legacy_bluetooth_is_off_turn_it_on_then_pair_the_motorc_5375bc65">Bluetooth staat uit — zet het aan en koppel daarna de motor.</string>
+    <string name="legacy_connected_now_1_s_if_that_is_the_motorcycle_the__cd016af1">Nu verbonden: %1$s. Als dat de motor is, bereiken de stuurknoppen de telefoon.</string>
+    <string name="legacy_no_audio_device_is_connected_right_now_with_the__7d4f4d3e">Er is nu geen audioapparaat verbonden. Met de motor aan hoort het display hier te verschijnen — gebeurt dat nooit, koppel het dan via de Bluetooth-instellingen.</string>
+    <string name="legacy_this_phone_has_no_bluetooth_b42f7e85">Deze telefoon heeft geen Bluetooth.</string>
+
+    <!-- Source: feature/controls/HandlebarMappingScreen.kt -->
+    <string name="legacy_a_button_the_app_has_not_been_taught_yet_53060697">Een knop die de app nog niet is aangeleerd</string>
+    <string name="legacy_a_single_press_acts_immediately_instead_of_waiti_ebd37a80">Eén druk werkt meteen in plaats van het dubbeldrukvenster af te wachten. Dubbel drukken werkt nog steeds - alleen wordt eerst de enkele uitgevoerd.</string>
+    <string name="legacy_allow_bluetooth_bbde9a57">Bluetooth toestaan</string>
+    <string name="legacy_bluetooth_settings_ed5eb975">Bluetooth-instellingen</string>
+    <string name="legacy_checking_bluetooth_ce222d3e">Bluetooth wordt gecontroleerd…</string>
+    <string name="legacy_choose_what_this_press_does_4e74fce9">Kies wat deze druk doet.</string>
+    <string name="legacy_done_1_d_presses_learned_dd4b86bd">Klaar - %1$d drukken geleerd.</string>
+    <string name="legacy_double_press_window_a8b0763c">Dubbeldrukvenster</string>
+    <string name="legacy_every_card_now_describes_your_handlebar_buttons__f70bd7b3">Elke kaart beschrijft nu jouw stuur. Knoppen die je als afwezig hebt gemarkeerd zijn verdwenen.</string>
+    <string name="legacy_finish_7d6e78b3">Voltooien</string>
+    <string name="legacy_handlebar_7b449ccb">Stuur</string>
+    <string name="legacy_hold_gestures_a5df4e6b">Vasthoudgebaren</string>
+    <string name="legacy_hold_time_bba08d6e">Vasthoudtijd</string>
+    <string name="legacy_how_long_the_app_waits_before_deciding_a_press_w_fbe08ef2">Hoe lang de app wacht voordat hij een druk als dubbel of vastgehouden beschouwt.</string>
+    <string name="legacy_motorcycle_bluetooth_88c59adf">Bluetooth van de motor</string>
+    <string name="legacy_not_detected_yet_d1e8f877">nog niet gedetecteerd</string>
+    <string name="legacy_not_on_my_bike_49509421">Niet op mijn motor</string>
+    <string name="legacy_nothing_happens_some_dashboards_keep_a_button_fo_c80119d0">Gebeurt er niets? Sommige displays houden een knop voor zichzelf en sturen de telefoon helemaal niets - op een CFMOTO CFDL16 doet een KORTE druk op de tuimelschakelaar precies dat. Markeer hem als afwezig en hij neemt geen ruimte meer in.</string>
+    <string name="legacy_on_the_motorcycle_do_this_5d34555e">Doe dit op de motor</string>
+    <string name="legacy_one_card_per_button_with_what_a_press_a_double_p_e88303f5">Eén kaart per knop, met wat een druk, een dubbele druk en vasthouden elk doen. Leer de app je stuur aan, zodat hij weet welke knoppen het jouwe echt heeft.</string>
+    <string name="legacy_press_a_handlebar_button_fd958503">Druk op een stuurknop</string>
+    <string name="legacy_reset_actions_to_defaults_95ecb43">Acties terugzetten op standaard</string>
+    <string name="legacy_skip_27599f">Overslaan</string>
+    <string name="legacy_snappy_singles_330a9d7e">Snelle enkele tikken</string>
+    <string name="legacy_step_1_d_of_2_d_72bf41f6">STAP %1$d VAN %2$d</string>
+    <string name="legacy_stop_here_d51e892e">Hier stoppen</string>
+    <string name="legacy_teach_my_handlebar_51393162">Mijn stuur aanleren</string>
+    <string name="legacy_timing_937fe44a">TIMING</string>
+    <string name="legacy_turn_off_if_your_handlebar_needs_a_long_physical_c92718d1">Zet dit uit als je stuur voor elke klik een lange fysieke druk nodig heeft - anders worden die drukken als vasthouden opgeslokt.</string>
+    <string name="legacy_controls_fd1b9add">‹ Bediening</string>
+    <string name="legacy_handlebar_c1b6ada4">‹ Stuur</string>
+
+    <!-- Source: feature/garage/GarageScreen.kt -->
+    <string name="legacy_add_your_first_motorcycle_to_get_rolling_b8e9f267">Voeg je eerste motor toe en je kunt beginnen.</string>
+    <string name="legacy_no_motorcycle_no_problem_4346def1">GEEN MOTOR? GEEN PROBLEEM</string>
+
+    <!-- Source: feature/home/CoreAvailability.kt -->
+    <string name="legacy_advanced_needs_moto_hub_core_installed_and_paire_722fef7d">Advanced heeft MOTO-HUB (Core) geïnstalleerd en gekoppeld met je T-Box nodig om te verbinden, te spiegelen of Android Auto te draaien.</string>
+    <string name="legacy_couldn_t_open_the_browser_3e0fae25">Kan de browser niet openen.</string>
+    <string name="legacy_download_moto_hub_core_976f62e2">MOTO-HUB Core downloaden</string>
+    <string name="legacy_moto_hub_core_not_found_b76c3f4f">MOTO-HUB CORE NIET GEVONDEN</string>
+
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_android_auto_17_4_removed_the_way_apps_ask_it_to_b5455068">Android Auto 17.4 heeft de manier verwijderd waarop apps om projectie vragen. Het kan nog steeds worden gestart via het eigen ontwikkelaarsmenu van Android Auto.</string>
+    <string name="legacy_one_possible_cause_1_s_is_installed_and_can_keep_47cef163">Een mogelijke oorzaak: %1$s is geïnstalleerd en kan de displayverbinding ook op de achtergrond bezet houden. Blijft de verbinding mislukken, forceer die app dan af via de App-info-pagina en probeer opnieuw.</string>
+    <string name="legacy_open_1_s_app_info_33a7c01c">App-info van %1$s openen</string>
+    <string name="legacy_retry_connection_54743f76">Verbinding opnieuw proberen</string>
+    <string name="legacy_some_dashboards_never_broadcast_a_network_of_the_787ecd2c">Sommige displays zenden nooit een eigen netwerk uit: ze sluiten zich aan op een hotspot die je telefoon maakt, met de Ssid en het wachtwoord die op het display staan. Zegt het jouwe \"open Android-hotspot\", probeer dan dat.</string>
+    <string name="legacy_1_s_is_installed_and_may_be_holding_the_dashboar_2c02bb10">%1$s is geïnstalleerd en houdt het display mogelijk bezet. Forceer die app af via de App-info-pagina en probeer opnieuw.</string>
+    <string name="legacy_try_my_phone_hosts_the_hotspot_d4f6db66">Probeer: mijn telefoon host de hotspot</string>
+
+    <!-- Source: feature/home/HubViewModel.kt -->
+    <string name="legacy_network_connected_pairing_over_bluetooth_and_wai_5b4c6259">Netwerk verbonden. Koppelen via Bluetooth en wachten op het display.</string>
+
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_altitude_ft_89feab0c">HOOGTE FT</string>
+    <string name="legacy_altitude_m_caa51e4f">HOOGTE M</string>
+    <string name="legacy_distance_ft_552284d9">AFSTAND FT</string>
+    <string name="legacy_distance_km_5522856d">AFSTAND KM</string>
+    <string name="legacy_distance_m_a7e856e2">AFSTAND M</string>
+    <string name="legacy_distance_mi_552285a7">AFSTAND MI</string>
+    <string name="legacy_max_km_h_45403037">MAX KM/U</string>
+    <string name="legacy_max_mph_5d129e29">MAX MPH</string>
+
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_auto_connect_and_recovery_57ed0872">Automatisch verbinden en herstellen</string>
+    <string name="legacy_auto_recover_stalled_android_auto_streams_bd3e2d8e">Vastgelopen Android Auto-streams automatisch herstellen</string>
+    <string name="legacy_button_mapping_815600">Knoptoewijzing</string>
+    <string name="legacy_buttons_control_android_auto_3dc44642">Knoppen bedienen Android Auto</string>
+    <string name="legacy_drive_android_auto_with_the_motorcycle_s_buttons_ec16509d">Android Auto bedienen met de knoppen van de motor</string>
+    <string name="legacy_handlebar_buttons_47b4fd2c">Stuurknoppen</string>
+    <string name="legacy_managed_by_the_companion_app_its_controls_screen_9ad80a75">Wordt beheerd door de begeleidende app: het bedieningsscherm daarvan past bij elke sessiestart zijn eigen stuurconfiguratie opnieuw toe en overschrijft wat hier is ingesteld. Configureer het stuur daar.</string>
+    <string name="legacy_music_volume_9fa56d95">MUZIEKVOLUME</string>
+    <string name="legacy_off_means_the_mode_picker_stays_exactly_as_befor_c93efb5c">Uit betekent dat de moduskiezer blijft, precies als voorheen.</string>
+    <string name="legacy_on_9ff">Aan</string>
+    <string name="legacy_put_a_screen_on_the_tft_as_soon_as_the_motorcycl_60bf969c">Zodra de motor verbonden is een scherm op het TFT zetten</string>
+    <string name="legacy_requires_the_phone_paired_to_the_motorcycle_s_bl_dda6960a">Vereist dat de telefoon met de Bluetooth van de motor is gekoppeld. De muziek speelt door, maar de knoppen ervan worden tijdens een sessie afgevangen.</string>
+    <string name="legacy_set_the_dash_clock_over_bluetooth_experimental_3431b284">De klok van het display via Bluetooth instellen (experimenteel)</string>
+    <string name="legacy_set_the_dash_clock_over_wi_fi_292a2ca5">De klok van het display via wifi instellen</string>
+    <string name="legacy_on_by_default_and_what_sets_the_time_on_most_das_6234cd82">Standaard aan, en dit is wat op de meeste displays de tijd instelt. Schakel het alleen uit als je display MOTO-HUB om de tijd vraagt, het antwoord negeert en toch 01.01.1970 laat zien: op die apparaten verandert het schrijven van de klok niets en kan het een tijd overschrijven die je met de hand op het display zelf hebt ingesteld. Staat dit uit, dan verbindt de motor gewoon, alleen krijgt hij nooit te horen hoe laat het is.</string>
+    <string name="legacy_your_dashboard_has_been_seen_asking_for_the_time_c02f4d97">Bij jouw display is gezien dat het om de tijd vraagt, antwoord krijgt en toch verder telt vanaf het eigen inschakelen. Deze schakelaar verandert daar in geen enkele stand iets aan: die klok wordt door het display bijgehouden, niet door de telefoon.</string>
+    <string name="legacy_settings_595d2043">Instellingen</string>
+    <string name="legacy_some_dashboards_ask_for_the_time_over_bluetooth__b44ce43b">Sommige displays vragen de tijd via Bluetooth in plaats van via wifi en blijven zonder die tijd op 00:00 staan. Vereist dat de motor in de Bluetooth-instellingen van Android al met deze telefoon is gekoppeld. Standaard uit; MOTO-HUB antwoordt alleen een apparaat dat in het eigen protocol van het display vraagt.</string>
+    <string name="legacy_some_dashboards_forget_settings_like_the_clock_w_76d95842">Sommige displays vergeten instellingen zoals de tijd wanneer de Wi-Fi Direct-verbinding helemaal wegvalt. Houdt de telefoon verbonden met het netwerk van de motor tot je de app verlaat of wifi uitschakelt. Standaard uit; alleen inschakelen als je display na het verbreken de tijd kwijtraakt.</string>
+    <string name="legacy_start_automatically_2cb44c45">Automatisch starten</string>
+    <string name="legacy_start_on_connect_94487a47">Starten bij verbinden</string>
+    <string name="legacy_stay_linked_to_the_bike_s_wi_fi_after_disconnect_81b0e941">Na het verbreken verbonden blijven met de wifi van de motor</string>
+    <string name="legacy_the_motorcycle_s_buttons_reach_the_phone_over_bl_356cbf0d">De knoppen van de motor bereiken de telefoon via Bluetooth als mediatoetsen. Terwijl een sessie streamt, kan MOTO-HUB ze afvangen en er de Android Auto-navigatie mee bedienen in plaats van de muziekspeler.</string>
+    <string name="legacy_what_each_press_double_press_and_hold_does_97201ad9">Wat elke druk, dubbele druk en vasthouden doet</string>
+    <string name="legacy_what_to_do_when_android_auto_refuses_to_project_fa692d1b">Wat te doen als Android Auto weigert te projecteren</string>
+    <string name="legacy_what_to_start_5b78fc39">WAT TE STARTEN</string>
+    <string name="legacy_while_capture_is_on_the_volume_buttons_navigate__9e410bf">Zolang de registratie aanstaat navigeren de volumeknoppen in plaats van het volume te wijzigen — stel je luisterniveau hier in.</string>
+    <string name="legacy_with_this_on_moto_hub_skips_the_what_should_i_sh_498b0614">Staat dit aan, dan slaat MOTO-HUB het scherm \"wat zal ik tonen?\" over en zet het gekozen scherm op het TFT zodra de verbinding met de motor er is. Het gebeurt één keer per app-start - stop een scherm en je hebt de controle terug.</string>
+
+    <!-- Source: ui/components/SystemKillNotice.kt -->
+    <string name="legacy_dismiss_c6dc4a6a">Sluiten</string>
+    <string name="legacy_stopped_by_your_phone_37b2b157">GESTOPT DOOR JE TELEFOON</string>
+    <string name="legacy_your_last_session_ended_at_1_s_because_the_phone_8386f49c">Je vorige sessie eindigde om %1$s omdat de telefoon %2$s heeft gesloten, niet door een fout in de app.</string>
+
+    <!-- ==================================================================
+         Catalogue sweep, 2026-08-13 (second pass): source strings that sit
+         inside an if/when/arrayOf within the lookup call.
+         ================================================================== -->
+
+    <!-- Source: feature/ai/AiSettingsScreen.kt -->
+    <string name="legacy_api_key_fb0d9b39">API-sleutel</string>
+    <string name="legacy_replace_api_key_d64eadad">API-sleutel vervangen</string>
+
+    <!-- Source: feature/androidauto/AndroidAutoPreviewScreen.kt -->
+    <string name="legacy_hide_controls_2dc943b4">Bediening verbergen</string>
+
+    <!-- Source: feature/controls/ControlsScreen.kt -->
+    <string name="legacy_1_d_rpm_2_d_km_h_3_d_c_coolant_60ed46da">%1$d tpm · %2$d km/u · %3$d °C koelvloeistof</string>
+    <string name="legacy_obd_adapter_connected_29e365e9">OBD-adapter verbonden</string>
+    <string name="legacy_saved_4bf7e67">Opgeslagen</string>
+    <string name="legacy_the_dashboard_shows_why_on_the_motorcycle_442e8daa">Het dashboard toont de reden op de motor.</string>
+    <string name="legacy_waiting_for_the_obd_adapter_b3b01207">Wachten op de OBD-adapter</string>
+
+    <!-- Source: feature/controls/HandlebarMappingScreen.kt -->
+    <string name="legacy_listening_2ece009b">Luistert</string>
+    <string name="legacy_received_d3a64e01">Ontvangen</string>
+    <string name="legacy_teach_again_4fb10bd5">Opnieuw aanleren</string>
+
+    <!-- Source: feature/home/HubHomeScreen.kt -->
+    <string name="legacy_bluetooth_is_turned_off_so_the_obd_adapter_canno_5a8640c">Bluetooth staat uit, dus de OBD-adapter is niet bereikbaar.</string>
+    <string name="legacy_customizable_vector_map_rendered_on_the_tft_bfa6e220">Aanpasbare vectorkaart, weergegeven op het TFT</string>
+    <string name="legacy_gps_following_8ad5867b">Gps volgen</string>
+    <string name="legacy_moto_hub_needs_bluetooth_access_to_reach_the_obd_af681be3">MOTO-HUB heeft Bluetooth-toegang nodig om de OBD-adapter te bereiken.</string>
+    <string name="legacy_no_map_live_engine_data_from_a_paired_elm327_ada_8ecf531c">Geen kaart: live motorgegevens van een gekoppelde ELM327-adapter</string>
+    <string name="legacy_no_paired_obd_adapter_found_pair_the_elm327_dong_90029f7c">Geen gekoppelde OBD-adapter gevonden. Koppel eerst de ELM327-dongle.</string>
+    <string name="legacy_restore_gps_76fc23d8">Gps herstellen</string>
+
+    <!-- Source: feature/navigation/NavigationScreen.kt -->
+    <string name="legacy_mute_24c639">Dempen</string>
+    <string name="legacy_voice_on_8e4723ad">Stem aan</string>
+
+    <!-- Source: feature/obd/ObdFuelAirScreen.kt -->
+    <string name="legacy_the_ecu_is_adding_fuel_steadily_worth_a_look_if__da08dd7">De ECU voegt gestaag brandstof toe. Een blik waard als het blijft stijgen.</string>
+    <string name="legacy_the_ecu_is_taking_fuel_away_steadily_worth_a_loo_b2e06214">De ECU haalt gestaag brandstof weg. Een blik waard als het blijft dalen.</string>
+
+    <!-- Source: feature/obd/ObdFullScanScreen.kt -->
+    <string name="legacy_last_scan_1c6351c7">LAATSTE SCAN</string>
+    <string name="legacy_run_full_scan_62e71f9">Volledige scan uitvoeren</string>
+    <string name="legacy_scanning_f99dc8b1">SCANNEN</string>
+    <string name="legacy_scanning_b757d75">Scannen…</string>
+
+    <!-- Source: feature/obd/ObdHubScreen.kt -->
+    <string name="legacy_bluetooth_is_turned_off_92ceda3f">Bluetooth staat uit.</string>
+    <string name="legacy_connected_and_reading_1e53c68c">Verbonden en aan het lezen</string>
+    <string name="legacy_connecting_ca35204e">Verbinden…</string>
+    <string name="legacy_moto_hub_needs_bluetooth_access_to_reach_the_ada_8763b3f4">MOTO-HUB heeft Bluetooth-toegang nodig om de adapter te bereiken.</string>
+    <string name="legacy_no_paired_obd_adapter_found_72c35314">Geen gekoppelde OBD-adapter gevonden.</string>
+    <string name="legacy_not_connected_273cf5d2">Niet verbonden.</string>
+
+    <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
+    <string name="legacy_1h_af24">-1H</string>
+    <string name="legacy_climbing_6536490d">STIJGEND</string>
+    <string name="legacy_descending_da6096f8">DALEND</string>
+    <string name="legacy_gnss_live_7bc47fe5">GNSS LIVE</string>
+    <string name="legacy_level_44fa364">VLAK</string>
+    <string name="legacy_no_fix_8982dd16">GEEN FIX</string>
+    <string name="legacy_vertical_speed_427682fd">VERTICALE SNELHEID</string>
+
+    <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
+    <string name="legacy_battery_level_508e0b71">BATTERIJNIVEAU</string>
+    <string name="legacy_charging_843f5271">OPLADEN</string>
+    <string name="legacy_external_power_41cdb450">EXTERNE VOEDING</string>
+    <string name="legacy_hot_1182d">HEET</string>
+    <string name="legacy_low_power_483394f9">ENERGIEBESPARING</string>
+    <string name="legacy_no_sensor_69b15af9">GEEN SENSOR</string>
+    <string name="legacy_normal_8999b0e7">NORMAAL</string>
+    <string name="legacy_warm_288a85">WARM</string>
+
+    <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
+    <string name="legacy_east_205bfd">OOST</string>
+    <string name="legacy_glare_risk_8e426920">VERBLINDINGSRISICO</string>
+    <string name="legacy_gnss_stale_fd32d3a0">GNSS VEROUDERD</string>
+    <string name="legacy_ne_9b7">NO</string>
+    <string name="legacy_no_gnss_a6d94c86">GEEN GNSS</string>
+    <string name="legacy_north_47050e5">NOORD</string>
+    <string name="legacy_nw_9c9">NW</string>
+    <string name="legacy_se_a52">ZO</string>
+    <string name="legacy_south_4b6d1ad">ZUID</string>
+    <string name="legacy_sun_tracking_5fd65e2b">ZON VOLGEN</string>
+    <string name="legacy_sw_a64">ZW</string>
+    <string name="legacy_west_2899af">WEST</string>
+
+    <!-- Source: feature/ridedashboard/widget/DashboardWidgetPickerScreen.kt -->
+    <string name="legacy_off_for_1_s_a8aabb23">Uit voor %1$s</string>
+    <string name="legacy_one_widget_pinned_on_1_s_9ab92ad6">Eén widget vast op %1$s</string>
+    <string name="legacy_rotating_on_1_s_c5e75b74">Rouleert op %1$s</string>
+    <string name="legacy_this_panel_cycles_through_the_1_d_ticked_widgets_3a2b2d0e">Dit paneel wisselt door de %1$d aangevinkte widgets.</string>
+    <string name="legacy_this_panel_shows_that_one_widget_and_never_rotat_f3acc606">Dit paneel toont die ene widget en rouleert nooit. Vink er nog een aan om de carrousel te starten.</string>
+    <string name="legacy_tick_widgets_below_to_build_this_panel_s_carouse_ab0f3111">Vink hieronder widgets aan om de carrousel van dit paneel te bouwen. Elk paneel heeft zijn eigen.</string>
+
+    <!-- Source: feature/ridedashboard/widget/SatelliteWidget.kt -->
+    <string name="legacy_2d_fix_weak_geometry_e5b0cd1f">2D-FIX  •  ZWAKKE GEOMETRIE</string>
+    <string name="legacy_3d_fix_navigation_ready_bff99e13">3D-FIX  •  NAVIGATIE KLAAR</string>
+    <string name="legacy_scan_26be7d">SCAN</string>
+    <string name="legacy_searching_for_satellites_f009ee35">ZOEKEN NAAR SATELLIETEN</string>
+
+    <!-- Source: feature/ridedashboard/widget/SpeedGaugeWidget.kt -->
+    <string name="legacy_gnss_ok_35ac4b15">GNSS OK</string>
+    <string name="legacy_n_4e">N</string>
+    <string name="legacy_w_57">W</string>
+
+    <!-- Source: feature/ridedashboard/widget/TripMetricsWidget.kt -->
+    <string name="legacy_session_live_5f7f2456">SESSIE LIVE</string>
+
+    <!-- Source: feature/settings/SettingsScreen.kt -->
+    <string name="legacy_capture_84285f26">Vastleggen</string>
+    <string name="legacy_capturing_561c2223">Vastleggen…</string>
+    <string name="legacy_recalibrate_ceebf5d4">Opnieuw kalibreren</string>
+
+    <!-- Source: feature/trips/TripLibraryUi.kt -->
+    <string name="legacy_enhanced_9c6c8376">VERBETERD</string>
+    <string name="legacy_gps_only_e6f03982">ALLEEN GPS</string>
+         description; rendered outside the app's own Compose runtime, so it is a plain string
+         resource rather than a motoHubText() call). -->
+    <string name="handlebar_hid_capture_description">Laat MOTO-HUB D-pad-drukken lezen van een Bluetooth-HID-stuurafstandsbediening zolang bij de instellingen voor Stuurknoppen de HID-modus is gekozen.</string>
+
+    <!-- ==================================================================
+         Handlebar HID mode, phone-only Android Auto and the teach
+         prerequisite dialog (PR #8, rebased 2026-08-18).
+         ================================================================== -->
+    <string name="legacy_android_auto_isn_t_running_9f167e30">Android Auto draait niet</string>
+    <string name="legacy_teaching_the_handlebar_needs_a_live_android_auto_697217d0">Het stuur aanleren vereist een lopende Android Auto-sessie om drukken vast te leggen. Verbind met de motor of start hem zonder T-Box op deze telefoon.</string>
+    <string name="legacy_connect_to_1_s_579387aa">Verbinden met %1$s</string>
+    <string name="legacy_start_on_this_phone_no_t_box_f1bcc79f">Starten op deze telefoon (geen T-Box)</string>
+    <string name="legacy_bluetooth_is_off_turn_it_on_then_pair_the_remote_356459fc">Bluetooth staat uit — zet het aan en koppel daarna de afstandsbediening als toetsenbord.</string>
+    <string name="legacy_allow_bluetooth_access_so_the_app_can_read_the_r_bf160fa2">Sta Bluetooth-toegang toe zodat de app de toetsaanslagen van de afstandsbediening kan lezen.</string>
+    <string name="legacy_bluetooth_is_on_a_hid_remote_doesn_t_show_up_her_77795af8">Bluetooth staat aan. Een HID-afstandsbediening verschijnt hier niet als verbonden apparaat — worden de drukken nog steeds niet herkend, controleer dan of hij in de Bluetooth-systeeminstellingen is gekoppeld en of Toegankelijkheid aanstaat.</string>
+    <string name="legacy_or_right_now_without_the_t_box_21ba0502">OF NU METEEN, ZONDER DE T-BOX</string>
+    <string name="legacy_android_auto_straight_to_your_phone_f0cc540c">Android Auto — rechtstreeks naar je telefoon</string>
+    <string name="legacy_input_protocol_8ff4fe4e">INVOERPROTOCOL</string>
+    <string name="legacy_most_dashboards_send_buttons_as_avrcp_media_keys_6e1dd82c">De meeste displays sturen knoppen als AVRCP-mediatoetsen — laat dit op AVRCP staan. Kies HID alleen als de afstandsbediening zich als Bluetooth-toetsenbord koppelt en de drukken hieronder nooit aankomen.</string>
+    <string name="legacy_hid_mode_also_needs_moto_hub_s_accessibility_ser_c0cdf4cc">Voor de HID-modus moet ook de Toegankelijkheidsservice van MOTO-HUB aanstaan, anders worden de drukken niet gezien.</string>
+    <string name="legacy_open_accessibility_settings_a01c954b">Toegankelijkheidsinstellingen openen</string>
+    <string name="legacy_turn_on_moto_hub_so_handlebar_presses_reach_the__b41c5310">Zet MOTO-HUB aan zodat stuurdrukken de app vanuit elk scherm bereiken</string>
+    <string name="legacy_was_moto_hub_s_switch_greyed_out_android_blocks__b5233420">Was de schakelaar van MOTO-HUB grijs? Android blokkeert hem voor apps die niet uit een store zijn geïnstalleerd, en MOTO-HUB wordt van GitHub gedownload. Open App-info, tik rechtsboven op ⋮, kies \"Beperkte instellingen toestaan\", kom terug en zet hem aan.</string>
+    <string name="legacy_open_app_info_7c77c863">App-info openen</string>
+    <string name="legacy_where_allow_restricted_settings_lives_8f29fea1">Waar \"Beperkte instellingen toestaan\" staat</string>
+    <string name="legacy_avrcp_media_keys_f50e20c7">AVRCP (mediatoetsen)</string>
+    <string name="legacy_hid_d_pad_a247f04a">HID (D-pad)</string>
+    <string name="legacy_default_the_dashboard_sends_bluetooth_media_key__ccbdfbf7">Standaard. Het display stuurt Bluetooth-mediatoetsopdrachten voor afspelen/pauzeren, track en volume.</string>
+    <string name="legacy_for_remotes_that_pair_as_a_bluetooth_keyboard_an_25055a66">Voor afstandsbedieningen die zich als Bluetooth-toetsenbord koppelen en D-pad-drukken sturen. Vereist dat de Toegankelijkheidsservice van MOTO-HUB hieronder wordt ingeschakeld.</string>
+
+    <!-- External display service (USB AOA) - notification channel and ongoing notification -->
+    <string name="legacy_moto_hub_external_display_streaming_1be823ca">MOTO-HUB-streaming naar extern scherm</string>
+    <string name="legacy_streaming_to_external_display_via_usb_ab5c31c6">Streamen naar extern scherm via USB</string>
+    <string name="legacy_stop_external_display_c050e9ab">Extern scherm stoppen</string>
+    <string name="legacy_aap_accessory_probe_running_bcf6ccd1">AAP-accessoiretest actief</string>
+
+    <!-- About screen -->
+    <string name="legacy_your_phone_your_motorcycle_display_c5956fcb">Jouw telefoon.\nJouw motordisplay.</string>
+    <string name="legacy_follow_development_join_our_community_report_iss_b8b8fffa">Volg de ontwikkeling, sluit je aan bij onze community, meld problemen en download releases.</string>
+    <string name="legacy_moto_hub_is_an_independent_project_it_is_not_aff_9e4c2633">MOTO-HUB is een onafhankelijk project. Het is niet verbonden aan, goedgekeurd door of gesponsord door Carbit, CFMOTO, enige andere fabrikant wiens display EasyConn gebruikt, Google of Android Auto. Alle productnamen en merken behoren toe aan hun respectieve eigenaren.</string>
+    <string name="legacy_moto_hub_is_an_experimental_proof_of_concept_not_34b4b321">MOTO-HUB is een experimenteel proof of concept, geen product van productiekwaliteit.</string>
+    <string name="legacy_development_and_testing_happen_on_a_cfmoto_700mt_ac58afbf">Ontwikkeling en tests vinden plaats op een CFMOTO 700MT-ADV-display met OnePlus 13 / Galaxy Z Fold4. Andere motoren, merken, T-Box-firmwareversies en telefoons zijn hier ongetest: verwacht afwijkend gedrag, herhaalpogingen of helemaal geen verbinding. Toont het display een koppelings-QR-code, dan is een poging het waard.</string>
+    <string name="legacy_do_not_rely_on_it_as_your_only_source_of_critica_39775433">Vertrouw er niet op als je enige bron van kritieke navigatie. Stel de navigatie stilstaand in en gebruik de software op eigen risico.</string>
+
+    <!-- Garage - hero tiles -->
+    <string name="legacy_scan_motorcycle_qr_code_cc47d360">QR-code van de motor scannen</string>
+    <string name="legacy_point_your_camera_at_the_t_box_sticker_1fc1811">Richt je camera op de T-Box-sticker</string>
+    <string name="legacy_no_qr_manual_setup_e8495cc4">Geen QR? Handmatige installatie</string>
+    <string name="legacy_type_the_network_in_yourself_b35606b3">Voer het netwerk zelf in</string>
+    <string name="legacy_scan_its_t_box_qr_code_ca4d32e3">De T-Box-QR-code scannen</string>
+    <string name="legacy_no_qr_manual_1dd2a7a7">Geen QR? Handmatig</string>
+    <string name="legacy_type_the_network_in_b00b50ec">Het netwerk invoeren</string>
+    <string name="legacy_used_by_phone_only_display_modes_without_a_t_box_13ed383e">Wordt gebruikt door weergavemodi die zonder T-Box alleen op de telefoon draaien</string>
+    <string name="legacy_talk_to_a_second_phone_over_your_own_hotspot_2aec1606">Praat via je eigen hotspot met een tweede telefoon</string>
+    <string name="legacy_default_settings_a0578342">Standaardinstellingen</string>
+    <string name="legacy_group_intercom_c81733c6">Groepsintercom</string>
+
+    <!-- Motorcycle details - photo and Android Auto format buttons (short labels) -->
+    <string name="legacy_add_photo_203b2dd3">Foto toevoegen</string>
+    <string name="legacy_change_photo_ad0735e2">Foto wijzigen</string>
+    <string name="legacy_motorcycle_photo_4fd6c703">Motorfoto</string>
+    <string name="legacy_fit_10ff1">PASSEND</string>
+    <string name="legacy_stretch_baa072e5">UITREKKEN</string>
+    <string name="legacy_crop_1fb290">BIJSNIJDEN</string>
+
+    <!-- T-Box capability inspector - section titles and row labels -->
+    <string name="legacy_a_read_only_view_of_data_observed_directly_from__eb0959e6">Een alleen-lezen weergave van gegevens die rechtstreeks van deze T-Box zijn waargenomen.</string>
+    <string name="legacy_wi_fi_network_68c4e1ac">Wifinetwerk</string>
+    <string name="legacy_easyconn_endpoint_f9ecbf07">EasyConn-endpoint</string>
+    <string name="legacy_nsd_package_bfb67045">NSD-pakket</string>
+    <string name="legacy_last_discovered_a02851f2">Laatst gevonden</string>
+    <string name="legacy_diagnostics_54322d8c">DIAGNOSTIEK</string>
+    <string name="legacy_if_easyconn_discovery_keeps_failing_briefly_reco_b8d938f8">Als de EasyConn-detectie blijft mislukken, maak dan kort opnieuw verbinding met deze T-Box en test rechtstreeks de bekende poorten (10915-10935) om te zien welke daadwerkelijk antwoordt.</string>
+    <string name="legacy_display_8e70a4a2">SCHERM</string>
+    <string name="legacy_tft_capture_area_ad3b6865">TFT-opnamegebied</string>
+    <string name="legacy_orientation_d9c9db0">Oriëntatie</string>
+    <string name="legacy_reported_dpi_4b722c90">Gemelde dpi</string>
+    <string name="legacy_dpi_mode_9e4a5ea6">Dpi-modus</string>
+    <string name="legacy_screen_type_5d60ca4e">Schermtype</string>
+    <string name="legacy_reported_identity_b41296b">GEMELDE IDENTITEIT</string>
+    <string name="legacy_head_unit_name_1d44c987">Naam van de head unit</string>
+    <string name="legacy_vehicle_brand_1ca30d73">Voertuigmerk</string>
+    <string name="legacy_vehicle_model_1d3cbd15">Voertuigmodel</string>
+    <string name="legacy_these_values_are_shown_exactly_as_reported_by_th_16427b8c">Deze waarden worden precies zo getoond als de T-Box ze meldt. MOTO-HUB leidt uit de QR-code of de netwerknaam geen motormodel af.</string>
+    <string name="legacy_software_protocol_2108716b">SOFTWARE &amp; PROTOCOL</string>
+    <string name="legacy_pxc_version_5fba84f3">PXC-versie</string>
+    <string name="legacy_sdk_version_aacf3ed2">SDK-versie</string>
+    <string name="legacy_software_version_8135c77f">Softwareversie</string>
+    <string name="legacy_version_code_301c55">Versiecode</string>
+    <string name="legacy_reported_package_ec9e7619">Gemeld pakket</string>
+    <string name="legacy_product_type_42ccc3eb">Producttype</string>
+    <string name="legacy_transport_type_33b665f1">Transporttype</string>
+    <string name="legacy_function_mask_a68c5a14">Functiemasker</string>
+    <string name="legacy_wi_fi_socket_timeout_c3c69476">Wifi-sockettime-out</string>
+    <string name="legacy_feature_flags_3e60189d">FEATURE-FLAGS</string>
+    <string name="legacy_screen_mirroring_3102b12f">Schermmirroring</string>
+    <string name="legacy_screen_touch_4eb406ab">Schermaanraking</string>
+    <string name="legacy_overlay_touch_d474eb4f">Overlay-aanraking</string>
+    <string name="legacy_mirror_reconnect_e70c0c56">Mirroring opnieuw verbinden</string>
+    <string name="legacy_landscape_adaptive_4f69625b">Liggend adaptief</string>
+    <string name="legacy_socket_authentication_94d326a5">Socketauthenticatie</string>
+    <string name="legacy_microphone_c888754a">Microfoon</string>
+    <string name="legacy_hid_input_9c332ccd">HID-invoer</string>
+    <string name="legacy_third_party_apps_a5fc13b2">Apps van derden</string>
+    <string name="legacy_phone_signal_e87f95ba">Telefoonsignaal</string>
+    <string name="legacy_time_synchronization_62f3fb2d">Tijdsynchronisatie</string>
+    <string name="legacy_bluetooth_calls_f80c25c3">Bluetooth-gesprekken</string>
+    <string name="legacy_sensitive_client_info_fields_are_intentionally_e_4b966321">Gevoelige CLIENT_INFO-velden worden bewust niet opgeslagen en niet getoond.</string>
+    <string name="legacy_capability_report_captured_65a39462">Capaciteitsrapport vastgelegd</string>
+    <string name="legacy_t_box_discovered_cd525276">T-Box gevonden</string>
+    <string name="legacy_no_observations_yet_d99ce56e">Nog geen waarnemingen</string>
+    <string name="legacy_client_info_was_captured_during_an_easyconn_hand_f72a40e8">CLIENT_INFO is vastgelegd tijdens een EasyConn-handshake.</string>
+    <string name="legacy_start_mirroring_or_android_auto_once_to_capture__cd900a4a">Start één keer mirroring of Android Auto om CLIENT_INFO vast te leggen.</string>
+    <string name="legacy_connect_this_motorcycle_then_start_mirroring_or__176c21dd">Verbind deze motor en start daarna één keer mirroring of Android Auto.</string>
+    <string name="legacy_wait_288975">WACHTEN</string>
+    <string name="legacy_observed_1_s_43b8d8b3">Waargenomen %1$s</string>
+    <string name="legacy_not_reported_7aaeba0">Niet gemeld</string>
+    <string name="legacy_supported_a4e9e48e">ONDERSTEUND</string>
+    <string name="legacy_not_supported_14e0b361">NIET ONDERSTEUND</string>
+    <string name="legacy_not_reported_108c5fa0">NIET GEMELD</string>
+
+    <!-- QR pairing - photo fallback dialog and live scanner -->
+    <string name="legacy_analyzing_qr_photo_aa205a9c">QR-foto wordt geanalyseerd…</string>
+    <string name="legacy_removing_display_patterns_and_trying_qr_recognit_b1c3a1e8">Weergavepatronen worden verwijderd en QR-herkenning wordt geprobeerd</string>
+    <string name="legacy_attempt_1_d_of_2_d_e7c367b5">Poging %1$d van %2$d</string>
+    <string name="legacy_flash_on_64bdb02f">Flits AAN</string>
+    <string name="legacy_flash_40cffd0">Flits</string>
+    <string name="legacy_zoom_1_s_d659e688">Zoom %1$s</string>
+    <string name="legacy_max_12d44">Max</string>
+    <string name="legacy_tap_the_qr_code_to_focus_use_zoom_if_it_is_small_2607a78c">Tik op de QR-code om scherp te stellen • Gebruik zoom als hij klein is</string>
+
+    <!-- Safety disclaimer shown on first launch -->
+    <string name="legacy_safety_warning_243ef82e">VEILIGHEIDSWAARSCHUWING</string>
+    <string name="legacy_riding_requires_your_full_attention_never_intera_96038a24">Rijden vraagt je volledige aandacht. Bedien MOTO-HUB, Android Auto, navigatie, mirroring, tochtopname of enige bediening op het scherm nooit terwijl de motor rijdt.</string>
+    <string name="legacy_configure_and_verify_everything_only_while_parke_57e1b31b">Stel alles alleen stilstaand in en controleer het daar. Gebruik deze applicatie alleen in een volledig veilige en gecontroleerde situatie. Zijn de omstandigheden niet volledig veilig, gebruik hem dan niet.</string>
+    <string name="legacy_moto_hub_is_not_a_safety_device_and_cannot_preve_a3d43f2f">MOTO-HUB is geen veiligheidsapparaat en kan afleiding, ongevallen, letsel of schade niet voorkomen. Jij bent als enige verantwoordelijk voor veilig rijden en het naleven van alle geldende wetten.</string>
+    <string name="legacy_i_understand_do_not_show_this_warning_again_e4526192">Ik begrijp het — deze waarschuwing niet meer tonen</string>
+
+    <!-- GitHub update dialog -->
+    <string name="legacy_downloading_fe585f4">Downloaden...</string>
+    <string name="legacy_download_and_install_508990da">Downloaden en installeren</string>
+
+    <!-- Home and shared UI -->
+    <string name="legacy_no_motorcycle_b58a6930">Geen motor</string>
+    <string name="legacy_stop_streaming_3eba75e4">Streamen stoppen</string>
+    <string name="legacy_touch_the_preview_to_control_android_auto_91609ae0">Raak het voorbeeld aan om Android Auto te bedienen</string>
+
+    <!-- Handlebar mapping - action short labels, family headers and calibration hints -->
+    <string name="legacy_up_abb">Omhoog</string>
+    <string name="legacy_down_2098c2">Omlaag</string>
+    <string name="legacy_left_241427">Links</string>
+    <string name="legacy_right_4b4d1fc">Rechts</string>
+    <string name="legacy_ok_9dc">OK</string>
+    <string name="legacy_place_1_45c34f38">Plaats 1</string>
+    <string name="legacy_place_2_45c34f39">Plaats 2</string>
+    <string name="legacy_place_3_45c34f3a">Plaats 3</string>
+    <string name="legacy_move_the_cursor_78e625b4">DE CURSOR VERPLAATSEN</string>
+    <string name="legacy_system_92af662f">SYSTEEM</string>
+    <string name="legacy_navigate_to_f20c4b8a">NAVIGEREN NAAR</string>
+    <string name="legacy_this_button_has_no_hold_skipping_automatically_44873c53">Deze knop heeft geen vasthouden - wordt automatisch overgeslagen.</string>
+    <string name="legacy_that_was_a_single_press_press_twice_quickly_for__e774e0f2">Dat was één druk - druk twee keer snel voor dubbel.</string>
+    <string name="legacy_that_was_a_quick_tap_press_and_hold_a_moment_lon_5b9c9d4d">Dat was een korte tik - druk en houd iets langer vast.</string>
+    <string name="legacy_open_hotspot_settings_7d1f3d4a">Hotspot-instellingen openen</string>
+    <!-- The "MOTO-HUB is still looking" notification shown while a connection attempt runs,
+         and the hosted-network wording that tells the rider not to close the app. %1$s is
+         the motorcycle network name. -->
+    <string name="legacy_moto_hub_connection_progress_c260af34">MOTO-HUB-verbindingsvoortgang</string>
+    <string name="legacy_looking_for_1_s_9983a22f">Zoeken naar %1$s</string>
+    <string name="legacy_connecting_to_1_s_2f10e3b8">Verbinden met %1$s</string>
+    <string name="legacy_keep_moto_hub_open_closing_it_stops_the_search_54ec507">Laat MOTO-HUB open - sluiten stopt de zoektocht.</string>
+    <string name="legacy_hotspot_is_up_searching_it_for_the_dashboard_thi_caab4cd3">De hotspot draait. Er wordt op gezocht naar het display - dat kan tot 90 seconden duren, laat MOTO-HUB dus open.</string>
+    <!-- Asked once per video format tried, after a session that looked healthy from the phone:
+         only the rider can see whether the dashboard actually displayed it. %1$s is the
+         motorcycle name. -->
+    <string name="legacy_did_it_show_up_on_the_dashboard_f341c05">Verscheen het op het display?</string>
+    <string name="legacy_last_time_you_connected_to_1_s_everything_looked_46fc9a09">Toen je voor het laatst verbond met %1$s zag vanaf deze telefoon alles er goed uit. MOTO-HUB kan het scherm van het display niet zien, dus dit is het ene ding dat het je moet vragen.</string>
+    <string name="legacy_if_it_stayed_on_the_pairing_screen_moto_hub_will_40398b69">Bleef het op het koppelscherm staan, dan probeert MOTO-HUB bij de volgende rit een ander videoformaat en gaat door tot er een werkt.</string>
+    <string name="legacy_yes_i_saw_it_625527f4">Ja, ik zag het</string>
+    <string name="legacy_no_nothing_appeared_f92c88fc">Nee, er verscheen niets</string>
+    <!-- Shown when the video-format search cannot progress because every session so far ran the
+         Ride Dashboard, which sends its own format. -->
+    <string name="legacy_the_video_format_search_is_waiting_ac28c9a">Het zoeken naar een videoformaat wacht</string>
+    <string name="legacy_moto_hub_is_still_looking_for_a_video_format_you_44b4c53c">MOTO-HUB zoekt nog naar een videoformaat dat je display kan tonen, maar kan er maar één testen terwijl Android Auto draait - het Ride Dashboard stuurt altijd zijn eigen formaat.</string>
+    <string name="legacy_connect_once_with_android_auto_and_the_search_mo_71871380">Verbind één keer met Android Auto, dan gaat het zoeken vanzelf verder.</string>
+    <string name="legacy_got_it_7f79855f">Begrepen</string>
+
+    <!-- ===========================================================
+         Catalogue sweep, 2026-08-24: strings this worktree draws but had no
+         identifier for. The photo-picker values come from the pro-poc
+         catalogues, where the same source strings are already translated;
+         the About paragraph is this worktree's own, rewritten when CORE
+         dropped to Android 12.
+         ================================================================== -->
+
+    <!-- Source: MainActivity.kt -->
+    <string name="legacy_camera_permission_is_required_to_take_a_photo_951c5abe">Cameratoestemming is vereist om een foto te maken</string>
+
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_browse_files_e6b23981">Bestanden doorbladeren</string>
+    <string name="legacy_choose_from_gallery_1d40e025">Kiezen uit de galerij</string>
+    <string name="legacy_downloads_cloud_drives_and_any_other_folder_eb4e2c46">Downloads, cloudopslag en elke andere map.</string>
+    <string name="legacy_open_the_camera_and_shoot_it_now_75ae0eed">Open de camera en maak hem nu.</string>
+    <string name="legacy_pick_one_of_your_photos_913c1c70">Kies een van je foto\'s.</string>
+    <string name="legacy_take_a_photo_cefc733a">Een foto maken</string>
+
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_moto_hub_connects_an_android_12_phone_to_a_motor_b791c32e">MOTO-HUB verbindt een telefoon met Android 12+ met een motordisplay dat via EasyConn koppelt — de Carbit-software die meerdere fabrikanten meeleveren, CFMOTO daaronder. Het ondersteunt scherm- en app-mirroring, Android Auto-projectie, opgeslagen motorprofielen en diagnostiek op het apparaat.</string>
+
+    <!-- Source: feature/controls — a controller button stands in for a handlebar press -->
+    <string name="legacy_handlebar_presses_32db65bc">STUURKNOPDRUKKEN</string>
+    <string name="legacy_backward_hold_left_72d8761e">Terug vasthouden - Links</string>
+    <string name="legacy_forward_hold_right_3f058b83">Vooruit vasthouden - Rechts</string>
+
+    <!-- Source: feature/diagnostics/BleExplorerScreen.kt — the Bluetooth LE workbench -->
+    <string name="legacy_bluetooth_le_explorer_2ab1f074">Bluetooth LE-verkenner</string>
+    <string name="legacy_find_any_bluetooth_le_device_open_it_and_see_wha_ff9d191c">Vind elk Bluetooth LE-apparaat, open het en zie waaruit het echt bestaat: zijn services, zijn kenmerken en elke byte die het verstuurt. Gemaakt voor afstandsbedieningen die niets over zichzelf bekendmaken – druk op hun knoppen terwijl je geabonneerd bent en het protocol schrijft zichzelf in het logboek.</string>
+    <string name="legacy_devices_1_d_c9f468d8">APPARATEN (%1$d)</string>
+    <string name="legacy_filter_by_name_address_or_service_5c4953c4">Filteren op naam, adres of service</string>
+    <string name="legacy_not_connectable_a36d7984">  - niet verbindbaar</string>
+    <string name="legacy_services_99327804">services: </string>
+    <string name="legacy_manufacturer_5ba47ab7">fabrikant: </string>
+    <string name="legacy_service_data_703f501b">servicegegevens: </string>
+    <string name="legacy_connected_839202e9">VERBONDEN</string>
+    <string name="legacy_rediscover_cece7f3c">Opnieuw ontdekken</string>
+    <string name="legacy_mtu_517_7d540d89">MTU 517</string>
+    <string name="legacy_read_rssi_318ccc81">RSSI lezen</string>
+    <string name="legacy_read_26cdb6">Lezen</string>
+    <string name="legacy_write_4ff67bf">Schrijven</string>
+    <string name="legacy_write_to_1_s_716e199f">Schrijven naar %1$s</string>
+    <string name="legacy_bytes_in_hex_01_ff_0a_01ff0a_and_0x01_0xff_all_w_69a0e8b2">Bytes in hex – \"01 FF 0A\", \"01ff0a\" en \"0x01,0xFF\" werken allemaal. Dit schrijft rechtstreeks naar het apparaat: op sommige hardware verandert een verkeerde waarde instellingen die moeilijk terug te draaien zijn.</string>
+    <string name="legacy_hex_11afb">Hex</string>
+    <string name="legacy_not_valid_hex_yet_f28e24dc">Nog geen geldige hex.</string>
+    <string name="legacy_1_d_byte_s_f2d64482">%1$d byte(s)</string>
+    <string name="legacy_no_response_bdcb77a0">Zonder antwoord</string>
+    <string name="legacy_traffic_eb2daddd">VERKEER</string>
+    <string name="legacy_nothing_yet_dc65bed9">Nog niets.</string>
+    <string name="legacy_every_line_here_is_also_in_the_application_log_s_f3e682dd">Elke regel hier staat ook in het applicatielogboek, zodat een sessie in een diagnoserapport kan worden verstuurd.</string>
+    <string name="legacy_dash_clock_lab_a1a0638d">Lab voor de dashboardklok</string>
+    <string name="legacy_experiments_for_dashes_that_reset_the_clock_zont_a4c75a39">Experimenten voor dashboards die de klok resetten (Zontes, Voge)</string>
+    <string name="legacy_scan_connect_and_read_any_ble_device_byte_by_byt_c47fb770">Scan, verbind en lees elk BLE-apparaat byte voor byte</string>
+
+    <!-- Source: strings the extractor used to miss inside if/else expressions -->
+    <string name="legacy_stop_scanning_93cac2ef">Stop met scannen</string>
+    <string name="legacy_scan_for_devices_883edf83">Zoek naar apparaten</string>
+    <string name="legacy_showing_named_devices_only_18320ef1">Alleen apparaten met een naam</string>
+    <string name="legacy_showing_every_device_ab347b96">Alle apparaten</string>
+    <string name="legacy_nothing_yet_a_remote_that_sleeps_only_advertises_231ea04a">Nog niets. Een slapende afstandsbediening zendt maar een paar seconden na een druk op de knop – druk op een knop en houd hem dichtbij.</string>
+    <string name="legacy_start_a_scan_to_see_what_is_around_bd69ed5b">Start een scan om te zien wat er in de buurt is.</string>
+    <string name="legacy_unsubscribe_862dd2b1">Afmelden</string>
+    <string name="legacy_subscribe_9621fd2a">Abonneren</string>
+
+    <!-- Source: feature/controls — actions that drive the Ride Dashboard itself -->
+    <string name="legacy_dashboard_next_panel_8f5432b1">Dashboard: volgend paneel</string>
+    <string name="legacy_dashboard_fullscreen_map_1bd08691">Dashboard: kaart schermvullend</string>
+    <string name="legacy_dashboard_zoom_the_map_on_me_4f78353">Dashboard: kaart op mij inzoomen</string>
+    <string name="legacy_dashboard_change_the_left_widget_2ac18bf8">Dashboard: linker widget wisselen</string>
+    <string name="legacy_dashboard_change_the_right_widget_e40e68ad">Dashboard: rechter widget wisselen</string>
+    <string name="legacy_panel_33b634ef">Paneel +</string>
+    <string name="legacy_map_full_b08caf3">Kaart vol</string>
+    <string name="legacy_zoom_me_5ca904e5">Op mij</string>
+    <string name="legacy_widget_l_b0744190">Widget L</string>
+    <string name="legacy_widget_r_b0744196">Widget R</string>
+
+    <!-- Source: feature/controls — actions that drive the rider's music -->
+    <string name="legacy_music_464f605">MUZIEK</string>
+    <string name="legacy_music_play_pause_f246dd44">Muziek: afspelen / pauze</string>
+    <string name="legacy_music_next_track_516d3c09">Muziek: volgend nummer</string>
+    <string name="legacy_music_previous_track_dab94b8d">Muziek: vorig nummer</string>
+    <string name="legacy_music_volume_up_f45c31d6">Muziek: volume omhoog</string>
+    <string name="legacy_music_volume_down_4e0f651d">Muziek: volume omlaag</string>
+    <string name="legacy_play_25ff54">Afspelen</string>
+    <string name="legacy_next_24ff13">Volgende</string>
+    <string name="legacy_previous_b7ee1f17">Vorige</string>
+    <string name="legacy_vol_4eff3fe">Vol +</string>
+    <string name="legacy_vol_4f015e5">Vol −</string>
+
+    <!-- Source: feature/controls — the three input sources, and which one is live -->
+    <string name="legacy_motorcycle_handlebar_dc90fcfc">MOTORSTUUR</string>
+    <string name="legacy_android_auto_17_4_removed_the_way_an_app_can_ask_217ec1b2">Android Auto 17.4 heeft de manier verwijderd waarop een app om projectie kan vragen. MOTO-HUB probeert het nog steeds, en op oudere versies werkt het — lukt het niet, dan starten de vier stappen hieronder Android Auto via zijn eigen ontwikkelaarsmenu. Dit is het deel dat werkt als niets anders werkt, en je hoeft niets te installeren.</string>
+    <string name="legacy_start_android_auto_yourself_3b0dffe1">START ANDROID AUTO ZELF</string>
+    <string name="legacy_open_the_android_auto_app_s_settings_scroll_to_t_4ef36207">Open de instellingen van de Android Auto-app, scroll helemaal naar beneden en tik tien keer op \"Versie\". Dat ontgrendelt de ontwikkelaarsopties — dat hoef je maar één keer te doen.</string>
+    <string name="legacy_stay_on_that_same_android_auto_settings_screen_o_2c08cebc">Blijf op datzelfde instellingenscherm van Android Auto, open rechtsboven het driepuntsmenu en kies \"Head unit-server starten\". Het staat in dat menu, niet in de ontwikkelaarsinstellingen. Dit is de stap die het doet.</string>
+    <string name="legacy_while_you_are_in_there_629f07a5">NU JE TOCH BEZIG BENT</string>
+    <string name="legacy_open_developer_settings_from_that_same_screen_an_4629699">Open vanaf datzelfde scherm de ontwikkelaarsinstellingen en zet \"Nieuwe auto\'s aan Android Auto toevoegen\" aan (oudere versies noemen het \"Onbekende bronnen\"). Op Android Auto 17.2 en ouder is die schakelaar op zichzelf vaak genoeg. Vanaf 17.3 niet meer — dan is het stap 2 — dus stop hier niet als Android Auto nog steeds niet start.</string>
+    <string name="legacy_start_head_unit_server_da7b299f">Start de \"head unit-server\"</string>
+    <string name="legacy_the_three_dot_menu_at_the_top_right_of_android_a_d6625ac7">het driepuntsmenu rechtsboven in de instellingen van Android Auto</string>
+    <string name="legacy_unlock_android_auto_s_developer_options_first_op_2865efda">Ontgrendel eerst de ontwikkelaarsopties van Android Auto: open zijn instellingen, scroll helemaal naar beneden en tik tien keer op \"Versie\".</string>
+    <string name="legacy_enable_add_new_cars_to_android_auto_75bf90fa">Zet \"Nieuwe auto\'s aan Android Auto toevoegen\" aan</string>
+    <string name="legacy_android_auto_then_developer_settings_f55db1c8">Android Auto, dan de ontwikkelaarsinstellingen</string>
+    <string name="legacy_android_auto_is_not_running_start_a_session_from_e803c9ee">Android Auto draait niet. Start een sessie vanaf Home.</string>
+    <string name="legacy_preparing_android_auto_db146bea">Android Auto wordt voorbereid…</string>
+    <string name="legacy_waiting_for_android_auto_to_start_projecting_b7646bd0">Wachten tot Android Auto begint te projecteren…</string>
+    <string name="legacy_live_preview_touch_enabled_73752c4b">Live-voorbeeld · aanraken actief</string>
+    <string name="legacy_google_android_auto_never_connected_to_moto_hub__bd46b5a3">Google Android Auto heeft nooit verbinding gemaakt met MOTO-HUB. Nieuwere versies van Android Auto hebben de manier verwijderd waarop apps om projectie vragen, dus start het vanuit Android Auto zelf. Open de instellingen van de Android Auto-app, scroll helemaal naar beneden en tik tien keer op \"Versie\" om de ontwikkelaarsopties te ontgrendelen. Open daarna op datzelfde instellingenscherm rechtsboven het driepuntsmenu en kies \"Head unit-server starten\" - dat menu staat op het gewone instellingenscherm van Android Auto, niet in de ontwikkelaarsinstellingen. Laat MOTO-HUB open: het verbindt vanzelf binnen een paar seconden, en je kunt de server voor de volgende keer laten draaien.</string>
+    <string name="legacy_google_android_auto_took_moto_hub_s_request_and__ae0978d0">Google Android Auto heeft het verzoek van MOTO-HUB aangenomen en vervolgens genegeerd. Dat doet het met een head unit die het niet hoeft te vertrouwen. Open de instellingen van de Android Auto-app, scroll helemaal naar beneden en tik tien keer op \"Versie\" om de ontwikkelaarsopties te ontgrendelen, open de ontwikkelaarsinstellingen en zet \"Nieuwe auto\'s aan Android Auto toevoegen\" aan (oudere versies noemen het \"Onbekende bronnen\"), en start Android Auto daarna opnieuw vanuit MOTO-HUB. Gebeurt er nog steeds niets, ga dan terug naar het instellingenscherm van Android Auto en gebruik het driepuntsmenu rechtsboven: \"Head unit-server starten\".</string>
+    <string name="legacy_google_android_auto_took_moto_hub_s_request_and__3e12afc0">Google Android Auto heeft het verzoek van MOTO-HUB aangenomen en vervolgens genegeerd, en meer doet deze versie er niet mee: Android Auto 17.3 en nieuwer hebben de manier verwijderd waarop een app om projectie kan vragen. Start het in plaats daarvan vanuit Android Auto. Open de instellingen van de Android Auto-app, scroll helemaal naar beneden en tik tien keer op \"Versie\" om de ontwikkelaarsopties te ontgrendelen, en open dan rechtsboven op datzelfde scherm het driepuntsmenu en kies \"Head unit-server starten\". Laat MOTO-HUB open: het verbindt vanzelf binnen een paar seconden. Nu je er toch bent: \"Nieuwe auto\'s aan Android Auto toevoegen\" in de ontwikkelaarsinstellingen zou ook aan moeten staan.</string>
+    <string name="legacy_another_easyconn_session_is_already_using_the_lo_fa50b26f">Een andere EasyConn-sessie gebruikt de lokale verbindingspoorten al (10920-10922). Stop elke actieve MOTO-HUB-sessie, of forceer het stoppen van de eigen app van je motor (CFMOTO, Zontes Smart, Carbit Ride en de equivalenten van andere merken), en probeer de verbinding opnieuw.</string>
+    <string name="legacy_phone_wi_fi_is_off_turn_it_on_then_tap_connect_a_5fd21cc0">De wifi van de telefoon staat uit. Zet hem aan en tik opnieuw op Verbinden.</string>
+    <string name="legacy_phone_hotspot_is_off_turn_it_on_then_tap_connect_683a58f1">De hotspot van de telefoon staat uit. Zet hem aan en tik opnieuw op Verbinden.</string>
+    <string name="legacy_action_needed_a446e8df">ACTIE NODIG</string>
+    <string name="legacy_do_this_in_android_auto_9a49aaee">DOE DIT IN ANDROID AUTO</string>
+    <string name="legacy_show_me_how_73baf02b">Laat me zien hoe</string>
+    <string name="legacy_for_dashes_that_reset_their_clock_at_every_ignit_64c2ff15">Voor dashboards die hun klok bij elke contactcyclus resetten (vooral Zontes en Voge). Met het dashboard aan maakt het lab verbinding via Bluetooth, luistert mee, stuurt de tijd vervolgens in vijf verschillende vormen en registreert elke byte. Ga rijden, zet het contact uit en weer aan en deel het applicatielogboek: daarin staat welke vorm het dashboard heeft geaccepteerd.</string>
+    <string name="legacy_run_clock_experiments_8ad4688f">Klokexperimenten uitvoeren</string>
+    <string name="legacy_live_log_831d05f0">LIVE LOGBOEK</string>
+    <string name="legacy_nothing_yet_power_the_dash_on_then_run_the_exper_b1ec5c8f">Nog niets. Zet het dashboard aan en voer daarna de experimenten uit.</string>
+    <string name="legacy_moto_hub_closed_unexpectedly_30f439d7">MOTO-HUB is onverwacht afgesloten</string>
+    <string name="legacy_the_last_time_you_used_moto_hub_it_stopped_becau_8448d27c">De vorige keer stopte MOTO-HUB door een fout. Het versturen van het diagnostisch rapport is wat de ontwikkelaar laat uitzoeken waarom.</string>
+    <string name="legacy_the_report_contains_your_motorcycle_s_dashboard__f4208b9f">Het rapport bevat het dashboardmodel van je motor, je telefoonmodel, de Android- en Android Auto-versies, de geïnstalleerde MOTO-HUB-versies en het applicatielogboek inclusief de fout. Wachtwoorden, posities en hardware-adressen worden nooit meegestuurd.</string>
+    <string name="legacy_send_reports_automatically_from_now_on_7cdd2209">Rapporten vanaf nu automatisch versturen</string>
+    <string name="legacy_send_report_55908cac">Rapport versturen</string>
+    <string name="legacy_how_your_data_is_handled_ff77c87f">Hoe er met je gegevens wordt omgegaan</string>
+    <string name="legacy_not_now_e202d7e9">Niet nu</string>
+    <string name="legacy_help_improve_moto_hub_9bf5292c">Help MOTO-HUB verbeteren</string>
+    <string name="legacy_moto_hub_can_send_a_diagnostics_report_to_the_de_36cc6ba6">MOTO-HUB kan een diagnoserapport naar de ontwikkelaar sturen: het dashboardmodel van je motor, je telefoonmodel, de geïnstalleerde Android-, Android Auto- en MOTO-HUB-versies en het applicatielogboek. Wachtwoorden, posities en hardware-adressen worden nooit meegestuurd.</string>
+    <string name="legacy_reports_go_out_at_most_once_a_day_after_an_updat_6fc12b8d">Rapporten gaan hooguit eens per dag, na een update of na een crash de deur uit, en alleen via een verbinding met internettoegang. Je Support ID staat bij Instellingen ▸ Diagnostiek, waar dit op elk moment aan of uit kan.</string>
+    <string name="legacy_send_reports_5c810947">Rapporten versturen</string>
+    <string name="legacy_diagnostics_privacy_notice_1f708f84">Privacyverklaring diagnostiek</string>
+    <string name="legacy_support_id_5239972c">Support-ID</string>
+    <string name="legacy_moto_hub_support_id_7149b87">MOTO-HUB Support-ID</string>
+    <string name="legacy_tap_to_copy_quote_it_when_asking_for_help_it_ide_edc7231">Tik om te kopiëren. Vermeld hem als je om hulp vraagt; hij identificeert deze telefoon en motor.</string>
+    <string name="legacy_support_id_copied_63da1e38">Support ID gekopieerd</string>
+    <string name="legacy_what_gets_sent_f4a13bbf">Wat er wordt verstuurd</string>
+    <string name="legacy_read_what_a_report_contains_then_choose_whether__e679dae">Lees wat een rapport bevat en kies daarna of je ze wilt versturen</string>
+    <string name="legacy_who_holds_your_reports_how_long_they_are_kept_an_ea54a6b7">Wie je rapporten bewaart, hoe lang ze worden bewaard en hoe je ze laat verwijderen</string>
+    <string name="legacy_send_diagnostics_now_9368c9ea">Diagnostiek nu versturen</string>
+    <string name="legacy_this_build_has_no_collector_configured_e224996">In deze build is geen collector geconfigureerd</string>
+    <string name="legacy_logging_is_off_the_log_would_end_at_1_s_c9d7198e">Registratie staat uit; het logboek zou eindigen op %1$s</string>
+    <string name="legacy_logging_is_off_there_is_no_log_to_send_eca8d32d">Registratie staat uit; er is geen logboek om te versturen</string>
+    <string name="legacy_send_diagnostics_automatically_880f35b7">Diagnostiek automatisch versturen</string>
+    <string name="legacy_sends_the_report_above_to_the_developer_at_most__8689def0">Stuurt het bovenstaande rapport hooguit eens per dag, na een update of na een crash naar de ontwikkelaar - alleen via een verbinding met internettoegang. Display- en telefoonmodellen, appversies en het applicatielogboek; nooit wachtwoorden, posities of hardwareadressen.</string>
+    <string name="legacy_logging_is_off_d9325d5a">REGISTRATIE STAAT UIT</string>
+    <string name="legacy_nothing_has_been_recorded_since_1_s_what_was_log_1be484ac">Sinds %1$s is er niets meer vastgelegd. Wat daarvoor is gelogd, blijft bewaard - registratie uitzetten stopt nieuwe regels, het verwijdert nooit de oude.</string>
+    <string name="legacy_nothing_has_been_recorded_and_there_is_no_earlie_dd873fa0">Er is niets vastgelegd, en er is ook geen eerder logboek.</string>
+    <string name="legacy_a_report_sent_now_carries_that_log_so_it_says_no_cb65d9dc">Een rapport dat je nu verstuurt bevat dat logboek en zegt dus niets over wat de app vandaag doet. Om een probleem te melden zet je Registratie inschakelen weer aan, laat je het opnieuw gebeuren en verstuur je dan.</string>
+    <string name="legacy_that_worked_keep_it_b0100883">Dat werkte - zo houden?</string>
+    <string name="legacy_your_dashboard_is_now_accepting_the_picture_on_t_a2e41389">Je dashboard accepteert het beeld nu met het profiel %1$s. Dit blijven gebruiken voor deze motor?</string>
+    <string name="legacy_you_have_just_found_out_something_moto_hub_could_5d173f67">Je hebt net iets ontdekt wat MOTO-HUB zelf niet kon uitzoeken: welk profiel dit dashboard echt accepteert. Door je logboek te versturen deel je dat, zodat de volgende rijder met jouw motor het meteen goed heeft.</string>
+    <string name="legacy_send_my_log_now_80f590fe">Mijn logboek nu versturen</string>
+    <string name="legacy_send_logs_automatically_from_now_on_1efdfbe9">Logboeken voortaan automatisch versturen</string>
+    <string name="legacy_keep_it_318f8786">Houden</string>
+    <string name="legacy_undo_284d04">Ongedaan maken</string>
+    <string name="legacy_try_another_profile_2632e907">Een ander profiel proberen</string>
+    <string name="legacy_the_connection_to_your_motorcycle_is_fine_the_da_6a78bba4">De verbinding met je motor is in orde - het dashboard weigert het beeld gewoon in de vorm waarin het wordt verstuurd. Een ander profiel verandert die vorm. Zodra je er een kiest, wordt meteen opnieuw verbonden, en als het dashboard het gaat tonen, vraagt MOTO-HUB of je het wilt houden.</string>
+    <string name="legacy_your_dashboard_is_not_showing_this_9765fbe3">JE DASHBOARD TOONT DIT NIET</string>
+    <string name="legacy_connected_but_the_picture_is_being_refused_tap_t_b17b1097">Verbonden, maar het beeld wordt geweigerd. Tik om een ander profiel te proberen.</string>
+    <string name="legacy_connected_not_displaying_53b322ca">VERBONDEN, GEEN BEELD</string>
+    <string name="legacy_your_dashboard_refused_1_d_of_the_picture_it_was_beaebc06">Je dashboard heeft %1$d%% van het verzonden beeld geweigerd (%2$d van %3$d frames).</string>
+    <string name="legacy_this_is_what_your_dashboard_reports_itself_to_be_8dfdffdd">Dit is wat je dashboard zelf zegt te zijn.</string>
+    <string name="legacy_speaks_the_same_protocol_your_motorcycle_is_alre_7a13c9ca">Spreekt hetzelfde protocol dat je motor al gebruikt.</string>
+    <string name="legacy_plain_settings_no_assumptions_a_good_thing_to_fa_3d3a2213">Eenvoudige instellingen, geen aannames - een goede terugvaloptie.</string>
+    <string name="legacy_an_experiment_for_one_dashboard_s_open_question__1eafa773">Een experiment voor de open vraag van één dashboard. Het doet mogelijk niets.</string>
+    <string name="legacy_navigation_active_on_tft_b6221bcf">Navigatie actief op het TFT</string>
+    <string name="legacy_tft_is_receiving_your_screen_56fd381">Het TFT ontvangt je scherm</string>
+    <string name="legacy_android_auto_is_waiting_for_one_step_from_you_31eacac3">Android Auto wacht op één stap van jou</string>
+    <string name="legacy_session_is_being_prepared_742c490a">Sessie wordt voorbereid</string>
+    <string name="legacy_button_presses_are_off_2952e766">KNOPDRUKKEN STAAN UIT</string>
+    <string name="legacy_moto_hub_advanced_owns_this_setting_and_writes_i_b8e328f7">Deze instelling hoort bij MOTO-HUB ADVANCED, dat de zijne hier overheen schrijft - zet hem daar aan, niet hier.</string>
+    <string name="legacy_turn_presses_back_on_9d506146">Knopdrukken weer aanzetten</string>
+    <string name="legacy_these_drive_the_ride_dashboard_so_they_do_nothin_d4d30d86">Deze bedienen het Ride Dashboard en doen dus niets zolang dat niet draait - een Android Auto-sessie alleen is niet genoeg.</string>
+    <string name="legacy_show_button_presses_on_the_dashboard_4ed2cd5e">Knopdrukken op het dashboard tonen</string>
+
+    <!-- Source: feature/controls — the handlebar page after the Bluetooth controller was removed -->
+    <string name="legacy_your_motorcycle_s_own_handlebar_drives_moto_hub__f19519f3">Het stuur van je motor bedient MOTO-HUB. Leer het één keer aan en geef daarna elke knop de actie die je wilt.</string>
+    <string name="legacy_presses_still_arrive_and_still_show_up_on_this_p_62dfa27d">Drukken komen nog steeds binnen en verschijnen nog steeds op deze pagina - er wordt alleen niets mee gedaan.</string>
+    <string name="legacy_every_handlebar_press_432fb397">Elke druk op het stuur </string>
+    <!-- Home: MOTO-HUB ADVANCED promo card and dialog -->
+    <string name="legacy_couldn_t_open_moto_hub_advanced_89c059e1">MOTO-HUB ADVANCED kon niet worden geopend.</string>
+    <string name="legacy_moto_hub_advanced_1cc3b73d">MOTO-HUB ADVANCED</string>
+    <string name="legacy_dashboard_navigation_and_trips_installed_on_this_7ffa5bb9">Dashboard, navigatie en tochten - geïnstalleerd op deze telefoon.</string>
+    <string name="legacy_free_companion_app_dashboard_navigation_trips_an_256e51cd">Gratis extra app: dashboard, navigatie, tochten en meer.</string>
+    <string name="legacy_open_259a6a">Openen</string>
+    <string name="legacy_see_what_it_adds_c8867b38">Bekijk wat het toevoegt</string>
+    <string name="legacy_a_second_free_app_that_installs_next_to_moto_hub_96f5853f">Een tweede gratis app die naast MOTO-HUB wordt geïnstalleerd en hetzelfde scherm verandert in een volwaardige boordcomputer. Extra hardware is niet nodig.</string>
+    <string name="legacy_ride_dashboard_gps_speed_live_map_and_trip_stats_e664cbab">Ride Dashboard - gps-snelheid, live kaart en tochtgegevens op de TFT</string>
+    <string name="legacy_navigation_search_motorcycle_routing_and_route_p_269dbf5a">Navigatie - zoeken, motorroutes en routevoorbeeld</string>
+    <string name="legacy_on_the_route_weather_fuel_prices_and_speed_camer_1ec23092">Onderweg - weer, brandstofprijzen en flitspalen</string>
+    <string name="legacy_trips_recording_replay_analysis_and_gpx_export_ec08e237">Tochten - opnemen, terugkijken, analyseren en GPX-export</string>
+    <string name="legacy_ai_place_discovery_and_a_post_ride_riding_coach_34d4ea13">AI-plekken ontdekken en een Riding Coach na de rit</string>
+    <string name="legacy_group_intercom_rider_to_rider_voice_70e92f1a">Groepsintercom - spraak van rijder tot rijder</string>
+    <string name="legacy_moto_hub_stays_in_charge_of_the_motorcycle_pairi_6ccf9308">MOTO-HUB blijft de motor aansturen: koppelen, verbinden en Android Auto draaien hier gewoon door. Installeer van beide dezelfde versie.</string>
+    <string name="legacy_download_advanced_66a9c89a">ADVANCED downloaden</string>
+    <string name="legacy_resolution_177354cc">Resolutie</string>
+    <string name="legacy_the_video_source_android_auto_sends_to_the_dashb_a90d80a4">De videobron die Android Auto naar het dashboard stuurt</string>
+    <string name="legacy_interface_size_7aea8aa8">Grootte van de interface</string>
+    <string name="legacy_how_large_android_auto_draws_itself_on_that_sour_2161eca0">Hoe groot Android Auto zichzelf op die bron tekent</string>
+    <string name="legacy_landscape_fb5e029b">LIGGEND</string>
+    <string name="legacy_portrait_5a1dab9b">STAAND</string>
+    <string name="legacy_experimental_f1ae3108">Experimenteel</string>
+    <!-- Source: catalogue catch-up 2026-09-06 - handlebar profiles, companion display, Home Assistant Torque, trip phone health, and the reworded wire verdict -->
+    <string name="legacy_1_s_is_holding_the_dashboard_connection_f85acc07">%1$s houdt de verbinding met het dashboard bezet</string>
+    <string name="legacy_another_app_is_holding_the_dashboard_connection_2f8f3870">Een andere app houdt de verbinding met het dashboard bezet</string>
+    <string name="legacy_force_stop_your_motorcycle_s_own_companion_app_f_47bc5899">Forceer het stoppen van de metgezel-app van je motor via de pagina App-info en probeer het opnieuw - Android laat de ene app de verbinding van de andere niet vrijgeven.</string>
+    <string name="legacy_if_it_stayed_on_the_pairing_screen_moto_hub_keep_74219a6">Bleef het op het koppelscherm staan, dan blijft MOTO-HUB videoformaten proberen tot er een werkt. Als andere rijders met hetzelfde dashboard dit formaat al hebben bevestigd, vraagt het je nog één keer voordat het verdergaat.</string>
+    <string name="legacy_if_your_other_moto_hub_app_is_running_a_session__263cbf82">Als je andere MOTO-HUB-app een sessie draait op deze telefoon, stop die dan.</string>
+    <string name="legacy_import_qr_from_an_image_65acae9a">QR importeren uit een afbeelding</string>
+    <string name="legacy_moto_hub_will_connect_on_its_own_when_the_dashbo_9f3fe52b">MOTO-HUB verbindt vanzelf zodra het dashboard opstart.</string>
+    <string name="legacy_on_this_phone_that_is_almost_always_1_s_force_st_26b6b463">Op deze telefoon is dat vrijwel altijd %1$s. Forceer het stoppen via de pagina App-info en probeer het opnieuw - Android laat de ene app de verbinding van de andere niet vrijgeven.</string>
+    <string name="legacy_shown_while_moto_hub_watches_for_the_motorcycle__5410550d">Getoond terwijl MOTO-HUB uitkijkt naar de wifi van de motor.</string>
+    <string name="legacy_the_three_local_ports_moto_hub_needs_for_the_das_ac32b51a">De drie lokale poorten die MOTO-HUB voor het dashboard nodig heeft (%1$s) zijn op dit moment bezet, dus de verbinding zou mislukken.</string>
+    <string name="legacy_try_anyway_909523a8">Toch proberen</string>
+    <string name="legacy_waiting_for_s_c5c92cf8">Wachten op %s</string>
+    <string name="legacy_waiting_for_the_motorcycle_24d361aa">Wachten op de motor</string>
+    <!-- Source: trips/TripAnalysisScreen.kt, home/HubHomeScreen.kt, companion, ai/AiPreset, and the service notifications - literals that reached a lookup indirectly, or were never wrapped -->
+    <string name="legacy_1_s_in_moto_hub_advanced_is_coming_soon_use_moto_6bcb37c0">%1$s komt binnenkort in MOTO-HUB Advanced (gebruik voorlopig MOTO-HUB Core).</string>
+    <string name="legacy_import_qr_6b03505c">QR importeren</string>
+    <string name="legacy_scan_new_qr_ed7e6784">Nieuwe QR scannen</string>
+    <!-- Source: feature/home - the secondary actions under the pairing and projection cards -->
+    <string name="legacy_how_to_start_android_auto_e44c5dd3">Hoe je Android Auto start</string>
+    <string name="legacy_open_wi_fi_settings_299670db">Wifi-instellingen openen</string>
+    <string name="legacy_couldn_t_open_moto_hub_adv_solo_67eb730a">MOTO-HUB ADV-SOLO kon niet worden geopend.</string>
+    <string name="legacy_moto_hub_adv_solo_1bac54f4">MOTO-HUB ADV-SOLO</string>
+    <string name="legacy_free_app_that_replaces_this_one_dashboard_naviga_f14ef8b3">Gratis app die deze vervangt: dashboard, navigatie, ritten en meer.</string>
+    <string name="legacy_installed_on_this_phone_136503e7">GEÏNSTALLEERD OP DEZE TELEFOON</string>
+    <string name="legacy_free_app_d2eb824d">GRATIS APP</string>
+    <string name="legacy_everything_moto_hub_does_and_a_full_riding_compu_5afce456">Alles wat MOTO-HUB doet, plus een volwaardige boordcomputer.</string>
+    <string name="legacy_moto_hub_adv_solo_is_a_free_app_that_replaces_th_9d1bc46c">MOTO-HUB ADV-SOLO is een gratis app die deze vervangt en je TFT verandert in een volwaardige boordcomputer: een eigen dashboard, navigatie, opgenomen ritten. Geen abonnement, geen account en geen extra hardware - het gebruikt de T-Box die je al hebt.</string>
+    <string name="legacy_what_it_adds_cdd0b86b">WAT HET TOEVOEGT</string>
+    <string name="legacy_moving_to_adv_solo_21f5a90c">OVERSTAPPEN NAAR ADV-SOLO</string>
+    <string name="legacy_adv_solo_connects_to_the_motorcycle_on_its_own_p_ad9d6a7e">ADV-SOLO maakt zelf verbinding met de motor: koppelen, de wifiverbinding, de stuurknoppen en Android Auto draaien er allemaal in. Deze app is niet nodig.</string>
+    <string name="legacy_install_it_and_connect_your_motorcycle_there_the_526ab2e">Installeer het en verbind daar je motor, verwijder daarna MOTO-HUB - ADV-SOLO biedt dat aan. Hier gekoppelde motoren gaan niet mee: koppel ze opnieuw in ADV-SOLO.</string>
+    <string name="legacy_links_4515799">LINKS</string>
+    <string name="legacy_more_ways_to_start_dfa7360e">MEER MANIEREN OM TE BEGINNEN</string>
+    <string name="legacy_one_step_is_waiting_for_you_ad249079">Er wacht één stap op je</string>
+    <string name="legacy_starting_android_auto_330884c0">ANDROID AUTO WORDT GESTART</string>
+    <string name="legacy_dashboard_navigation_and_trips_the_free_app_that_141e7bbe">Dashboard, navigatie en ritten - de gratis app die deze vervangt</string>
+    <string name="legacy_less_8775b50b">Minder ▲</string>
+    <string name="legacy_details_1d7b33e">Details ▼</string>
+</resources>

@@ -31,6 +31,20 @@ enum class LogLevel {
  * merely counts faults, so anything reporting a zero count, or an ordinary socket teardown,
  * stays below ERROR. Callers must not report the result to telemetry either way - see
  * [ProjectionEventLog.external].
+ *
+ * Guessing is the fallback, not the first move. [io.motohub.android.aa.AaLog] routes every level
+ * through `Log.i` and carries the author's own level as a `W: `/`E: ` text marker instead
+ * ([io.motohub.android.aa.AaLog.w]) - so the whole ported AA receiver, the largest subsystem in
+ * the app, could not produce a single WARNING or ERROR record while this function classified by
+ * keyword alone. `W: AapVideo: Dropped Flag 11` came out WARNING by luck (it says "dropped");
+ * `W: Decoder stall detected` came out INFO. Rider 4d8a4c5b's log (2026-08-26) has the video path
+ * collapsing to 2fps with seven forced decoder restarts, and the console read it as zero errors,
+ * zero warnings - invisible to the badges, the needs-attention filter and the cross-rider
+ * grouping that exist to surface exactly that.
+ *
+ * The marker wins over the keywords, but the two rules below can still demote it: they encode
+ * faults that were observed to be false, and an author's `E:` on a socket the rider just closed
+ * is as wrong as a word matcher's.
  */
 internal fun classifyExternalMessage(message: String): LogLevel {
     val text = message.lowercase()
@@ -39,8 +53,11 @@ internal fun classifyExternalMessage(message: String): LogLevel {
     val countsNothing = ZERO_COUNT_PATTERN.containsMatchIn(text)
     val teardown = text.contains("socket closed") || text.contains("stream closed") ||
         text.contains("ended: socket") || text.contains("interrupted")
+    val declared = declaredLevelOf(text)
     return when {
         countsNothing -> LogLevel.INFO
+        // A declared level answers every keyword rule below; only the demotions outrank it.
+        declared != null -> if (teardown) minOf(declared, LogLevel.WARNING) else declared
         text.contains("timed out") || text.contains("timeout") -> LogLevel.ERROR
         // A teardown mentioning "failed"/"closed" during a normal stop is not a fault.
         teardown -> LogLevel.WARNING
@@ -49,6 +66,27 @@ internal fun classifyExternalMessage(message: String): LogLevel {
         text.contains("warning") || text.contains("dropped") || text.contains("retry") ||
             text.contains("retrying") -> LogLevel.WARNING
         else -> LogLevel.INFO
+    }
+}
+
+/**
+ * The level the writer declared, if any: `W: `/`E: ` at the head of the message, after the
+ * optional `[STAGE]` tag the log convention puts in front of it (`[AA] W: ...`).
+ *
+ * Anchored on purpose - a bare "e: " deep inside a stack trace or a hex dump declares nothing.
+ */
+private fun declaredLevelOf(lowercaseText: String): LogLevel? {
+    // Only a leading tag is stripped: the first "] " of a message that does not open with one
+    // belongs to its payload (a buffer dump, a protobuf), and nothing after it declares anything.
+    val body = if (lowercaseText.startsWith("[")) {
+        lowercaseText.substringAfter("] ", lowercaseText)
+    } else {
+        lowercaseText
+    }
+    return when {
+        body.startsWith("w: ") -> LogLevel.WARNING
+        body.startsWith("e: ") -> LogLevel.ERROR
+        else -> null
     }
 }
 
@@ -241,6 +279,19 @@ object ProjectionEventLog {
     fun isLoggingEnabled(): Boolean =
         appContext?.let(MotoHubSettings::loggingEnabled) ?: true
 
+    /**
+     * When the newest entry in the ring was recorded, or null when the log is empty.
+     *
+     * Only interesting while logging is OFF, where it is the moment the log stopped being an
+     * account of what the app is doing. Turning the switch off stops new entries and deliberately
+     * keeps the old ones - a rider who wanted the history gone would clear it, and losing a
+     * week of evidence to a switch flipped for a minute would be the worse mistake - so what is
+     * left still reads like a complete log while being a fossil. Rider 94c456e9 sent a report
+     * whose ADVANCED half ended 21 days and 61 builds before the report itself, with nothing in
+     * the file saying so; this is what lets the app say it out loud before the report goes.
+     */
+    fun lastEntryAtMillis(): Long? = synchronized(lock) { ring.lastOrNull()?.timestampMillis }
+
     fun record(
         source: String,
         message: String,
@@ -345,7 +396,14 @@ object ProjectionEventLog {
         }.onFailure { Log.e(LOG_TAG, "Unable to persist diagnostic log", it) }
     }
 
-    fun clear() {
+    /**
+     * Empties the ring, the pending buffer and the log file.
+     *
+     * [reason] is the first line of the fresh log: a log screen that goes blank with no
+     * explanation reads as a fault, and the caller is not always the rider - the diagnostics
+     * collector clears the log once the server has confirmed it holds these lines.
+     */
+    fun clear(reason: String = "Diagnostic log cleared by the user.") {
         synchronized(lock) {
             ring.clear()
             pendingLines = StringBuilder()
@@ -356,7 +414,7 @@ object ProjectionEventLog {
         }
         // On the writer thread so it cannot interleave with a flush already in progress.
         runCatching { writer.execute { logFile?.runCatching { writeText("", Charsets.UTF_8) } } }
-        record("LOG", "Diagnostic log cleared by the user.")
+        record("LOG", reason)
     }
 
     fun debug(source: String, message: String) = record(source, message, LogLevel.DEBUG)
@@ -465,8 +523,48 @@ object ProjectionEventLog {
         .replace(BEARER_TOKEN_PATTERN, "Bearer <redacted>")
         .replace(API_KEY_LITERAL_PATTERN, "<redacted-key>")
         .replace(MAC_ADDRESS_PATTERN, "<redacted-mac>")
-        .replace(IPV4_ADDRESS_PATTERN, "<redacted-ip>")
+        .redactAddressesSparingVersions()
         .take(MAX_MESSAGE_CHARS)
+
+    /**
+     * Redacts IPv4 addresses without eating four-part version numbers.
+     *
+     * A version like `1.0.13.1` is a valid IPv4 address as far as any pattern can tell, and the
+     * dashboard identity line is made of exactly those: field log 90438e1e (2026-08-25) reads
+     * `Unrecognised dashboard: package=?, version=V0.0.1(?), sdk=<redacted-ip>` - the one line
+     * whose whole purpose is to say which firmware this is, with the firmware redacted out of it.
+     * The version had to be recovered from the raw CLIENT_INFO hex dump further up the same log.
+     *
+     * So a quad introduced by a version-ish key is held back from the address pass and put back
+     * afterwards. Nothing else changes: an address anywhere else in the message, keyed or bare, is
+     * still replaced, and a key nobody thought of is redacted rather than published - the rule
+     * only spares what it can name.
+     */
+    private fun String.redactAddressesSparingVersions(): String {
+        val spared = mutableListOf<String>()
+        val held = VERSION_QUAD_PATTERN.replace(this) { match ->
+            spared += match.groupValues[3]
+            "${match.groupValues[1]}${match.groupValues[2]}$VERSION_PLACEHOLDER"
+        }
+        val redacted = held.replace(IPV4_ADDRESS_PATTERN, "<redacted-ip>")
+        if (spared.isEmpty()) return redacted
+        var index = 0
+        return redacted.replace(VERSION_PLACEHOLDER) { spared.getOrElse(index++) { "" } }
+    }
+
+    private fun String.replace(literal: String, next: () -> String): String {
+        val builder = StringBuilder(length)
+        var from = 0
+        while (true) {
+            val at = indexOf(literal, from)
+            if (at < 0) {
+                builder.append(this, from, length)
+                return builder.toString()
+            }
+            builder.append(this, from, at).append(next())
+            from = at + literal.length
+        }
+    }
 
     private fun formatTime(timestampMillis: Long): String =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date(timestampMillis))
@@ -517,4 +615,15 @@ object ProjectionEventLog {
     private val IPV4_ADDRESS_PATTERN = Regex(
         "\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d?\\d)\\b"
     )
+    /**
+     * A four-part number introduced by a key that can only be announcing a version. The keys are
+     * the ones this app actually logs (its own lines and the dashboard's CLIENT_INFO fields);
+     * anything else keeps being treated as an address.
+     */
+    private val VERSION_QUAD_PATTERN = Regex(
+        "(?i)\\b(sdk|sdkversion|version|versionname|versioncode|firmware|pxc|pxcversion|" +
+            "release|build)(\"?\\s*[:=]\\s*\"?v?)((?:\\d{1,3}\\.){3}\\d{1,3})\\b"
+    )
+    /** Cannot occur in a log line: the redaction runs before anything else could write it. */
+    private const val VERSION_PLACEHOLDER = "\u0000version\u0000"
 }

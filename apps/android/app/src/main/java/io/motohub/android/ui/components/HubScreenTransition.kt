@@ -4,6 +4,7 @@
 package io.motohub.android.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -14,6 +15,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 
 /**
@@ -28,11 +30,12 @@ enum class HubScreenKey {
     HOME,
     APPLICATION_LOGS,
     ANDROID_AUTO_HELP,
+    ADVANCED_PROMO,
     ABOUT,
     ANDROID_AUTO_PREVIEW,
     RIDE_DASHBOARD_PREVIEW,
     CONTROLS,
-    OBD_PROTOTYPE,
+    OBD,
     CAPABILITIES,
     MOTORCYCLE_DETAILS,
     DASHBOARD_CUSTOMIZATION,
@@ -40,6 +43,8 @@ enum class HubScreenKey {
     DASHBOARD_SETTINGS,
     GROUP_INTERCOM,
     NETWORK_DIAGNOSTICS,
+    CLOCK_LAB,
+    BLE_EXPLORER,
     QR_SCANNER,
     MANUAL_PAIRING
 }
@@ -91,6 +96,17 @@ fun HubScreenTransition(
  * an enum, a sealed interface, or a nullable id are all fine, including null itself as the base
  * state; a fresh object built on every recomposition is not, or every recomposition would look
  * like a navigation.
+ *
+ * **Every screen keeps its place.** A destination that slides away leaves composition, and with
+ * it went every `rememberSaveable` it held - which is what a scroll state is. That is why going
+ * into a detail and coming back used to land the rider at the top of a list they had scrolled
+ * half way down, everywhere in this app at once. The [rememberSaveableStateHolder] below keeps
+ * each screen's saved state alive while it is off stage and hands it back when it returns, so
+ * `rememberScrollState()` / `rememberLazyListState()` restore themselves with no work at the
+ * call sites. [stateKey] names the drawer each screen's state is filed under; the default is the
+ * screen's own `toString()`, which is exactly right for the enums, data objects and data classes
+ * every caller here uses, and is why the identity requirement above is not merely about
+ * animation any more.
  */
 @Composable
 fun <T> ScreenSlideTransition(
@@ -98,15 +114,45 @@ fun <T> ScreenSlideTransition(
     isBase: (T) -> Boolean,
     modifier: Modifier = Modifier,
     label: String = "screen-slide",
+    stateKey: (T) -> Any = { "$it" },
     content: @Composable (T) -> Unit
 ) {
+    val savedScreenState = rememberSaveableStateHolder()
     AnimatedContent(
         targetState = screen,
         modifier = modifier,
         transitionSpec = { screenSlideTransform(isBase) },
         label = label
     ) { shown ->
-        content(shown)
+        savedScreenState.SaveableStateProvider(stateKey(shown)) {
+            content(shown)
+        }
+    }
+}
+
+/**
+ * A crossfade between screens that keeps each one's place.
+ *
+ * The same saved-state contract as [ScreenSlideTransition], for the dispatchers where sliding
+ * would be wrong - the bottom tabs, which are siblings rather than a stack, and where a card
+ * covering another would say something untrue about how they relate.
+ *
+ * Without the holder each tab was rebuilt from scratch on every switch: a rider who scrolled half
+ * way down one tab, glanced at another and came back landed at the top again.
+ */
+@Composable
+fun <T> ScreenCrossfade(
+    screen: T,
+    modifier: Modifier = Modifier,
+    label: String = "screen-crossfade",
+    stateKey: (T) -> Any = { "$it" },
+    content: @Composable (T) -> Unit
+) {
+    val savedScreenState = rememberSaveableStateHolder()
+    Crossfade(targetState = screen, modifier = modifier, label = label) { shown ->
+        savedScreenState.SaveableStateProvider(stateKey(shown)) {
+            content(shown)
+        }
     }
 }
 

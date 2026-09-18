@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Vincenzo Buonomano and the MOTO-HUB contributors.
+// Part of MOTO-HUB. Free software under the GNU AGPL v3; see LICENSE.
 package io.motohub.android.ipc
 
 import android.content.ComponentName
@@ -29,10 +32,25 @@ class AndroidAutoReceiverClient(
             this@AndroidAutoReceiverClient.onStateChanged(state, message)
     }
 
+    /**
+     * Counts the connections this client has made, so callers can tell "still the same Core" from
+     * "Core died and came back".
+     *
+     * The binding itself survives a Core restart — Android re-connects it — but everything the
+     * caller registered ON that binder does not: the remote callback lists live in Core's process
+     * and the new one starts empty. A listener registered once at session start therefore went
+     * quiet for the rest of the ride, with nothing anywhere saying so. Watching this value is how
+     * a caller knows to register again.
+     */
+    @Volatile
+    var connectionGeneration: Int = 0
+        private set
+
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             val bound = IAndroidAutoReceiverService.Stub.asInterface(binder)
             service = bound
+            connectionGeneration++
             bound.registerStateListener(stateListener)
         }
 
@@ -116,6 +134,36 @@ class AndroidAutoReceiverClient(
 
     fun unregisterNavigationGuidanceListener(listener: INavigationGuidanceListener) {
         runCatching { service?.unregisterNavigationGuidanceListener(listener) }
+    }
+
+    /**
+     * Watches the handlebar gestures Core recognises, so the teaching wizard can see the press
+     * the rider was just asked to make. Same older-Core tolerance as the guidance listener above:
+     * false rather than a throw, and the wizard then behaves exactly as it did before this
+     * existed.
+     */
+    fun registerHandlebarGestureListener(listener: IHandlebarGestureListener): Boolean =
+        runCatching { service?.registerHandlebarGestureListener(listener) }.isSuccess &&
+            service != null
+
+    fun unregisterHandlebarGestureListener(listener: IHandlebarGestureListener) {
+        runCatching { service?.unregisterHandlebarGestureListener(listener) }
+    }
+
+    /**
+     * Asks Core to claim Android Auto's audio streams and hand them over, or to stop. False
+     * against a Core that predates the call, or when nothing is bound - the same tolerance as
+     * the listeners above, so a companion on a newer contract degrades to hearing nothing.
+     */
+    fun setProjectionAudioWanted(wanted: Boolean): Boolean =
+        runCatching { service?.setProjectionAudioWanted(wanted) }.getOrNull() ?: false
+
+    /** The audio pipe, framed by [ProjectionAudioFraming]; null when Core cannot provide one. */
+    fun openProjectionAudioStream(): android.os.ParcelFileDescriptor? =
+        runCatching { service?.openProjectionAudioStream() }.getOrNull()
+
+    fun closeProjectionAudioStream() {
+        runCatching { service?.closeProjectionAudioStream() }
     }
 
     private companion object {

@@ -108,7 +108,11 @@ internal object TBoxVpnDiagnostics {
      */
     fun userFacingMessage(error: Throwable?, routing: VpnRouting?): String? = when {
         routing?.capturesTBox == true -> blockingMessage(routing)
-        isVpnBindBlocked(error) -> blockingMessage(routing)
+        // Routes say the tunnel is a bystander and Android still refused the socket with a
+        // permission error. That combination has one cause, and it is not routing: see
+        // [lockdownMessage]. Ordering matters - a tunnel that captures the dash is the stronger
+        // explanation and keeps its own sentence even when the error is also EPERM.
+        isVpnBindBlocked(error) -> lockdownMessage(routing)
         else -> null
     }
 
@@ -123,6 +127,37 @@ internal object TBoxVpnDiagnostics {
             "Android will not let MOTO-HUB reach the dash. Turn the VPN off while you ride, switch " +
             "off its exit node / full-tunnel mode, or turn on its \"allow local network access\" " +
             "option, then retry."
+    }
+
+    /**
+     * The rider-facing sentence for a VPN in LOCKDOWN - Android's "Block connections without VPN"
+     * (Always-on VPN's second switch), or the equivalent inside an ad-blocker/filtering VPN.
+     *
+     * A different fault from [blockingMessage], with a different fix, and it has to be told apart
+     * from it because the routing evidence actively points the other way. Lockdown is enforced
+     * per UID in netd, not in the tunnel's routing table: the VPN can claim nothing at all -
+     * `capturesDefaultRoute=false, capturesDashAddress=false` - and Android will still refuse to
+     * bind ANY socket of this app to ANY other network. The dash lives on that Wi-Fi and nowhere
+     * else, so there is no network left to fall back to; the ride simply cannot start.
+     *
+     * EPERM is what makes this knowable. A full-tunnel VPN that swallows the dash's subnet
+     * produces unreachable hosts and timeouts, never a permission error - the kernel refuses the
+     * BIND, before a packet exists. So an EPERM on a bind to the dash's own network is the
+     * signature of lockdown and of practically nothing else.
+     *
+     * Vincenzo's own OnePlus, 2026-08-26 (installation cc23165f, 1.1.98): four connects in 53
+     * seconds, Android granting the Wi-Fi every time at -29 dBm with EasyConn answering mDNS on
+     * :10930, and every socket after it dying with
+     * `Binding socket to network 245 failed: EPERM`. What he was shown was that sentence and a
+     * stack trace. The routing check had already looked at the tunnel, found it innocent - it
+     * was - and thrown the diagnosis away.
+     */
+    fun lockdownMessage(routing: VpnRouting?): String {
+        val tunnel = routing?.label?.let { " ($it)" }.orEmpty()
+        return "$VPN_ROUTING_MARKER$tunnel is set to block connections that do not go through " +
+            "it, so Android will not let MOTO-HUB use the motorcycle's Wi-Fi at all - the dash " +
+            "is only reachable there. Turn off \"Block connections without VPN\" for it in " +
+            "Android's VPN settings, or turn the VPN off while you ride, then retry."
     }
 
     /**

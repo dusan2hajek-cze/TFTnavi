@@ -3,6 +3,7 @@
 // Part of MOTO-HUB. Free software under the GNU AGPL v3; see LICENSE.
 package io.motohub.android.androidauto
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -10,6 +11,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.os.PowerManager
@@ -32,8 +34,12 @@ import io.motohub.android.feature.controls.MediaButtonBridge
 import io.motohub.android.feature.controls.SimulatorHandlebarBridge
 import io.motohub.android.feature.settings.MotoHubSettings
 import io.motohub.android.feature.settings.AndroidAutoAspectMatchingMode
+import io.motohub.android.session.FrameLogThrottle
 import io.motohub.android.session.MotorcycleProfile
+import io.motohub.android.encoding.VideoDeliveryProbe
+import io.motohub.android.session.DashboardDeliveryMonitor
 import io.motohub.android.session.ProjectionEventLog
+import io.motohub.android.session.ProjectionSourceHealth
 import io.motohub.android.session.ProjectionRuntime
 import io.motohub.android.session.ProjectionRuntimeState
 import io.motohub.android.tbox.TBoxEvent
@@ -42,12 +48,14 @@ import io.motohub.android.tbox.ProfileOverride
 import io.motohub.android.tbox.TBoxCapabilityStore
 import io.motohub.android.tbox.TBoxNetworkEvent
 import io.motohub.android.tbox.TBoxModelProfile
+import io.motohub.android.tbox.TBoxWireLadder
 import io.motohub.android.tbox.TBoxTransportFamily
 import io.motohub.android.tbox.SelectingTBoxTransport
 import io.motohub.android.tbox.TBoxSessionHandle
 import io.motohub.android.tbox.TBoxSessionRegistry
 import io.motohub.android.tbox.TBoxStreamingLocks
 import io.motohub.android.tbox.TBoxTouchTransform
+import io.motohub.android.tbox.tBoxFailureOwnedByHandshake
 import io.motohub.android.tbox.TBoxTouchFilter
 import io.motohub.android.tbox.TBoxVideoAreaSource
 import io.motohub.android.tbox.negotiateVideoConfiguration
@@ -80,6 +88,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
     private var videoReadyTimeoutJob: Job? = null
     private var watchdogJob: Job? = null
     private var recoveryJob: Job? = null
+    private var androidAutoReattachJob: Job? = null
     private var networkLossJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val streamingLocks = TBoxStreamingLocks(this, "Android Auto")
@@ -90,12 +99,42 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
     private val capabilityStore by lazy { TBoxCapabilityStore(this) }
     private val bikeStartRequested = AtomicBoolean(false)
     private val transportUnavailable = AtomicBoolean(false)
+    /** One place for both verdicts, so the accept and reject arms cannot drift apart. */
+    private fun publishDeliveryVerdict(
+        verdict: VideoDeliveryProbe.Verdict,
+        handle: TBoxSessionHandle,
+        profile: TBoxModelProfile
+    ) = DashboardDeliveryMonitor.publish(
+        verdict = verdict,
+        ssid = handle.motorcycle.ssid,
+        rejected = deliveryProbe.rejectedCount(),
+        accepted = deliveryProbe.acceptedCount(),
+        profileKey = profile.key
+    )
+
     private var backpressureGuard = VideoBackpressureGuard()
+    /**
+     * Separate from [backpressureGuard] and asking the other question: not "is the link dead" but
+     * "is this dash swallowing anything like what we send it". A session can be perfectly alive by
+     * the guard's measure and still show the rider a frozen picture - see [VideoDeliveryProbe].
+     */
+    private var deliveryProbe = VideoDeliveryProbe()
     private val videoStreamStartRequested = AtomicBoolean(false)
     private val framesAccepted = AtomicLong(0)
+    private val frameLogThrottle = FrameLogThrottle()
     /** When the dash last took a still. The stills path's liveness signal; see the offer below. */
     private val lastStillAcceptedAt = AtomicLong(0)
     private val recoveryRequested = AtomicBoolean(false)
+
+    /** True while a dropped AAP session is being held open for Android Auto to come back. */
+    private val androidAutoReattachRequested = AtomicBoolean(false)
+    /**
+     * True for exactly as long as [startBikeStream] is inside the EasyConn handshake, both
+     * attempts included. A `Stopped`/`FatalError` arriving in that window is that handshake's own
+     * failure reaching us by a second route, not the session dying; see
+     * [tBoxFailureOwnedByHandshake] for what it cost to find that out.
+     */
+    private val handshakeInFlight = AtomicBoolean(false)
     private var capabilityProfile = AndroidAutoCapabilityProfiles.fallback()
     @Volatile private var tBoxTouchTransform: TBoxTouchTransform? = null
     private var touchFilter: TBoxTouchFilter? = null
@@ -114,9 +153,14 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            stopSession("Android Auto stopped by the user.")
+            // Reached either from the notification's Stop action, which sets no reason of its
+            // own, or as [stop]'s fallback when the service was still starting up - there the
+            // caller's reason is waiting for us.
+            stopSession(AndroidAutoStopReason.take() ?: "Android Auto stopped by the user.")
             return START_NOT_STICKY
         }
+        // A stop that never reached a running service must not name the session about to start.
+        AndroidAutoStopReason.clear()
         if (AndroidAutoRuntime.isActive()) return START_STICKY
 
         ProjectionEventLog.record("ANDROID AUTO", "Preparing local AAP receiver.")
@@ -127,13 +171,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         // kills the service, START_STICKY restarts it, and it fails the same way forever. Give up
         // once and say so instead: a session that cannot hold a foreground service cannot stream
         // anyway, and the loop only drains the battery while hiding the real cause.
-        val foreground = runCatching {
-            startForeground(
-                NOTIFICATION_ID,
-                createNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            )
-        }
+        val foreground = runCatching { startForegroundWithVoiceCapture() }
         foreground.exceptionOrNull()?.let { failure ->
             ProjectionEventLog.error(
                 "ANDROID AUTO",
@@ -220,9 +258,10 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             "Behavior profile=${modelProfile.displayName}; touch enabled=$touchEnabled, " +
                 "touch max=${modelProfile.touchPolicy.maxPointers}, " +
                 "stale=${modelProfile.touchPolicy.staleContactMillis}ms; " +
-                "screen margins=${modelProfile.defaultScreenMargins}."
+                "screen margins=$screenMargins (profile default ${modelProfile.defaultScreenMargins})."
         )
         val resolutionMode = MotoHubSettings.androidAutoResolution(this)
+        val densityMode = MotoHubSettings.androidAutoDensity(this)
         val aspectMatchingMode = MotoHubSettings.androidAutoAspectMatching(this)
         val advertisedMargins = if (aspectMatchingMode == AndroidAutoAspectMatchingMode.MANUAL) {
             screenMargins
@@ -234,7 +273,8 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             overridePreset = resolutionMode.preset,
             screenMargins = advertisedMargins,
             touchEnabled = touchEnabled,
-            fallbackPreset = fallbackPreset
+            fallbackPreset = fallbackPreset,
+            densityOverride = densityMode.dpi
         ).let { selected ->
             // AUTO used to mean "advertise no margins", which is the same thing as accepting the
             // letterbox: Android Auto only offers a handful of coded sizes and none of them is
@@ -259,7 +299,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                 "Capability profile: source=${capabilityProfile.video.width}x" +
                 "${capabilityProfile.video.height}@${capabilityProfile.densityDpi}dpi, " +
                 "selection=${capabilityProfile.source}, resolution=${resolutionMode.name}, " +
-                "aspectMatching=${aspectMatchingMode.name}; " +
+                "density=${densityMode.name}, aspectMatching=${aspectMatchingMode.name}; " +
                 capabilityProfile.reason
         )
         if (learnedGeometry == null) {
@@ -354,12 +394,13 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                             } else {
                                 "Android Auto connection closed unexpectedly."
                             }
-                            fail(reason)
+                            handleAndroidAutoDrop(reason)
                         }
                     }
                 },
                 mapTouchToSource = activeCompositor::mapCanvasToUi,
-                capabilityProfile = capabilityProfile
+                capabilityProfile = capabilityProfile,
+                downstreamBlockedMillis = activeCompositor::downstreamBlockedMillis
             )
             if (!SingleKeyKeyManager.isAvailable(applicationContext)) {
                 error(
@@ -388,11 +429,17 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                                 "The AAP session was closed; start Android Auto again."
                         )
                     } else if (io.motohub.android.aa.AaSelfMode.anyEntryPointAccepted) {
-                        // Android Auto took the request and ignored it, which is the "Add new
-                        // cars" switch, not the release having closed self-mode. Sending these
-                        // riders to the head unit server was answering a question they had not
-                        // asked - see AndroidAutoSelfModeHelp.ACCEPTED_BUT_SILENT_MESSAGE.
-                        fail(AndroidAutoSelfModeHelp.ACCEPTED_BUT_SILENT_MESSAGE)
+                        // Android Auto took the request and ignored it. On a release that still
+                        // has self-mode that is the "Add new cars" switch, and sending those
+                        // riders to the head unit server answers a question they did not ask;
+                        // from 17.3 on it is the release itself, and the switch is a dead end
+                        // they have usually already tried. The version decides which - see
+                        // AndroidAutoSelfModeHelp.acceptedButSilentMessage.
+                        fail(
+                            AndroidAutoSelfModeHelp.acceptedButSilentMessage(
+                                io.motohub.android.aa.AaSelfMode.lastGearheadVersion
+                            )
+                        )
                     } else {
                         fail(AndroidAutoSelfModeHelp.NEVER_CONNECTED_MESSAGE)
                     }
@@ -476,7 +523,10 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                 "Android Auto video is ready; using the existing Wi-Fi Direct P2P route for T-Box hand-off."
             )
         }
-        ProjectionEventLog.record("ANDROID AUTO", "First AAP video frame received. Starting EasyConn session.")
+        ProjectionEventLog.record(
+            "ANDROID AUTO",
+            "First AAP video frame received. Starting the dashboard session."
+        )
 
         val savedArea = displayGeometryStore.load(handle.motorcycle.ssid)?.let { geometry ->
             TBoxEvent.VideoArea(geometry.width, geometry.height)
@@ -486,38 +536,56 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             capabilityStore.load(handle.motorcycle)?.capabilities,
             ProfileOverride.byKey(handle.motorcycle.profileOverrideKey)
         )
-        var configurationResult = handle.transport.negotiateVideoConfiguration(
-            host = handle.host,
-            savedArea = savedArea,
-            fallbackArea = fallbackArea,
-            timeoutMillis = VIDEO_CONFIGURATION_TIMEOUT_MS
-        )
-        if (configurationResult.isFailure) {
-            // Same root cause as the other streaming-mode fix: whichever mode ran before this one
-            // called transport.stop() on end, which for the real GPL transport fully tears down
-            // the underlying session, so a bare retry of negotiateVideoConfiguration fails
-            // identically every time. Re-run discover() from scratch instead, exactly like a
-            // rider's manual "Connect" retry does.
-            ProjectionEventLog.warning(
-                "ANDROID AUTO",
-                "T-Box handshake failed (first attempt): ${configurationResult.exceptionOrNull()?.message}. " +
-                    "Re-discovering the T-Box before retrying."
+        // Both attempts run under this flag. The transport reports a failed handshake twice - once
+        // as the return value below, once as a Stopped/FatalError event - and the event handler
+        // must not race this block to the teardown; see onTBoxFailureEvent.
+        handshakeInFlight.set(true)
+        val configurationResult = try {
+            var result = handle.transport.negotiateVideoConfiguration(
+                host = handle.host,
+                savedArea = savedArea,
+                fallbackArea = fallbackArea,
+                videoAreaTimeoutMillis = VIDEO_AREA_TIMEOUT_MS
             )
-            val rediscovered = handle.transport.discover(handle.link, handle.motorcycle.modelId)
-            val freshHost = rediscovered.getOrNull()
-            if (freshHost != null) {
-                handle = handle.copy(host = freshHost)
-                tBoxHandle = handle
-                TBoxSessionRegistry.install(handle)
-                // install() resets the claim list; this session is still using it.
-                TBoxSessionRegistry.claim(SESSION_CONSUMER)
-                configurationResult = handle.transport.negotiateVideoConfiguration(
-                    host = handle.host,
-                    savedArea = savedArea,
-                    fallbackArea = fallbackArea,
-                    timeoutMillis = VIDEO_CONFIGURATION_TIMEOUT_MS
+            if (result.isFailure) {
+                // Same root cause as the other streaming-mode fix: whichever mode ran before this
+                // one called transport.stop() on end, which for the real GPL transport fully tears
+                // down the underlying session, so a bare retry of negotiateVideoConfiguration
+                // fails identically every time. Re-run discover() from scratch instead, exactly
+                // like a rider's manual "Connect" retry does.
+                ProjectionEventLog.warning(
+                    "ANDROID AUTO",
+                    "T-Box handshake failed (first attempt): ${result.exceptionOrNull()?.message}. " +
+                        "Re-discovering the T-Box before retrying."
                 )
+                val rediscovered = handle.transport.discover(handle.link, handle.motorcycle.modelId)
+                val freshHost = rediscovered.getOrNull()
+                if (freshHost == null) {
+                    // Said out loud because the alternative reads identically in a log: a
+                    // re-discovery that failed and a retry that was never reached both look like
+                    // the warning above followed by nothing.
+                    ProjectionEventLog.warning(
+                        "ANDROID AUTO",
+                        "Re-discovery failed, so there is no second handshake attempt: " +
+                            "${rediscovered.exceptionOrNull()?.message}"
+                    )
+                } else {
+                    handle = handle.copy(host = freshHost)
+                    tBoxHandle = handle
+                    TBoxSessionRegistry.install(handle)
+                    // install() resets the claim list; this session is still using it.
+                    TBoxSessionRegistry.claim(SESSION_CONSUMER)
+                    result = handle.transport.negotiateVideoConfiguration(
+                        host = handle.host,
+                        savedArea = savedArea,
+                        fallbackArea = fallbackArea,
+                        videoAreaTimeoutMillis = VIDEO_AREA_TIMEOUT_MS
+                    )
+                }
             }
+            result
+        } finally {
+            handshakeInFlight.set(false)
         }
         configurationResult.exceptionOrNull()?.let {
             throw IllegalStateException("T-Box handshake for Android Auto failed: ${it.message}", it)
@@ -527,6 +595,13 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         val configuration = configurationResult.getOrThrow()
         val quality = MotoHubSettings.videoQuality(this)
         val sessionModelProfile = resolveSessionProfile(handle)
+        // What this dash is actually being sent. Identical to the profile's own fields for every
+        // recognised dash; for an unidentified one it is whichever rung TBoxWireLadder has reached.
+        val sessionWire = TBoxWireLadder.configFor(
+            applicationContext,
+            handle.motorcycle,
+            sessionModelProfile
+        )
         val encoderProfile = configuration.encoderProfile.copy(
             // Frame rate and bitrate were previously honoured only on the native mirror path, so a
             // dash whose profile asks for a slower capture still got Android Auto's negotiated 30
@@ -537,12 +612,12 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             bitRate = quality.bitrateFor(
                 sessionModelProfile.encoderBitRate ?: configuration.encoderProfile.bitRate
             ),
-            keyframeIntervalSeconds = sessionModelProfile.encoderKeyframeIntervalSeconds,
+            keyframeIntervalSeconds = sessionWire.encoderKeyframeIntervalSeconds,
             // Yunmo's split framing needs real keyframes to split; intra refresh would make them
             // rare. A profile can also demand plain IDRs for its decoder's sake (KOVE froze on
             // intra refresh); every other EasyConn dash keeps intra refresh.
             plainGopWithoutIntraRefresh =
-                sessionModelProfile.encoderPlainGopWithoutIntraRefresh ||
+                sessionWire.encoderPlainGopWithoutIntraRefresh ||
                     sessionModelProfile.transportFamily == TBoxTransportFamily.YUNMO,
             // ThinkerRide's video header declares the exact stream size; encode precisely that
             // instead of the 16-aligned canvas, like the reference app does.
@@ -582,13 +657,20 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         if (configuration.source == TBoxVideoAreaSource.LIVE) {
             val negotiatedGeometry = DisplayGeometry(negotiatedArea.width, negotiatedArea.height)
             val liveCapabilities = capabilityStore.load(handle.motorcycle)?.capabilities
+            // Same three inputs prepareReceiver() reads the geometry with, override included.
+            // Without the override this branch answered a different question from the one that
+            // decided whether to USE the geometry, so a rider who pinned Generic could be shown
+            // their measured area being accepted and still find it gone on the next launch.
+            val liveProfileOverride = ProfileOverride.byKey(handle.motorcycle.profileOverrideKey)
             val fallbackPreset = TBoxModelProfile.defaultAndroidAutoPreset(
                 handle.motorcycle.modelId,
-                liveCapabilities
+                liveCapabilities,
+                liveProfileOverride
             )
             val fallbackIsValidated = TBoxModelProfile.hasValidatedAndroidAutoPreset(
                 handle.motorcycle.modelId,
-                liveCapabilities
+                liveCapabilities,
+                liveProfileOverride
             )
             val shouldPersistGeometry = capabilityProfile.source == AndroidAutoCapabilitySource.USER_OVERRIDE ||
                 AndroidAutoCapabilityProfiles.usableSavedGeometryForAuto(
@@ -597,6 +679,35 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                     fallbackIsValidated
                 ) != null
             if (shouldPersistGeometry) {
+                // The case a rider log could not previously explain: the orientation disagrees
+                // with the model profile and the area is saved anyway. The old rule vetoed that
+                // and printed a warning; the new one lets the measurement stand and printed
+                // nothing, so a withdrawn veto and a veto that never applied looked identical
+                // from outside. Rider 6e77dcf7 (2026-09-06) is the log that needed it: his dash
+                // asked for 784x576 landscape against a portrait preset that had won on two
+                // generic touch flags, and every session composited Android Auto into 311x554
+                // of his 784x576 panel.
+                //
+                // Only for the profile-was-a-guess road. A rider's own resolution override and
+                // an exact-fit area are both saved through the same branch for reasons of their
+                // own, and claiming this one would misname them.
+                val negotiatedIsPortrait = negotiatedGeometry.height > negotiatedGeometry.width
+                if (!fallbackIsValidated &&
+                    capabilityProfile.source != AndroidAutoCapabilitySource.USER_OVERRIDE &&
+                    negotiatedIsPortrait != fallbackPreset.isPortrait
+                ) {
+                    ProjectionEventLog.record(
+                        "ANDROID AUTO",
+                        "Saving live T-Box geometry ${negotiatedGeometry.width}x" +
+                            "${negotiatedGeometry.height} even though the " +
+                            "${fallbackPreset.source.width}x${fallbackPreset.source.height} " +
+                            "model profile is the other way round: that profile's orientation is " +
+                            "a guess about this dashboard rather than a fact about it - it was " +
+                            "not named by the modelId, pinned by the rider, or matched without a " +
+                            "rival disputing which way round the panel is - so the area the dash " +
+                            "measured about itself wins."
+                    )
+                }
                 displayGeometryStore.save(handle.motorcycle.ssid, negotiatedGeometry)
                 liveGeometryPersisted = true
             } else {
@@ -655,6 +766,10 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         )
         try {
             backpressureGuard = VideoBackpressureGuard()
+            // A session being (re)built around a profile is a new question, so the rider may be
+            // asked again - including when they have just picked a different profile themselves.
+            deliveryProbe = VideoDeliveryProbe()
+            DashboardDeliveryMonitor.clear()
 
             // The one dash that is fed stills instead of video. Its OEM app never runs its own
             // H.264 path, and a dash that acknowledges every frame while painting none is what
@@ -665,7 +780,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             // through whichever mode they happen to open, and a profile that silently falls back
             // to H.264 on three of the four paths produced three rounds of field tests that each
             // reported "JPEG does not work" without a single JPEG ever leaving the phone.
-            if (sessionModelProfile.yunmoJpegVideo) {
+            if (sessionModelProfile.usesJpegStills) {
                 startJpegOutput(encoderProfile, capabilityProfile, handle)
                 return
             }
@@ -675,15 +790,27 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                 onAccessUnit = { accessUnit ->
                     if (handle.transport.offerAccessUnit(accessUnit)) {
                         backpressureGuard.onAccepted()
+                        deliveryProbe.onAccepted()?.let { publishDeliveryVerdict(it, handle, sessionModelProfile) }
                         val accepted = framesAccepted.incrementAndGet()
-                        if (accepted == 1L || accepted % FRAME_LOG_INTERVAL == 0L) {
-                            ProjectionEventLog.record("ANDROID AUTO", "Frames sent: $accepted.")
-                        }
+                        frameLogThrottle.rateSuffixIfDue(accepted, SystemClock.elapsedRealtime())
+                            ?.let { rate ->
+                                ProjectionEventLog.record(
+                                    "ANDROID AUTO",
+                                    "Frames sent: $accepted$rate."
+                                )
+                            }
                         true
                     } else {
                         // A single rejection is a pushFrame() overlap, not a dead link - only a
                         // sustained streak ends the session (see VideoBackpressureGuard).
                         val fatal = backpressureGuard.onRejected()
+                        // A dash that refuses most of what we send is not a link to tear down -
+                        // it is a profile that does not match this dashboard, and the only one who
+                        // can settle that is the rider. Concluded once per session; see
+                        // DashboardDeliveryMonitor.
+                        deliveryProbe.onRejected()?.let {
+                            publishDeliveryVerdict(it, handle, sessionModelProfile)
+                        }
                         if (backpressureGuard.isStreakStart()) {
                             ProjectionEventLog.warning(
                                 "ANDROID AUTO",
@@ -775,9 +902,13 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                     backpressureGuard.onAccepted()
                     lastStillAcceptedAt.set(SystemClock.elapsedRealtime())
                     val sent = framesAccepted.incrementAndGet()
-                    if (sent == 1L || sent % FRAME_LOG_INTERVAL == 0L) {
-                        ProjectionEventLog.record("JPEG", "Stills sent to the dashboard: $sent.")
-                    }
+                    frameLogThrottle.rateSuffixIfDue(sent, SystemClock.elapsedRealtime())
+                        ?.let { rate ->
+                            ProjectionEventLog.record(
+                                "JPEG",
+                                "Stills sent to the dashboard: $sent$rate."
+                            )
+                        }
                 } else {
                     // A refused still is this path's normal resting state, not a fault. The source
                     // offers one every 100ms and this dash takes about two a second, so the other
@@ -849,8 +980,8 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                     }
                     is TBoxEvent.Touch -> touchFilter?.onTouch(event)
                     is TBoxEvent.Warning -> ProjectionEventLog.record("T-BOX", event.message)
-                    is TBoxEvent.FatalError -> handleRecoverableFailure("T-Box error: ${event.message}")
-                    TBoxEvent.Stopped -> handleRecoverableFailure("The T-Box ended Android Auto.")
+                    is TBoxEvent.FatalError -> onTBoxFailureEvent("T-Box error: ${event.message}")
+                    TBoxEvent.Stopped -> onTBoxFailureEvent("The T-Box ended Android Auto.")
                     is TBoxEvent.VideoArea -> Unit
                 }
             }
@@ -860,6 +991,10 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                 if (stopping) return@collect
                 when (event) {
                     is TBoxNetworkEvent.Lost -> handleTBoxNetworkLost(handle)
+                    // A join this session never waited on: by the time there is a handle to
+                    // collect events from, the network is long since granted. Resuming an
+                    // abandoned connect is the hub's business, not a running stream's.
+                    is TBoxNetworkEvent.ArrivedLate -> Unit
                     is TBoxNetworkEvent.Reacquired -> {
                         networkLossJob?.cancel()
                         networkLossJob = null
@@ -895,6 +1030,14 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         // session down over a blip nobody could have felt.
         if (!hasReachedStreaming && !stopping) {
             resumeAfterStartupNetworkLoss(handle)
+            return
+        }
+        if (!shouldAutoRecoverAndroidAuto(
+                hasReachedStreaming = hasReachedStreaming,
+                enabled = MotoHubSettings.autoRecovery(this)
+            )
+        ) {
+            fail("T-Box Wi-Fi connection lost.")
             return
         }
         if (!MotoHubSettings.seamlessResume(this)) {
@@ -1019,13 +1162,39 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         lastWatchdogProgressAt = SystemClock.elapsedRealtime()
     }
 
+    /**
+     * Routes a transport failure event, unless the handshake that produced it is still running and
+     * about to report the same failure itself.
+     */
+    private fun onTBoxFailureEvent(message: String) {
+        val ownedByHandshake =
+            tBoxFailureOwnedByHandshake(handshakeInFlight.get(), "Android Auto", message)
+        if (ownedByHandshake != null) {
+            // INFO, not DEBUG: this is the line that says why the session did NOT end here, and
+            // the console hides DEBUG by default.
+            ProjectionEventLog.record("WATCHDOG", ownedByHandshake)
+            return
+        }
+        handleRecoverableFailure(message)
+    }
+
     private fun handleRecoverableFailure(message: String) {
         if (stopping) return
+        val enabled = MotoHubSettings.autoRecovery(this)
         if (!shouldAutoRecoverAndroidAuto(
                 hasReachedStreaming = hasReachedStreaming,
-                enabled = MotoHubSettings.autoRecovery(this)
+                enabled = enabled
             )
         ) {
+            // Say why nothing will be retried. Without this line the log shows a session ending
+            // and then simply stops, and "reconnection is switched off" reads exactly like
+            // "reconnection ran and left no trace" - a distinction that took a full reading of
+            // rider 8d5a1631's log (2026-08-26) to make, on the one question that log was sent to
+            // answer. The failure message itself is untouched on purpose: the collector groups
+            // failures across riders by the text of that line.
+            androidAutoRecoveryRefusal(hasReachedStreaming, enabled)?.let { reason ->
+                ProjectionEventLog.warning("WATCHDOG", "Not reconnecting Android Auto: $reason")
+            }
             fail(message)
             return
         }
@@ -1069,11 +1238,21 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                         "WATCHDOG",
                         "Android Auto recovery attempt $attempt failed: ${failure.message}"
                     )
+                    // The wire ladder must not read this session as a verdict on the video
+                    // format: the dashboard kept being handed frames while the stream behind
+                    // them was down. A recovery that succeeds first try is a hiccup and is
+                    // deliberately not recorded - see ProjectionSourceHealth.
+                    ProjectionSourceHealth.noteTrouble(
+                        "Android Auto recovery attempt $attempt failed"
+                    )
                     delay(RECOVERY_RETRY_MILLIS)
                 }
             }
             recoveryRequested.set(false)
             if (!stopping) {
+                ProjectionSourceHealth.noteTrouble(
+                    "Android Auto auto-recovery timed out after $attempt attempt(s)"
+                )
                 fail(
                     "Android Auto auto-recovery timed out after " +
                         "${RECOVERY_GIVE_UP_MILLIS / 1_000L} seconds ($attempt attempt(s))."
@@ -1108,7 +1287,10 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         videoStreamStartRequested.set(false)
 
         previousHandle.transport.stop()
-        TBoxSessionRegistry.clear(previousHandle)
+        // Kept, not dropped: the recovery below reuses this very link, and on Wi-Fi Direct
+        // releasing the group here is what made the rejoin impossible (see the retained-link
+        // note on TBoxSessionRegistry).
+        TBoxSessionRegistry.clear(previousHandle, retainLinkForRecovery = true)
         val link = TBoxLinkResolver.reacquire(
             applicationContext,
             previousHandle.networkConnector,
@@ -1121,7 +1303,8 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                 previousHandle.motorcycle.modelId,
                 null,
                 ProfileOverride.byKey(previousHandle.motorcycle.profileOverrideKey)
-            )
+            ),
+            previousHandle.motorcycle
         )
         val host = previousHandle.transport.discover(
             link,
@@ -1136,6 +1319,9 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         )
         tBoxHandle = recoveredHandle
         TBoxSessionRegistry.install(recoveredHandle)
+        // install() resets the claim list; this session is still using it. Without this, an AIDL
+        // connect landing mid-recovery saw an empty consumer set and was admitted beside us.
+        TBoxSessionRegistry.claim(SESSION_CONSUMER)
         capabilityStore.recordDiscovery(previousHandle.motorcycle, host)
         observeActiveSession(recoveredHandle)
         startBikeStream(recoveredHandle)
@@ -1143,6 +1329,65 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             "Recovered T-Box handshake did not return to streaming"
         }
         ProjectionEventLog.record("WATCHDOG", "Android Auto TFT stream recovered successfully.")
+    }
+
+    /**
+     * An AAP session that ended without the rider asking for it.
+     *
+     * Deliberately not [fail]. Tearing the whole projection down here is what left riders looking
+     * at the picker with the motorcycle still connected and nothing retrying: field log
+     * 2026-09-02 caught it twice, at 15:11:59 and 15:27:12, and after the second one the session
+     * was gone for the rest of the ride.
+     *
+     * The receiver SURVIVES a transport quit - `AaReceiver.stop` is only called from
+     * [stopSession] - so it is still listening on :5288 and still dialling Android Auto's own
+     * head unit server on :5277, which on 17.4 is the only way back in. Everything is therefore
+     * left standing and Android Auto is given a window to reattach on its own; the T-Box session
+     * and the bike stream are never touched, because nothing about them failed.
+     *
+     * The session is still torn down when that window closes, so a rider who has genuinely
+     * finished with Android Auto gets a session that ends rather than one that hangs.
+     */
+    private fun handleAndroidAutoDrop(reason: String) {
+        if (stopping) return
+        if (!MotoHubSettings.autoRecovery(this)) {
+            ProjectionEventLog.warning(
+                "WATCHDOG",
+                "Not holding the Android Auto session open: automatic reconnection is switched off."
+            )
+            fail(reason)
+            return
+        }
+        if (!androidAutoReattachRequested.compareAndSet(false, true)) return
+        ProjectionEventLog.warning(
+            "WATCHDOG",
+            "$reason The receiver is still up; holding the session open for " +
+                "${AA_REATTACH_GIVE_UP_MILLIS / 1_000L}s while Android Auto reattaches."
+        )
+        // Out of Streaming for the duration, which also stops the frame watchdog from opening a
+        // second, concurrent recovery over the same gap: its stall check only runs while Streaming.
+        AndroidAutoRuntime.publish(AndroidAutoRuntimeState.ReceiverReady)
+        androidAutoReattachJob = serviceScope.launch {
+            val deadline = SystemClock.elapsedRealtime() + AA_REATTACH_GIVE_UP_MILLIS
+            while (!stopping && SystemClock.elapsedRealtime() < deadline) {
+                delay(AA_REATTACH_POLL_MILLIS)
+                if (receiver?.hasLiveSession != true) continue
+                androidAutoReattachRequested.set(false)
+                // The bike stream never stopped, so this is Streaming again the moment the
+                // transport is: there is no hand-off to redo and no frame to wait for.
+                markWatchdogProgress()
+                AndroidAutoRuntime.publish(AndroidAutoRuntimeState.Streaming)
+                ProjectionEventLog.record("WATCHDOG", "Android Auto attached again.")
+                return@launch
+            }
+            androidAutoReattachRequested.set(false)
+            if (!stopping) {
+                fail(
+                    "$reason Android Auto did not come back within " +
+                        "${AA_REATTACH_GIVE_UP_MILLIS / 1_000L} seconds."
+                )
+            }
+        }
     }
 
     private fun fail(message: String) {
@@ -1186,6 +1431,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         videoReadyTimeoutJob?.cancel()
         watchdogJob?.cancel()
         recoveryJob?.cancel()
+        androidAutoReattachJob?.cancel()
         networkLossJob?.cancel()
         transportEventsJob = null
         networkEventsJob = null
@@ -1194,6 +1440,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         videoReadyTimeoutJob = null
         watchdogJob = null
         recoveryJob = null
+        androidAutoReattachJob = null
         networkLossJob = null
         p2pGroupWatcher?.close()
         p2pGroupWatcher = null
@@ -1230,7 +1477,9 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
                     // stops the transport and drops the network.
                     if (TBoxSessionRegistry.releaseAndClear(SESSION_CONSUMER, releasedHandle)) {
                         releasedHandle.transport.stop()
-                        releasedHandle.networkConnector.disconnect()
+                        // The network itself is the registry's to drop: clear() released the
+                        // session's lease on the shared connector, which disconnects only when
+                        // no other owner (the Hub UI, the AIDL bridge) still needs it.
                     }
                 } finally {
                     // Last thing this service ever does: the scope outlived stopSelf() before,
@@ -1257,7 +1506,9 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
 
     override fun onDestroy() {
         ProjectionEventLog.record("ANDROID AUTO", "Android Auto foreground service onDestroy called.")
-        stopSession("Android Auto service stopped by Android.")
+        // Whoever asked for this stop left its reason behind; only a destroy nobody in the app
+        // asked for still reads as Android's doing.
+        stopSession(AndroidAutoStopReason.take() ?: AndroidAutoStopReason.STOPPED_BY_ANDROID)
         super.onDestroy()
     }
 
@@ -1280,6 +1531,61 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
     private fun releaseWakeLock() {
         runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
         wakeLock = null
+    }
+
+    /**
+     * Goes foreground with the `microphone` type whenever Android allows it, and without it
+     * otherwise - never failing the session over it.
+     *
+     * The Assistant's voice capture ([io.motohub.android.aa.AaMicrophone]) runs in this process,
+     * which is a background app whenever the rider drives it from another app or with the
+     * screen off. Since Android 11 (and checked against the type actually passed here since 14)
+     * a background app may record only through a foreground service whose *running* type
+     * includes `microphone`; with any other type the AudioRecord starts normally and reads
+     * zeros. That silence is what one rider heard as "Gemini never hears me" on every attempt
+     * (ticket 9d030574): the manifest declared the type, this call did not pass it.
+     *
+     * The type is refused with a SecurityException when RECORD_AUDIO is not granted (Android
+     * 14+) or when the service is not in the while-in-use eligible state at start (started from
+     * the background). Both are recoverable for video, so fall back to the plain type and say
+     * so - the rider then gets a log line naming why voice input is silent instead of a session
+     * that refuses to start.
+     */
+    private fun startForegroundWithVoiceCapture() {
+        val plain = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+        val microphoneGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!microphoneGranted) {
+            startForeground(NOTIFICATION_ID, createNotification(), plain)
+            ProjectionEventLog.warning(
+                "ANDROID AUTO",
+                "Foreground service started without the microphone type: RECORD_AUDIO is not " +
+                    "granted, so Assistant voice input will be silent this session."
+            )
+            return
+        }
+        try {
+            startForeground(
+                NOTIFICATION_ID,
+                createNotification(),
+                plain or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            )
+            ProjectionEventLog.record(
+                "ANDROID AUTO",
+                "Foreground service started with the microphone type; Assistant voice input " +
+                    "can capture."
+            )
+        } catch (refused: SecurityException) {
+            startForeground(NOTIFICATION_ID, createNotification(), plain)
+            ProjectionEventLog.warning(
+                "ANDROID AUTO",
+                "Android refused the microphone foreground type (${refused.message}); running " +
+                    "without it, so Assistant voice input will be silent this session. Start " +
+                    "Android Auto from the app with the screen on to get it back."
+            )
+        }
     }
 
     private fun createNotificationChannel() {
@@ -1352,8 +1658,7 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         private const val ACTION_STOP = "io.motohub.android.action.STOP_ANDROID_AUTO"
         private const val AAP_VIDEO_READY_TIMEOUT_MS = 60_000L
         private const val TBOX_NETWORK_REBIND_TIMEOUT_MS = 8_000L
-        private const val VIDEO_CONFIGURATION_TIMEOUT_MS = 10_000L
-        private const val FRAME_LOG_INTERVAL = 300L
+        private const val VIDEO_AREA_TIMEOUT_MS = 10_000L
         private const val WATCHDOG_TICK_MS = 5_000L
         private const val WATCHDOG_STALL_MS = 10_000L
         private const val NETWORK_LOSS_GRACE_MILLIS = 60_000L
@@ -1367,6 +1672,17 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
         private const val NETWORK_REJOIN_WAIT_MILLIS = 75_000L
         private const val RECOVERY_RETRY_MILLIS = 5_000L
         private const val RECOVERY_GIVE_UP_MILLIS = 120_000L
+
+        /**
+         * How long a dropped AAP session is held open before the session is given up on.
+         *
+         * Generous on purpose: the receiver polls Android Auto's head unit server every 1.5s and
+         * the usual causes of a drop - the phone sleeping, Android Auto restarting itself - clear
+         * in seconds, while the expensive alternative is a rider stopping to rebuild a session
+         * that was about to come back on its own.
+         */
+        private const val AA_REATTACH_GIVE_UP_MILLIS = 90_000L
+        private const val AA_REATTACH_POLL_MILLIS = 1_000L
         private const val WAKE_LOCK_TIMEOUT_MS = 4 * 60 * 60 * 1_000L
 
         /**
@@ -1384,7 +1700,16 @@ class AndroidAutoSessionService : Service(), AndroidAutoPreviewController {
             )
         }
 
-        fun stop(context: Context) {
+        /**
+         * @param reason what the log should say this stop was, in the same voice as every other
+         *   session-stop reason - it is what a rider's diagnostic report will name as the cause.
+         *   Required on purpose: a caller that cannot say why it is stopping the session is the
+         *   caller that used to leave Android holding the blame.
+         */
+        fun stop(context: Context, reason: String) {
+            // Carried to onDestroy(), which is all Android gives an explicit stop; see
+            // AndroidAutoStopReason for why the blame used to land on the system.
+            AndroidAutoStopReason.publish(reason)
             // Stop the already-running foreground service explicitly. The previous implementation
             // started the service again with ACTION_STOP; that request could be ignored when it
             // came through the PRO AIDL bridge or the notification action. Android calls

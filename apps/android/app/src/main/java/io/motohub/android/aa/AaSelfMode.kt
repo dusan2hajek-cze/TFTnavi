@@ -81,6 +81,7 @@ object AaSelfMode {
         log: (String) -> Unit
     ) {
         val version = gearheadVersion(context)
+        lastGearheadVersion = version
         log("[AA] Android Auto app: ${version ?: "not installed"}")
         if (io.motohub.android.androidauto.AndroidAutoSelfModeHelp.isKnownBrokenVersion(version)) {
             // Still attempted below: Google could restore the entry points, and a version string
@@ -120,7 +121,8 @@ object AaSelfMode {
         if (headUnitServers.isEmpty()) {
             log(
                 "[AA] Android Auto exports no head unit server component; it can only be started " +
-                    "by hand from Developer settings ▸ overflow menu ▸ Start head unit server."
+                    "by hand from the three-dot menu at the top right of Android Auto's settings " +
+                    "(visible once developer options are unlocked), not from Developer settings."
             )
         } else {
             log("[AA] Head unit server candidates: ${headUnitServers.joinToString { it.describe() }}")
@@ -230,21 +232,37 @@ object AaSelfMode {
         }
 
         anyEntryPointAccepted = accepted
-        val diagnosis = if (accepted) {
-            "Android Auto ${version ?: "(version unknown)"} ACCEPTED at least one of them and then " +
-                "did nothing, which is what a refusal looks like from here: it projects only to a " +
-                "head unit it is willing to accept, and a sideloaded one counts as unknown until " +
-                "\"Add new cars to Android Auto\" is enabled in its own Developer settings."
-        } else {
-            "Android Auto ${version ?: "(version unknown)"} refused every one of them as not " +
-                "exported - the release has closed self-mode off (same wall headunit-revived hit " +
-                "in its issue #698)."
+        // An acceptance means "a trust decision was made about us" only while the release still
+        // has self-mode. Past that, what accepts is a component that needs pairing data it was
+        // never given, so the acceptance is noise and the head unit server is the only way in.
+        // See AndroidAutoSelfModeHelp.ACCEPTED_BUT_SILENT_ON_CLOSED_RELEASE_MESSAGE.
+        val selfModeClosed =
+            io.motohub.android.androidauto.AndroidAutoSelfModeHelp.isKnownBrokenVersion(version)
+        val diagnosis = when {
+            accepted && !selfModeClosed ->
+                "Android Auto ${version ?: "(version unknown)"} ACCEPTED at least one of them and " +
+                    "then did nothing, which is what a refusal looks like from here: it projects " +
+                    "only to a head unit it is willing to accept, and a sideloaded one counts as " +
+                    "unknown until \"Add new cars to Android Auto\" is enabled in its own " +
+                    "Developer settings."
+            accepted ->
+                "Android Auto ${version ?: "(version unknown)"} ACCEPTED at least one of them and " +
+                    "then did nothing - but on a release that has closed self-mode that says " +
+                    "nothing about \"Add new cars\": the components still exported here do " +
+                    "nothing without pairing data of their own."
+            else ->
+                "Android Auto ${version ?: "(version unknown)"} refused every one of them as not " +
+                    "exported - the release has closed self-mode off (same wall headunit-revived " +
+                    "hit in its issue #698)."
         }
+        // The only two details that are an instruction rather than narration, which is why they
+        // are named next to the long-form guidance they abbreviate: the home screen tells them
+        // apart by identity and gives them a card instead of a caption.
         onProgress(
-            if (accepted) {
-                "Enable \"Add new cars to Android Auto\" in Android Auto ▸ Developer settings…"
+            if (accepted && !selfModeClosed) {
+                io.motohub.android.androidauto.AndroidAutoSelfModeHelp.ADD_NEW_CARS_STEP.flat
             } else {
-                "Start \"head unit server\" in Android Auto ▸ Developer settings ▸ ⋮ menu…"
+                io.motohub.android.androidauto.AndroidAutoSelfModeHelp.HEAD_UNIT_SERVER_STEP.flat
             }
         )
         log(
@@ -262,6 +280,16 @@ object AaSelfMode {
      */
     @Volatile
     var anyEntryPointAccepted: Boolean = false
+        private set
+
+    /**
+     * The Android Auto version the last [trigger] round ran against, kept for the same reason and
+     * with the same lifetime as [anyEntryPointAccepted]: the remedy is chosen where the failure
+     * surfaces, and re-reading it from PackageManager there could disagree with what was actually
+     * tried.
+     */
+    @Volatile
+    var lastGearheadVersion: String? = null
         private set
 
     /** Polls the receiver rather than trusting the dispatch result. See [trigger]. */

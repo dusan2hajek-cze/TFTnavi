@@ -18,11 +18,17 @@ package io.motohub.android.tbox
 internal object EasyConnClientIdentity {
     /**
      * Tried in order. The CFMOTO companion is first because it is the one proven against real
-     * hardware; the Carbit framework namespace follows as the most plausible name for a dash from
-     * another manufacturer, since that is the package the reference EasyConn SDK ships under.
+     * hardware; Carbit Ride's own package follows because it is the only name a dash has been
+     * *observed* acknowledging - a rider's packet capture of Carbit Ride starting up shows an
+     * 81-byte probe on 10930 (16-byte header plus the 65-byte body this object builds for
+     * `net.easyconn.easyride.wws`) answered with `{"isResponse":true}`, and it is the same package
+     * the Voge dash reports as `flavor` 51 in its CLIENT_INFO. The two Carbit framework namespaces
+     * close the ladder as the plausible names for a dash from another manufacturer, since that is
+     * what the reference EasyConn SDK ships under.
      */
     val candidates: List<String> = listOf(
         "com.cfmoto.cfmotointernational",
+        "net.easyconn.easyride.wws",
         "net.easyconn.carman",
         "com.carbit.easyconnect"
     )

@@ -26,6 +26,7 @@ import io.motohub.android.encoding.AdaptiveVideoController
 import io.motohub.android.encoding.AvcEncoder
 import io.motohub.android.encoding.EncoderProfile
 import io.motohub.android.encoding.JpegDisplaySource
+import io.motohub.android.encoding.VideoDeliveryProbe
 import io.motohub.android.encoding.VideoBackpressureGuard
 import io.motohub.android.androidauto.DisplayGeometry
 import io.motohub.android.androidauto.TBoxDisplayGeometryStore
@@ -33,12 +34,14 @@ import io.motohub.android.feature.settings.MotoHubSettings
 import io.motohub.android.tbox.TBoxEvent
 import io.motohub.android.tbox.TBoxLinkResolver
 import io.motohub.android.tbox.TBoxModelProfile
+import io.motohub.android.tbox.TBoxWireLadder
 import io.motohub.android.tbox.TBoxTransportFamily
 import io.motohub.android.tbox.ProfileOverride
 import io.motohub.android.tbox.TBoxCapabilityStore
 import io.motohub.android.tbox.TBoxNetworkEvent
 import io.motohub.android.tbox.SelectingTBoxTransport
 import io.motohub.android.tbox.TBoxSessionHandle
+import io.motohub.android.tbox.tBoxFailureOwnedByHandshake
 import io.motohub.android.tbox.TBoxSessionRegistry
 import io.motohub.android.tbox.TBoxStreamingLocks
 import io.motohub.android.tbox.TBoxVideoAreaSource
@@ -73,19 +76,46 @@ class ProjectionSessionService : Service() {
     private var handleCleanupJob: Job? = null
     private var recoveryJob: Job? = null
     private val recoveryRequested = AtomicBoolean(false)
+    /**
+     * True while the EasyConn handshake below is running.
+     *
+     * Same window as Android Auto's and the Ride Dashboard's: observeActiveSession() installs the
+     * transport-event collector before the first handshake and the encoder is built after it, so a
+     * Stopped/FatalError produced BY that handshake reached handleRecoverableFailure - which with
+     * auto-recovery off calls fail() and beats this mode's own, far more useful diagnosis to the
+     * log, and with it on starts a whole recovery loop against a session that never opened.
+     * See [tBoxFailureOwnedByHandshake].
+     */
+    private val handshakeInFlight = AtomicBoolean(false)
     private val transportUnavailable = AtomicBoolean(false)
+    /** One place for both verdicts, so the accept and reject arms cannot drift apart. */
+    private fun publishDeliveryVerdict(
+        verdict: VideoDeliveryProbe.Verdict,
+        handle: TBoxSessionHandle,
+        profile: TBoxModelProfile
+    ) = DashboardDeliveryMonitor.publish(
+        verdict = verdict,
+        ssid = handle.motorcycle.ssid,
+        rejected = deliveryProbe.rejectedCount(),
+        accepted = deliveryProbe.acceptedCount(),
+        profileKey = profile.key
+    )
+
     private var backpressureGuard = VideoBackpressureGuard()
+    /** Whether this dash is taking the stream at all, as opposed to whether the link is alive. */
+    private var deliveryProbe = VideoDeliveryProbe()
     private val videoStreamStartRequested = AtomicBoolean(false)
     /**
      * Guards [startCapture] against duplicate concurrent starts. [mediaProjection] is
      * only assigned near the end of [startCapture] (after the T-Box handshake, which can
-     * take up to [VIDEO_CONFIGURATION_TIMEOUT_MS]), so it cannot be used as the reentrancy
+     * take up to [VIDEO_AREA_TIMEOUT_MS]), so it cannot be used as the reentrancy
      * guard: a second `onStartCommand` before the first finishes would otherwise pass the
      * old "mediaProjection != null" check and race a second encoder/VirtualDisplay into
      * existence, leaking the first one.
      */
     private val capturing = AtomicBoolean(false)
     private val framesAccepted = AtomicLong(0)
+    private val frameLogThrottle = FrameLogThrottle()
     private val capabilityStore by lazy { TBoxCapabilityStore(this) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var displayDimmer: PhoneDisplayDimmer
@@ -159,7 +189,9 @@ class ProjectionSessionService : Service() {
     private suspend fun startCapture(resultCode: Int, resultData: Intent) {
         if (stopping || !capturing.compareAndSet(false, true)) return
         ProjectionRuntime.publish(ProjectionRuntimeState.Starting)
-        ProjectionEventLog.record("SERVICE", "Starting EasyConn handshake.")
+        // Deliberately not named after a family: this runs before the session handle is in hand,
+        // so the only honest word here is the neutral one. "EasyConn" was wrong on every KOVE.
+        ProjectionEventLog.record("SERVICE", "Starting the dashboard handshake.")
 
         val handle = TBoxSessionRegistry.current()
             ?: return fail("No T-Box session is ready. Reconnect the motorcycle before sharing.")
@@ -175,12 +207,20 @@ class ProjectionSessionService : Service() {
             capabilityStore.load(handle.motorcycle)?.capabilities,
             ProfileOverride.byKey(handle.motorcycle.profileOverrideKey)
         )
-        val configurationResult = handle.transport.negotiateVideoConfiguration(
-            host = handle.host,
-            savedArea = savedArea,
-            fallbackArea = fallbackArea,
-            timeoutMillis = VIDEO_CONFIGURATION_TIMEOUT_MS
-        )
+        // The transport reports a failed handshake twice - as the return value here and as a
+        // Stopped/FatalError event - and the event handler must not race this block. See
+        // onTBoxFailureEvent.
+        handshakeInFlight.set(true)
+        val configurationResult = try {
+            handle.transport.negotiateVideoConfiguration(
+                host = handle.host,
+                savedArea = savedArea,
+                fallbackArea = fallbackArea,
+                videoAreaTimeoutMillis = VIDEO_AREA_TIMEOUT_MS
+            )
+        } finally {
+            handshakeInFlight.set(false)
+        }
         configurationResult.exceptionOrNull()?.let {
             return fail("T-Box video negotiation failed: ${it.message}")
         }
@@ -194,6 +234,9 @@ class ProjectionSessionService : Service() {
             capabilityStore.load(handle.motorcycle)?.capabilities,
             ProfileOverride.byKey(handle.motorcycle.profileOverrideKey)
         )
+        // What this dash is actually being sent. Identical to the profile's own fields for every
+        // recognised dash; for an unidentified one it is whichever rung TBoxWireLadder has reached.
+        val sessionWire = TBoxWireLadder.configFor(applicationContext, handle.motorcycle, modelProfile)
         val profile = configuration.encoderProfile.copy(
             frameRate = modelProfile.encoderFrameRate ?: configuration.encoderProfile.frameRate,
             // The profile's rate, where it has one, is the base the rider's quality setting scales -
@@ -201,12 +244,12 @@ class ProjectionSessionService : Service() {
             bitRate = quality.bitrateFor(
                 modelProfile.encoderBitRate ?: configuration.encoderProfile.bitRate
             ),
-            keyframeIntervalSeconds = modelProfile.encoderKeyframeIntervalSeconds,
+            keyframeIntervalSeconds = sessionWire.encoderKeyframeIntervalSeconds,
             // Yunmo's split framing needs real keyframes to split; intra refresh would make them
             // rare. A profile can also demand plain IDRs for its decoder's sake (KOVE froze on
             // intra refresh); every other EasyConn dash keeps intra refresh.
             plainGopWithoutIntraRefresh =
-                modelProfile.encoderPlainGopWithoutIntraRefresh ||
+                sessionWire.encoderPlainGopWithoutIntraRefresh ||
                     modelProfile.transportFamily == TBoxTransportFamily.YUNMO,
             // ThinkerRide's video header declares the exact stream size; encode precisely that
             // instead of the 16-aligned canvas, like the reference app does.
@@ -256,13 +299,15 @@ class ProjectionSessionService : Service() {
             // thread is the right place to receive it.
             projection.registerCallback(projectionCallback, mainHandler)
             backpressureGuard = VideoBackpressureGuard()
+            deliveryProbe = VideoDeliveryProbe()
+            DashboardDeliveryMonitor.clear()
 
             // The one dash that is fed stills instead of video. Everything below this block - the
             // encoder, its surface, the adaptive controller - is the path every other motorcycle
             // takes, unchanged; this branch returns before reaching any of it. `encoder` stays null,
             // which every later call site already tolerates (`encoder?.`, and the adaptive
             // controller's onTick returns immediately on a null encoder).
-            if (modelProfile.yunmoJpegVideo) {
+            if (modelProfile.usesJpegStills) {
                 startJpegCapture(projection, profile, modelProfile, handle)
                 return
             }
@@ -272,15 +317,23 @@ class ProjectionSessionService : Service() {
                 onAccessUnit = { accessUnit ->
                     if (handle.transport.offerAccessUnit(accessUnit)) {
                         backpressureGuard.onAccepted()
+                        deliveryProbe.onAccepted()?.let { publishDeliveryVerdict(it, handle, modelProfile) }
                         val accepted = framesAccepted.incrementAndGet()
-                        if (accepted == 1L || accepted % FRAME_LOG_INTERVAL == 0L) {
-                            ProjectionEventLog.record("ENCODER", "Frames sent to T-Box: $accepted.")
-                        }
+                        frameLogThrottle.rateSuffixIfDue(accepted, SystemClock.elapsedRealtime())
+                            ?.let { rate ->
+                                ProjectionEventLog.record(
+                                    "ENCODER",
+                                    "Frames sent to T-Box: $accepted$rate."
+                                )
+                            }
                         true
                     } else {
                         // A single rejection is a pushFrame() overlap, not a dead link - only a
                         // sustained streak ends the session (see VideoBackpressureGuard).
                         val fatal = backpressureGuard.onRejected()
+                        deliveryProbe.onRejected()?.let {
+                            publishDeliveryVerdict(it, handle, modelProfile)
+                        }
                         if (backpressureGuard.isStreakStart()) {
                             ProjectionEventLog.warning(
                                 "ENCODER",
@@ -366,6 +419,22 @@ class ProjectionSessionService : Service() {
      * only the T-Box transport needs to reconnect - so a recovered EasyConn session resumes
      * streaming without a new consent prompt.
      */
+    /**
+     * Routes a transport failure event, unless the handshake that produced it is still running and
+     * about to report the same failure itself.
+     */
+    private fun onTBoxFailureEvent(message: String) {
+        val ownedByHandshake =
+            tBoxFailureOwnedByHandshake(handshakeInFlight.get(), "mirroring", message)
+        if (ownedByHandshake != null) {
+            // INFO, not DEBUG: this is the line that says why the session did NOT end here, and
+            // the console hides DEBUG by default.
+            ProjectionEventLog.record("WATCHDOG", ownedByHandshake)
+            return
+        }
+        handleRecoverableFailure(message)
+    }
+
     private fun handleRecoverableFailure(message: String) {
         if (stopping) return
         if (!MotoHubSettings.autoRecovery(this)) {
@@ -426,7 +495,10 @@ class ProjectionSessionService : Service() {
         p2pGroupWatcher?.close()
         p2pGroupWatcher = null
         previousHandle.transport.stop()
-        TBoxSessionRegistry.clear(previousHandle)
+        // Kept, not dropped: the recovery below reuses this very link, and on Wi-Fi Direct
+        // releasing the group here is what made the rejoin impossible (see the retained-link
+        // note on TBoxSessionRegistry).
+        TBoxSessionRegistry.clear(previousHandle, retainLinkForRecovery = true)
 
         val link = TBoxLinkResolver.reacquire(
             applicationContext,
@@ -440,7 +512,8 @@ class ProjectionSessionService : Service() {
                 previousHandle.motorcycle.modelId,
                 null,
                 ProfileOverride.byKey(previousHandle.motorcycle.profileOverrideKey)
-            )
+            ),
+            previousHandle.motorcycle
         )
         val host = previousHandle.transport.discover(link, previousHandle.motorcycle.modelId).getOrThrow()
         val recoveredHandle = previousHandle.copy(host = host, link = link)
@@ -470,8 +543,8 @@ class ProjectionSessionService : Service() {
                         encoder?.requestSyncFrame("TFT consumer requested mirroring video")
                     }
                     is TBoxEvent.Warning -> ProjectionEventLog.record("T-BOX", event.message)
-                    is TBoxEvent.FatalError -> handleRecoverableFailure("T-Box error: ${event.message}")
-                    TBoxEvent.Stopped -> handleRecoverableFailure("The T-Box ended the session.")
+                    is TBoxEvent.FatalError -> onTBoxFailureEvent("T-Box error: ${event.message}")
+                    TBoxEvent.Stopped -> onTBoxFailureEvent("The T-Box ended the session.")
                     is TBoxEvent.VideoArea -> Unit
                     is TBoxEvent.Touch -> Unit
                 }
@@ -539,7 +612,9 @@ class ProjectionSessionService : Service() {
                 // Another mode may still be streaming on this session.
                 if (TBoxSessionRegistry.releaseAndClear(SESSION_CONSUMER, releasedHandle)) {
                     releasedHandle.transport.stop()
-                    releasedHandle.networkConnector.disconnect()
+                    // The network itself is the registry's to drop: clear() released the
+                    // session's lease on the shared connector, which disconnects only when
+                    // no other owner (the Hub UI, the AIDL bridge) still needs it.
                 }
             }
         } else {
@@ -659,9 +734,8 @@ class ProjectionSessionService : Service() {
         private const val ACTION_RESTORE_DISPLAY = "io.motohub.android.action.RESTORE_DISPLAY"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
-        private const val VIDEO_CONFIGURATION_TIMEOUT_MS = 10_000L
+        private const val VIDEO_AREA_TIMEOUT_MS = 10_000L
         private const val AUTO_DIM_DELAY_MS = 5_000L
-        private const val FRAME_LOG_INTERVAL = 120L
         private const val ADAPTIVE_TICK_MS = 5_000L
         private const val NETWORK_REJOIN_WAIT_MILLIS = 75_000L
         private const val RECOVERY_RETRY_MILLIS = 5_000L
@@ -717,9 +791,13 @@ class ProjectionSessionService : Service() {
                     ?.offerJpegFrame(jpeg, frameId) ?: false
                 if (accepted) {
                     val sent = framesAccepted.incrementAndGet()
-                    if (sent == 1L || sent % FRAME_LOG_INTERVAL == 0L) {
-                        ProjectionEventLog.record("JPEG", "Stills sent to the dashboard: $sent.")
-                    }
+                    frameLogThrottle.rateSuffixIfDue(sent, SystemClock.elapsedRealtime())
+                        ?.let { rate ->
+                            ProjectionEventLog.record(
+                                "JPEG",
+                                "Stills sent to the dashboard: $sent$rate."
+                            )
+                        }
                 }
                 accepted
             },

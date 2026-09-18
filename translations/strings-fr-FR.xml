@@ -12,11 +12,19 @@
     <string name="language_korean">한국어 (대한민국)</string>
     <string name="language_french">Français</string>
     <string name="language_spanish">Español</string>
+    <string name="language_german">Deutsch</string>
+    <string name="language_dutch">Nederlands</string>
+    <string name="language_czech">Čeština</string>
+    <string name="language_turkish">Türkçe</string>
     <string name="language_title">Langue</string>
     <string name="language_description">Choisissez la langue utilisée par MOTO-HUB</string>
     <string name="language_detail_description">MOTO-HUB suit la langue du téléphone par défaut. Choisissez une langue ci-dessous pour la remplacer dans cette application.</string>
 
     <!-- Settings main page -->
+    <string name="legacy_download_anyway_c17b27fb">Télécharger quand même</string>
+    <string name="legacy_download_over_1_s_23fdd550">Télécharger via %1$s ?</string>
+    <string name="legacy_moto_hub_1_s_is_2_s_and_right_now_the_only_conne_8ebbc51c">MOTO-HUB %1$s pèse %2$s, et la seule connexion qui atteint Internet en ce moment est %3$s, que votre opérateur facture. Sur la moto c\'est normal : le Wi-Fi du tableau de bord n\'a pas d\'Internet du tout.</string>
+    <string name="legacy_waiting_for_wi_fi_costs_nothing_the_update_stays_3f38fec8">Attendre le Wi-Fi ne coûte rien : la mise à jour reste dans cette liste.</string>
     <string name="settings_configuration">CONFIGURATION</string>
     <string name="settings_title">Réglages</string>
     <string name="settings_general">Général</string>
@@ -51,10 +59,34 @@
     <string name="android_auto_resolution_landscape_sd_description">Source Android Auto paysage standard.</string>
     <string name="android_auto_resolution_landscape_hd">Paysage 1280 x 720</string>
     <string name="android_auto_resolution_landscape_hd_description">Source paysage HD plus nette, avec une charge plus élevée pour le téléphone.</string>
+    <string name="android_auto_resolution_landscape_fhd">Paysage 1920 x 1080</string>
+    <string name="android_auto_resolution_landscape_fhd_description">Source Full HD en paysage. Non validée sur aucun tableau de bord connu.</string>
+    <string name="android_auto_resolution_landscape_qhd">Paysage 2560 x 1440</string>
+    <string name="android_auto_resolution_landscape_qhd_description">Source Quad HD en paysage. Lourde pour le téléphone et non validée sur aucun tableau de bord connu.</string>
+    <string name="android_auto_resolution_landscape_uhd">Paysage 3840 x 2160</string>
+    <string name="android_auto_resolution_landscape_uhd_description">Source 4K en paysage. Le téléphone encode et décode la 4K en même temps : chaleur et pertes d\'images à prévoir.</string>
     <string name="android_auto_resolution_portrait_sd">Portrait 720 x 1280</string>
     <string name="android_auto_resolution_portrait_sd_description">Source Android Auto portrait standard.</string>
     <string name="android_auto_resolution_portrait_hd">Portrait 1080 x 1920</string>
     <string name="android_auto_resolution_portrait_hd_description">Source portrait HD plus nette, avec une charge plus élevée pour le téléphone.</string>
+    <string name="android_auto_resolution_portrait_qhd">Portrait 1440 x 2560</string>
+    <string name="android_auto_resolution_portrait_qhd_description">Source Quad HD en portrait. Lourde pour le téléphone et non validée sur aucun tableau de bord connu.</string>
+    <string name="android_auto_resolution_portrait_uhd">Portrait 2160 x 3840</string>
+    <string name="android_auto_resolution_portrait_uhd_description">Source 4K en portrait. Le téléphone encode et décode la 4K en même temps : chaleur et pertes d\'images à prévoir.</string>
+    <string name="android_auto_density_auto">Auto</string>
+    <string name="android_auto_density_auto_description">Utiliser la densité fournie par la résolution sélectionnée.</string>
+    <string name="android_auto_density_120">120 dpi</string>
+    <string name="android_auto_density_120_description">Interface la plus petite, plus de carte à l\'écran. Difficile à lire sur un petit TFT.</string>
+    <string name="android_auto_density_160">160 dpi</string>
+    <string name="android_auto_density_160_description">Interface petite. C\'est la densité utilisée par défaut par les sources paysage.</string>
+    <string name="android_auto_density_213">213 dpi</string>
+    <string name="android_auto_density_213_description">Entre les deux. Utile quand 160 est trop serré et 240 trop grossier.</string>
+    <string name="android_auto_density_240">240 dpi</string>
+    <string name="android_auto_density_240_description">Interface standard. C\'est la densité utilisée par défaut par les sources portrait.</string>
+    <string name="android_auto_density_320">320 dpi</string>
+    <string name="android_auto_density_320_description">Interface grande, plus lisible et plus facile à toucher avec des gants. Moins de carte à l\'écran.</string>
+    <string name="android_auto_density_480">480 dpi</string>
+    <string name="android_auto_density_480_description">Interface maximale. N\'a de sens que sur les sources haute résolution.</string>
     <string name="android_auto_insets_auto">Auto</string>
     <string name="android_auto_insets_auto_description">Utiliser toute la source Android Auto ; la zone de projection du T-Box n\'ajoute aucune marge AA.</string>
     <string name="android_auto_insets_manual">Manuel</string>
@@ -107,12 +139,14 @@
     <!-- Source: feature/about/AboutScreen.kt -->
     <string name="legacy_experimental_software_e22071df">LOGICIEL EXPÉRIMENTAL</string>
     <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_no_network_called_1_s_has_been_seen_but_this_pho_3174d343">Aucun réseau nommé « %1$s » n\'a été vu, mais ce téléphone connaît « %2$s », qui n\'en diffère que par les espaces. Enregistre à nouveau pour conserver ce que tu as saisi.</string>
     <string name="legacy_open_github_repository_80f9bf71">Ouvrir le dépôt GitHub</string>
     <!-- Source: feature/about/AboutScreen.kt -->
     <string name="legacy_platform_9e635873">PLATEFORME</string>
     <!-- Source: feature/about/AboutScreen.kt -->
     <string name="legacy_source_support_aa797bf0">SOURCE ET SUPPORT</string>
     <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_use_1_s_ef5e7994">Utiliser %1$s</string>
     <string name="legacy_version_3fc0a8b8">VERSION</string>
     <!-- Source: feature/androidauto/AndroidAutoPreviewScreen.kt -->
     <string name="legacy_fullscreen_7d6157db">Plein écran</string>
@@ -387,7 +421,7 @@
     <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
     <string name="legacy_elevation_last_hour_10deed1a">ALTITUDE / DERNIÈRE HEURE</string>
     <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
-    <string name="legacy_now_12eb6">MAINTENANT</string>
+    <string name="legacy_now_12eb6">ACTUEL</string>
     <!-- Source: feature/ridedashboard/widget/AltitudeWidget.kt -->
     <string name="legacy_waiting_for_gnss_elevation_f069100e">EN ATTENTE DE L\'ALTITUDE GNSS</string>
     <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
@@ -399,7 +433,7 @@
     <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
     <string name="legacy_phone_system_b2b20c1d">TÉLÉPHONE // SYSTÈME</string>
     <!-- Source: feature/ridedashboard/widget/BatteryWidget.kt -->
-    <string name="legacy_turn_rate_9cfa82a3">VITESSE DE ROTATION</string>
+    <string name="legacy_turn_rate_9cfa82a3">VIT. ROTATION</string>
     <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
     <string name="legacy_ahead_3b5bda1">DEVANT</string>
     <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
@@ -1252,17 +1286,18 @@
     <!-- Source: localized UI literal / enum label -->
     <string name="legacy_unable_to_open_wi_fi_settings_537aaf03">Impossible d\'ouvrir les réglages Wi-Fi</string>
     <!-- Source: localized UI literal / enum label -->
-    <string name="legacy_unable_to_open_official_cfmoto_app_settings_ec49e64b">Impossible d\'ouvrir les réglages de l\'application officielle CFMOTO</string>
+    <string name="legacy_unable_to_open_the_companion_app_settings_c0a83e03">Impossible d\'ouvrir les réglages de l\'application du constructeur</string>
     <!-- Source: localized UI literal / enum label -->
     <string name="legacy_no_open_ports_found_8533cd9d">aucun port ouvert trouvé</string>
     <!-- Source: localized UI literal / enum label -->
     <string name="legacy_open_1_s_e55a596b">ouverts : %1$s</string>
-    <!-- Android Auto pre-flight: the official MotoPlay client is installed, but may not be active. -->
-    <string name="legacy_cfmoto_motoplay_detected_ca887791">CFMOTO MotoPlay détecté</string>
-    <string name="legacy_moto_hub_starts_google_android_auto_not_motoplay_1ab1d3e9">MOTO-HUB lance Google Android Auto, pas MotoPlay.</string>
-    <string name="legacy_the_official_cfmoto_motoplay_easyconn_app_can_st_7e0ae938">L\'application officielle CFMOTO MotoPlay/EasyConn peut encore prendre le contrôle de la connexion T-Box tant qu\'elle est en arrière-plan. Pour une projection fiable, forcez son arrêt dans les réglages Android avant de continuer.</string>
+    <!-- Android Auto pre-flight: an OEM companion app is installed, but may not be active. %1$s is
+         its name as shown on the phone (CFMOTO, Zontes Smart, Carbit Ride, ...). -->
+    <string name="legacy_1_s_detected_66208287">%1$s détecté</string>
+    <string name="legacy_moto_hub_starts_google_android_auto_not_1_s_3a77813f">MOTO-HUB lance Google Android Auto, pas %1$s.</string>
+    <string name="legacy_1_s_can_still_take_over_the_dashboard_connection_5bc85002">%1$s peut encore prendre le contrôle de la connexion au tableau de bord tant qu\'elle est en arrière-plan. Pour une projection fiable, forcez son arrêt dans les réglages Android avant de continuer.</string>
     <string name="legacy_continue_with_android_auto_f6c7ef01">Continuer avec Android Auto</string>
-    <string name="legacy_open_motoplay_settings_99bbfe9c">Ouvrir les réglages MotoPlay</string>
+    <string name="legacy_open_1_s_settings_470b74f2">Ouvrir les réglages %1$s</string>
     <string name="legacy_do_not_show_this_warning_again_d3abf59b">Ne plus afficher cet avertissement</string>
     <!-- Source: tbox/ProfileOverride.kt -->
     <string name="legacy_generic_dashboard_53d1376b">Tableau de bord générique</string>
@@ -1291,7 +1326,7 @@
     <string name="legacy_community_source_fe28bfcc">COMMUNAUTÉ ET SOURCE</string>
     <string name="legacy_discord_c6d7d50c">Discord</string>
     <string name="legacy_github_7f258fe3">GitHub</string>
-    <string name="legacy_map_rendering_by_maplibre_native_bsd_2_clause_ve_cb6afe3f">Rendu de la carte par MapLibre Native (BSD-2-Clause). Tuiles vectorielles d\'OpenFreeMap, au schéma OpenMapTiles ; tuiles raster de CARTO. Recherche d\'adresses par Photon. Calcul d\'itinéraires par Valhalla, hébergé par Stadia Maps ou le serveur de démonstration FOSSGIS. Lieux par Overpass. Météo par Open-Meteo. Prix des carburants publiés en données ouvertes par le Ministerio para la Transición Ecológica espagnol, la DGEG portugaise, le Ministère de l\'Économie français et le MIMIT italien. Les données de la DGEG ne peuvent pas être utilisées à des fins commerciales.</string>
+    <string name="legacy_map_rendering_by_maplibre_native_bsd_2_clause_ve_1f7cda7f">Rendu de la carte par MapLibre Native (BSD-2-Clause). Tuiles vectorielles d\'OpenFreeMap, au schéma OpenMapTiles ; tuiles raster de l\'OpenStreetMap Foundation. Recherche d\'adresses par Photon. Calcul d\'itinéraires par Valhalla, hébergé par Stadia Maps ou le serveur de démonstration FOSSGIS. Lieux par Overpass. Météo par Open-Meteo. Prix des carburants publiés en données ouvertes par le Ministerio para la Transición Ecológica espagnol, la DGEG portugaise, le Ministère de l\'Économie français et le MIMIT italien. Les données de la DGEG ne peuvent pas être utilisées à des fins commerciales.</string>
     <string name="legacy_maps_data_b256210d">CARTES ET DONNÉES</string>
     <string name="legacy_maps_addresses_and_routes_are_built_on_data_by_o_f0b02b91">Les cartes, les adresses et les itinéraires reposent sur les données de © OpenStreetMap contributors, sous licence ODbL.</string>
     <string name="legacy_prototype_unlocked_856a4841">Prototype débloqué</string>
@@ -1363,11 +1398,11 @@
 
     <!-- Source: feature/home/HubHomeScreen.kt -->
     <string name="legacy_android_auto_17_4_removed_the_way_apps_ask_it_to_b5455068">Android Auto 17.4 a supprimé la façon dont les applications demandent à projeter. Il peut encore être lancé depuis le menu développeur d\'Android Auto.</string>
-    <string name="legacy_one_possible_cause_the_official_cfmoto_app_is_in_b6013d8d">Une cause possible : l\'application officielle CFMOTO est installée et peut occuper la liaison T-Box même en arrière-plan. Si la connexion échoue encore, forcez son arrêt depuis sa page Infos sur l\'appli, puis réessayez.</string>
-    <string name="legacy_open_cfmoto_app_info_4af1a737">Ouvrir les infos de l\'appli CFMOTO</string>
+    <string name="legacy_one_possible_cause_1_s_is_installed_and_can_keep_47cef163">Une cause possible : %1$s est installée et peut occuper la liaison au tableau de bord même en arrière-plan. Si la connexion échoue encore, forcez son arrêt depuis sa page Infos sur l\'appli, puis réessayez.</string>
+    <string name="legacy_open_1_s_app_info_33a7c01c">Ouvrir les infos de l\'appli %1$s</string>
     <string name="legacy_retry_connection_54743f76">Réessayer la connexion</string>
     <string name="legacy_some_dashboards_never_broadcast_a_network_of_the_787ecd2c">Certains tableaux de bord ne diffusent jamais de réseau : ils rejoignent un point d\'accès créé par votre téléphone, avec le Ssid et le mot de passe affichés à l\'écran. Si le vôtre indique « ouvrez le point d\'accès Android », essayez ainsi.</string>
-    <string name="legacy_the_official_cfmoto_app_is_installed_and_may_be__461e26a6">L\'application officielle CFMOTO est installée et occupe peut-être le T-Box. Forcez son arrêt depuis sa page Infos sur l\'appli, puis réessayez.</string>
+    <string name="legacy_1_s_is_installed_and_may_be_holding_the_dashboar_2c02bb10">%1$s est installée et occupe peut-être le tableau de bord. Forcez son arrêt depuis sa page Infos sur l\'appli, puis réessayez.</string>
     <string name="legacy_try_my_phone_hosts_the_hotspot_d4f6db66">Essayer : c\'est mon téléphone qui héberge</string>
 
     <!-- Source: feature/home/HubViewModel.kt -->
@@ -1397,6 +1432,9 @@
     <string name="legacy_put_a_screen_on_the_tft_as_soon_as_the_motorcycl_60bf969c">Afficher un écran sur le TFT dès que la moto se connecte</string>
     <string name="legacy_requires_the_phone_paired_to_the_motorcycle_s_bl_dda6960a">Nécessite que le téléphone soit appairé au Bluetooth de la moto. La musique continue, mais ses touches sont captées pendant qu\'une session tourne.</string>
     <string name="legacy_set_the_dash_clock_over_bluetooth_experimental_3431b284">Régler l\'horloge du tableau de bord par Bluetooth (expérimental)</string>
+    <string name="legacy_set_the_dash_clock_over_wi_fi_292a2ca5">Régler l\'horloge du tableau de bord par Wi-Fi</string>
+    <string name="legacy_on_by_default_and_what_sets_the_time_on_most_das_6234cd82">Activé par défaut, et c\'est ce qui met à l\'heure la plupart des tableaux de bord. À désactiver uniquement si votre tableau de bord demande l\'heure à MOTO-HUB, ignore la réponse et affiche quand même 01.01.1970 : sur ces appareils, écrire l\'horloge ne change rien et peut écraser une heure que vous avez réglée à la main sur le tableau de bord lui-même. Désactivé, la moto se connecte normalement, on ne lui dit simplement jamais quelle heure il est.</string>
+    <string name="legacy_your_dashboard_has_been_seen_asking_for_the_time_c02f4d97">Votre tableau de bord a été vu demander l\'heure, recevoir une réponse et continuer malgré tout à compter depuis sa propre mise sous tension. Ce réglage n\'y change rien dans aucune position : cette horloge est tenue par le tableau de bord, pas par le téléphone.</string>
     <string name="legacy_settings_595d2043">Réglages</string>
     <string name="legacy_some_dashboards_ask_for_the_time_over_bluetooth__b44ce43b">Certains tableaux de bord demandent l\'heure par Bluetooth plutôt que par Wi-Fi, et restent à 00:00 sans elle. Il faut que la moto soit déjà appairée à ce téléphone dans les réglages Bluetooth d\'Android. Désactivé par défaut ; MOTO-HUB ne répond jamais qu\'à un appareil qui interroge dans le protocole propre au tableau de bord.</string>
     <string name="legacy_some_dashboards_forget_settings_like_the_clock_w_76d95842">Certains tableaux de bord oublient des réglages comme l\'horloge quand la liaison Wi-Fi Direct tombe complètement. Garde le téléphone associé au réseau de la moto jusqu\'à ce que vous quittiez l\'application ou coupiez le Wi-Fi. Désactivé par défaut ; à n\'activer que si votre tableau de bord perd l\'heure après la déconnexion.</string>
@@ -1487,7 +1525,6 @@
     <string name="legacy_low_power_483394f9">BATTERIE FAIBLE</string>
     <string name="legacy_no_sensor_69b15af9">PAS DE CAPTEUR</string>
     <string name="legacy_normal_8999b0e7">NORMAL</string>
-    <string name="legacy_off_1314f">ARRÊT</string>
     <string name="legacy_warm_288a85">TIÈDE</string>
 
     <!-- Source: feature/ridedashboard/widget/CompassWidget.kt -->
@@ -1547,7 +1584,7 @@
     <string name="legacy_bluetooth_is_off_turn_it_on_then_pair_the_remote_356459fc">Le Bluetooth est éteint — activez-le, puis associez la télécommande en tant que clavier.</string>
     <string name="legacy_allow_bluetooth_access_so_the_app_can_read_the_r_bf160fa2">Autorisez l\'accès au Bluetooth pour que l\'application puisse lire les appuis de la télécommande.</string>
     <string name="legacy_bluetooth_is_on_a_hid_remote_doesn_t_show_up_her_77795af8">Le Bluetooth est activé. Une télécommande HID n\'apparaît pas ici comme appareil connecté — si les appuis ne sont toujours pas reconnus, vérifiez qu\'elle est associée dans les réglages Bluetooth du système et que l\'Accessibilité est activée.</string>
-    <string name="legacy_or_right_now_without_the_t_box_21ba0502">OU TOUT DE SUITE, SANS T-BOX</string>
+    <string name="legacy_or_right_now_without_the_t_box_21ba0502">OU MAINTENANT, SANS T-BOX</string>
     <string name="legacy_android_auto_straight_to_your_phone_f0cc540c">Android Auto — directement sur le téléphone</string>
     <string name="legacy_input_protocol_8ff4fe4e">PROTOCOLE D\'ENTRÉE</string>
     <string name="legacy_most_dashboards_send_buttons_as_avrcp_media_keys_6e1dd82c">La plupart des tableaux de bord envoient les boutons comme touches multimédia AVRCP — laissez AVRCP. Choisissez HID seulement si la télécommande s\'associe comme clavier Bluetooth et que ses appuis n\'apparaissent jamais ci-dessous.</string>
@@ -1570,7 +1607,6 @@
 
     <!-- About screen -->
     <string name="legacy_your_phone_your_motorcycle_display_c5956fcb">Votre téléphone.\nL\'écran de votre moto.</string>
-    <string name="legacy_moto_hub_connects_an_android_14_phone_to_a_motor_403bf630">MOTO-HUB relie un téléphone Android 14+ à un tableau de bord moto qui s\'appaire via EasyConn, le logiciel Carbit qu\'embarquent plusieurs constructeurs, dont CFMOTO. Il prend en charge la recopie de l\'écran et des applications, la projection Android Auto, les profils de moto enregistrés et les diagnostics sur l\'appareil.</string>
     <string name="legacy_follow_development_join_our_community_report_iss_b8b8fffa">Suivez le développement, rejoignez la communauté, signalez des problèmes et téléchargez les versions.</string>
     <string name="legacy_moto_hub_is_an_independent_project_it_is_not_aff_9e4c2633">MOTO-HUB est un projet indépendant. Il n\'est ni affilié, ni approuvé, ni parrainé par Carbit, CFMOTO, tout autre constructeur dont le tableau de bord utilise EasyConn, Google ou Android Auto. Tous les noms de produits et les marques appartiennent à leurs propriétaires respectifs.</string>
     <string name="legacy_moto_hub_is_an_experimental_proof_of_concept_not_34b4b321">MOTO-HUB est une preuve de concept expérimentale, pas un produit de qualité commerciale.</string>
@@ -1604,7 +1640,7 @@
     <string name="legacy_easyconn_endpoint_f9ecbf07">Point de terminaison EasyConn</string>
     <string name="legacy_nsd_package_bfb67045">Paquet NSD</string>
     <string name="legacy_last_discovered_a02851f2">Dernière détection</string>
-    <string name="legacy_diagnostics_54322d8c">DIAGNOSTICS</string>
+    <string name="legacy_diagnostics_54322d8c">DIAGNOSTIC</string>
     <string name="legacy_if_easyconn_discovery_keeps_failing_briefly_reco_b8d938f8">Si la détection EasyConn continue d\'échouer, reconnectez-vous brièvement à ce T-Box et sondez directement ses ports connus (10915-10935) pour voir lequel répond réellement.</string>
     <string name="legacy_display_8e70a4a2">AFFICHAGE</string>
     <string name="legacy_tft_capture_area_ad3b6865">Zone de capture TFT</string>
@@ -1696,4 +1732,269 @@
     <string name="legacy_that_was_a_single_press_press_twice_quickly_for__e774e0f2">C\'était un appui simple : appuyez deux fois rapidement pour le double.</string>
     <string name="legacy_that_was_a_quick_tap_press_and_hold_a_moment_lon_5b9c9d4d">C\'était une pression brève : maintenez appuyé un instant de plus.</string>
     <string name="legacy_open_hotspot_settings_7d1f3d4a">Ouvrir les paramètres du point d\'accès</string>
+    <!-- The "MOTO-HUB is still looking" notification shown while a connection attempt runs,
+         and the hosted-network wording that tells the rider not to close the app. %1$s is
+         the motorcycle network name. -->
+    <string name="legacy_moto_hub_connection_progress_c260af34">Progression de la connexion MOTO-HUB</string>
+    <string name="legacy_looking_for_1_s_9983a22f">Recherche de %1$s</string>
+    <string name="legacy_connecting_to_1_s_2f10e3b8">Connexion à %1$s</string>
+    <string name="legacy_keep_moto_hub_open_closing_it_stops_the_search_54ec507">Gardez MOTO-HUB ouvert : le fermer arrête la recherche.</string>
+    <string name="legacy_hotspot_is_up_searching_it_for_the_dashboard_thi_caab4cd3">Le point d\'accès est actif. Recherche du tableau de bord : cela peut prendre jusqu\'à 90 secondes, gardez donc MOTO-HUB ouvert.</string>
+    <!-- Asked once per video format tried, after a session that looked healthy from the phone:
+         only the rider can see whether the dashboard actually displayed it. %1$s is the
+         motorcycle name. -->
+    <string name="legacy_did_it_show_up_on_the_dashboard_f341c05">Est-ce que ça s\'est affiché sur le tableau de bord ?</string>
+    <string name="legacy_last_time_you_connected_to_1_s_everything_looked_46fc9a09">La dernière fois que vous vous êtes connecté à %1$s, tout semblait correct depuis ce téléphone. MOTO-HUB ne peut pas voir l\'écran du tableau de bord : c\'est la seule chose qu\'il doit vous demander.</string>
+    <string name="legacy_if_it_stayed_on_the_pairing_screen_moto_hub_will_40398b69">S\'il est resté sur l\'écran d\'appairage, MOTO-HUB essaiera un autre format vidéo à la prochaine sortie et continuera jusqu\'à ce que l\'un d\'eux fonctionne.</string>
+    <string name="legacy_yes_i_saw_it_625527f4">Oui, je l\'ai vu</string>
+    <string name="legacy_no_nothing_appeared_f92c88fc">Non, rien ne s\'est affiché</string>
+    <!-- Shown when the video-format search cannot progress because every session so far ran the
+         Ride Dashboard, which sends its own format. -->
+    <string name="legacy_the_video_format_search_is_waiting_ac28c9a">La recherche du format vidéo est en attente</string>
+    <string name="legacy_moto_hub_is_still_looking_for_a_video_format_you_44b4c53c">MOTO-HUB cherche encore un format vidéo que votre tableau de bord sait afficher, mais il ne peut en tester un que pendant qu\'Android Auto fonctionne : le Ride Dashboard envoie toujours son propre format.</string>
+    <string name="legacy_connect_once_with_android_auto_and_the_search_mo_71871380">Connectez-vous une fois avec Android Auto et la recherche continue toute seule.</string>
+    <string name="legacy_got_it_7f79855f">Compris</string>
+
+    <!-- ===========================================================
+         Catalogue sweep, 2026-08-24: strings this worktree draws but had no
+         identifier for. The photo-picker values come from the pro-poc
+         catalogues, where the same source strings are already translated;
+         the About paragraph is this worktree's own, rewritten when CORE
+         dropped to Android 12.
+         ================================================================== -->
+
+    <!-- Source: MainActivity.kt -->
+    <string name="legacy_camera_permission_is_required_to_take_a_photo_951c5abe">L\'autorisation de l\'appareil photo est requise pour prendre une photo</string>
+
+    <!-- Source: feature/garage/MotorcycleDetailsScreen.kt -->
+    <string name="legacy_browse_files_e6b23981">Parcourir les fichiers</string>
+    <string name="legacy_choose_from_gallery_1d40e025">Choisir dans la galerie</string>
+    <string name="legacy_downloads_cloud_drives_and_any_other_folder_eb4e2c46">Téléchargements, cloud et tout autre dossier.</string>
+    <string name="legacy_open_the_camera_and_shoot_it_now_75ae0eed">Ouvrez l\'appareil photo et prenez-la maintenant.</string>
+    <string name="legacy_pick_one_of_your_photos_913c1c70">Choisissez l\'une de vos photos.</string>
+    <string name="legacy_take_a_photo_cefc733a">Prendre une photo</string>
+
+    <!-- Source: feature/about/AboutScreen.kt -->
+    <string name="legacy_moto_hub_connects_an_android_12_phone_to_a_motor_b791c32e">MOTO-HUB relie un téléphone Android 12+ à un tableau de bord moto qui s\'appaire via EasyConn, le logiciel Carbit qu\'embarquent plusieurs constructeurs, dont CFMOTO. Il prend en charge la recopie de l\'écran et des applications, la projection Android Auto, les profils de moto enregistrés et les diagnostics sur l\'appareil.</string>
+
+    <!-- Source: feature/controls — a controller button stands in for a handlebar press -->
+    <string name="legacy_handlebar_presses_32db65bc">APPUIS DU GUIDON</string>
+    <string name="legacy_backward_hold_left_72d8761e">Arrière maintenu - Gauche</string>
+    <string name="legacy_forward_hold_right_3f058b83">Avant maintenu - Droite</string>
+
+    <!-- Source: feature/diagnostics/BleExplorerScreen.kt — the Bluetooth LE workbench -->
+    <string name="legacy_bluetooth_le_explorer_2ab1f074">Explorateur Bluetooth LE</string>
+    <string name="legacy_find_any_bluetooth_le_device_open_it_and_see_wha_ff9d191c">Trouvez n\'importe quel appareil Bluetooth LE, ouvrez-le et voyez de quoi il est vraiment fait : ses services, ses caractéristiques et chaque octet qu\'il envoie. Conçu pour les télécommandes qui n\'annoncent rien d\'elles-mêmes — appuyez sur leurs boutons en étant abonné et le protocole s\'écrit tout seul dans le journal.</string>
+    <string name="legacy_devices_1_d_c9f468d8">APPAREILS (%1$d)</string>
+    <string name="legacy_filter_by_name_address_or_service_5c4953c4">Filtrer par nom, adresse ou service</string>
+    <string name="legacy_not_connectable_a36d7984">  - non connectable</string>
+    <string name="legacy_services_99327804">services : </string>
+    <string name="legacy_manufacturer_5ba47ab7">fabricant : </string>
+    <string name="legacy_service_data_703f501b">données de service : </string>
+    <string name="legacy_connected_839202e9">CONNECTÉ</string>
+    <string name="legacy_rediscover_cece7f3c">Redécouvrir</string>
+    <string name="legacy_mtu_517_7d540d89">MTU 517</string>
+    <string name="legacy_read_rssi_318ccc81">Lire le RSSI</string>
+    <string name="legacy_read_26cdb6">Lire</string>
+    <string name="legacy_write_4ff67bf">Écrire</string>
+    <string name="legacy_write_to_1_s_716e199f">Écrire sur %1$s</string>
+    <string name="legacy_bytes_in_hex_01_ff_0a_01ff0a_and_0x01_0xff_all_w_69a0e8b2">Octets en hexadécimal — « 01 FF 0A », « 01ff0a » et « 0x01,0xFF » fonctionnent tous. Cela écrit directement sur l\'appareil : sur certains matériels, une mauvaise valeur modifie des réglages difficiles à rétablir.</string>
+    <string name="legacy_hex_11afb">Hex</string>
+    <string name="legacy_not_valid_hex_yet_f28e24dc">Pas encore de l\'hexadécimal valide.</string>
+    <string name="legacy_1_d_byte_s_f2d64482">%1$d octet(s)</string>
+    <string name="legacy_no_response_bdcb77a0">Sans réponse</string>
+    <string name="legacy_traffic_eb2daddd">TRAFIC</string>
+    <string name="legacy_nothing_yet_dc65bed9">Rien pour l\'instant.</string>
+    <string name="legacy_every_line_here_is_also_in_the_application_log_s_f3e682dd">Chaque ligne ici figure aussi dans le journal de l\'application : une session peut donc être envoyée dans un rapport de diagnostic.</string>
+    <string name="legacy_dash_clock_lab_a1a0638d">Labo de l\'horloge du tableau de bord</string>
+    <string name="legacy_experiments_for_dashes_that_reset_the_clock_zont_a4c75a39">Expériences pour les tableaux de bord qui remettent l\'horloge à zéro (Zontes, Voge)</string>
+    <string name="legacy_scan_connect_and_read_any_ble_device_byte_by_byt_c47fb770">Scannez, connectez et lisez n\'importe quel appareil BLE octet par octet</string>
+
+    <!-- Source: strings the extractor used to miss inside if/else expressions -->
+    <string name="legacy_stop_scanning_93cac2ef">Arrêter la recherche</string>
+    <string name="legacy_scan_for_devices_883edf83">Rechercher des appareils</string>
+    <string name="legacy_showing_named_devices_only_18320ef1">Appareils nommés uniquement</string>
+    <string name="legacy_showing_every_device_ab347b96">Tous les appareils</string>
+    <string name="legacy_nothing_yet_a_remote_that_sleeps_only_advertises_231ea04a">Rien pour l\'instant. Une télécommande en veille ne se signale que quelques secondes après un appui — appuyez sur un bouton et gardez-la à proximité.</string>
+    <string name="legacy_start_a_scan_to_see_what_is_around_bd69ed5b">Lancez une recherche pour voir ce qu\'il y a autour.</string>
+    <string name="legacy_unsubscribe_862dd2b1">Se désabonner</string>
+    <string name="legacy_subscribe_9621fd2a">S\'abonner</string>
+
+    <!-- Source: feature/controls — actions that drive the Ride Dashboard itself -->
+    <string name="legacy_dashboard_next_panel_8f5432b1">Tableau de bord : panneau suivant</string>
+    <string name="legacy_dashboard_fullscreen_map_1bd08691">Tableau de bord : carte plein écran</string>
+    <string name="legacy_dashboard_zoom_the_map_on_me_4f78353">Tableau de bord : zoomer la carte sur moi</string>
+    <string name="legacy_dashboard_change_the_left_widget_2ac18bf8">Tableau de bord : changer le widget de gauche</string>
+    <string name="legacy_dashboard_change_the_right_widget_e40e68ad">Tableau de bord : changer le widget de droite</string>
+    <string name="legacy_panel_33b634ef">Panneau +</string>
+    <string name="legacy_map_full_b08caf3">Carte plein</string>
+    <string name="legacy_zoom_me_5ca904e5">Sur moi</string>
+    <string name="legacy_widget_l_b0744190">Widget G</string>
+    <string name="legacy_widget_r_b0744196">Widget D</string>
+
+    <!-- Source: feature/controls — actions that drive the rider's music -->
+    <string name="legacy_music_464f605">MUSIQUE</string>
+    <string name="legacy_music_play_pause_f246dd44">Musique : lecture / pause</string>
+    <string name="legacy_music_next_track_516d3c09">Musique : piste suivante</string>
+    <string name="legacy_music_previous_track_dab94b8d">Musique : piste précédente</string>
+    <string name="legacy_music_volume_up_f45c31d6">Musique : volume +</string>
+    <string name="legacy_music_volume_down_4e0f651d">Musique : volume −</string>
+    <string name="legacy_play_25ff54">Lecture</string>
+    <string name="legacy_next_24ff13">Suivant</string>
+    <string name="legacy_previous_b7ee1f17">Précédent</string>
+    <string name="legacy_vol_4eff3fe">Vol +</string>
+    <string name="legacy_vol_4f015e5">Vol −</string>
+
+    <!-- Source: feature/controls — the three input sources, and which one is live -->
+    <string name="legacy_motorcycle_handlebar_dc90fcfc">GUIDON DE LA MOTO</string>
+    <string name="legacy_android_auto_17_4_removed_the_way_an_app_can_ask_217ec1b2">Android Auto 17.4 a supprimé la façon dont une application peut demander à projeter. MOTO-HUB essaie quand même, et sur les versions antérieures cela fonctionne — mais quand ce n\'est pas le cas, les quatre étapes ci-dessous lancent Android Auto depuis son propre menu développeur. C\'est ce qui marche quand rien d\'autre ne marche, et vous n\'avez rien à installer.</string>
+    <string name="legacy_start_android_auto_yourself_3b0dffe1">LANCEZ ANDROID AUTO VOUS-MÊME</string>
+    <string name="legacy_open_the_android_auto_app_s_settings_scroll_to_t_4ef36207">Ouvrez les réglages de l\'application Android Auto, allez tout en bas et touchez « Version » dix fois. Cela déverrouille ses options pour développeurs — à faire une seule fois.</string>
+    <string name="legacy_stay_on_that_same_android_auto_settings_screen_o_2c08cebc">Restez sur ce même écran de réglages d\'Android Auto, ouvrez le menu à trois points en haut à droite et choisissez « Démarrer le serveur d\'unité principale ». C\'est dans ce menu, pas dans les réglages Développeur. C\'est cette étape qui fait tout.</string>
+    <string name="legacy_while_you_are_in_there_629f07a5">TANT QUE VOUS Y ÊTES</string>
+    <string name="legacy_open_developer_settings_from_that_same_screen_an_4629699">Depuis ce même écran, ouvrez les réglages Développeur et activez « Ajouter de nouvelles voitures à Android Auto » (les anciennes versions parlent de « Sources inconnues »). Sur Android Auto 17.2 et antérieur, ce réglage suffit souvent à lui seul. À partir de 17.3, non — c\'est l\'étape 2 — donc ne vous arrêtez pas là si Android Auto ne démarre toujours pas.</string>
+    <string name="legacy_start_head_unit_server_da7b299f">Démarrez le « serveur d\'unité principale »</string>
+    <string name="legacy_the_three_dot_menu_at_the_top_right_of_android_a_d6625ac7">le menu à trois points en haut à droite des réglages d\'Android Auto</string>
+    <string name="legacy_unlock_android_auto_s_developer_options_first_op_2865efda">Déverrouillez d\'abord les options pour développeurs d\'Android Auto : ouvrez ses réglages, allez tout en bas et touchez « Version » dix fois.</string>
+    <string name="legacy_enable_add_new_cars_to_android_auto_75bf90fa">Activez « Ajouter de nouvelles voitures à Android Auto »</string>
+    <string name="legacy_android_auto_then_developer_settings_f55db1c8">Android Auto, puis les réglages Développeur</string>
+    <string name="legacy_android_auto_is_not_running_start_a_session_from_e803c9ee">Android Auto n\'est pas lancé. Démarrez une session depuis l\'Accueil.</string>
+    <string name="legacy_preparing_android_auto_db146bea">Préparation d\'Android Auto…</string>
+    <string name="legacy_waiting_for_android_auto_to_start_projecting_b7646bd0">En attente du début de la projection d\'Android Auto…</string>
+    <string name="legacy_live_preview_touch_enabled_73752c4b">Aperçu en direct · tactile activé</string>
+    <string name="legacy_google_android_auto_never_connected_to_moto_hub__bd46b5a3">Google Android Auto ne s\'est jamais connecté à MOTO-HUB. Les versions récentes d\'Android Auto ont supprimé la façon dont les applications demandent à projeter : lancez-le donc depuis Android Auto lui-même. Ouvrez les réglages de l\'application Android Auto, allez tout en bas et touchez « Version » dix fois pour déverrouiller ses options pour développeurs. Puis, sur ce même écran de réglages, ouvrez le menu à trois points en haut à droite et choisissez « Démarrer le serveur d\'unité principale » - ce menu se trouve sur l\'écran de réglages normal d\'Android Auto, pas dans les réglages Développeur. Laissez MOTO-HUB ouvert : il se connecte tout seul en deux secondes, et vous pouvez laisser le serveur actif pour la prochaine fois.</string>
+    <string name="legacy_google_android_auto_took_moto_hub_s_request_and__ae0978d0">Google Android Auto a accepté la demande de MOTO-HUB puis l\'a ignorée. C\'est ce qu\'il fait avec une unité principale à laquelle on ne lui a pas dit de faire confiance. Ouvrez les réglages de l\'application Android Auto, allez tout en bas et touchez « Version » dix fois pour déverrouiller ses options pour développeurs, ouvrez les réglages Développeur et activez « Ajouter de nouvelles voitures à Android Auto » (les anciennes versions parlent de « Sources inconnues »), puis relancez Android Auto depuis MOTO-HUB. Si rien ne se passe toujours, revenez à l\'écran de réglages d\'Android Auto et utilisez le menu à trois points en haut à droite : « Démarrer le serveur d\'unité principale ».</string>
+    <string name="legacy_google_android_auto_took_moto_hub_s_request_and__3e12afc0">Google Android Auto a accepté la demande de MOTO-HUB puis l\'a ignorée, et c\'est tout ce que cette version en fait : Android Auto 17.3 et suivants ont supprimé la façon dont une application peut demander à projeter. Lancez-le plutôt depuis Android Auto. Ouvrez les réglages de l\'application Android Auto, allez tout en bas et touchez « Version » dix fois pour déverrouiller ses options pour développeurs, puis ouvrez le menu à trois points en haut à droite de ce même écran et choisissez « Démarrer le serveur d\'unité principale ». Laissez MOTO-HUB ouvert : il se connecte tout seul en deux secondes. Pendant que vous y êtes, « Ajouter de nouvelles voitures à Android Auto » dans les réglages Développeur devrait aussi être activé.</string>
+    <string name="legacy_another_easyconn_session_is_already_using_the_lo_fa50b26f">Une autre session EasyConn utilise déjà les ports de connexion locaux (10920-10922). Arrêtez toute session MOTO-HUB active, ou forcez l\'arrêt de l\'application companion de votre moto (CFMOTO, Zontes Smart, Carbit Ride et les équivalents des autres marques), puis réessayez la connexion.</string>
+    <string name="legacy_phone_wi_fi_is_off_turn_it_on_then_tap_connect_a_5fd21cc0">Le Wi-Fi du téléphone est désactivé. Activez-le, puis touchez de nouveau Connecter.</string>
+    <string name="legacy_phone_hotspot_is_off_turn_it_on_then_tap_connect_683a58f1">Le point d\'accès du téléphone est désactivé. Activez-le, puis touchez de nouveau Connecter.</string>
+    <string name="legacy_action_needed_a446e8df">ACTION REQUISE</string>
+    <string name="legacy_do_this_in_android_auto_9a49aaee">FAITES CECI DANS ANDROID AUTO</string>
+    <string name="legacy_show_me_how_73baf02b">Montrez-moi comment</string>
+    <string name="legacy_for_dashes_that_reset_their_clock_at_every_ignit_64c2ff15">Pour les tableaux de bord qui remettent leur horloge à zéro à chaque cycle d\'allumage (Zontes et Voge surtout). Le tableau de bord allumé, le laboratoire se connecte en Bluetooth, écoute, puis envoie l\'heure sous cinq formes différentes et enregistre chaque octet. Roulez, coupez et remettez le contact, puis partagez le journal de l\'application : il dira quelle forme le tableau de bord a acceptée.</string>
+    <string name="legacy_run_clock_experiments_8ad4688f">Lancer les tests d\'horloge</string>
+    <string name="legacy_live_log_831d05f0">JOURNAL EN DIRECT</string>
+    <string name="legacy_nothing_yet_power_the_dash_on_then_run_the_exper_b1ec5c8f">Rien pour l\'instant. Allumez le tableau de bord, puis lancez les tests.</string>
+    <string name="legacy_moto_hub_closed_unexpectedly_30f439d7">MOTO-HUB s\'est fermé de façon inattendue</string>
+    <string name="legacy_the_last_time_you_used_moto_hub_it_stopped_becau_8448d27c">La dernière fois que vous avez utilisé MOTO-HUB, l\'application s\'est arrêtée à cause d\'une erreur. Envoyer le rapport de diagnostic est ce qui permet au développeur d\'en trouver la cause.</string>
+    <string name="legacy_the_report_contains_your_motorcycle_s_dashboard__f4208b9f">Le rapport contient le modèle du tableau de bord de votre moto, le modèle de votre téléphone, les versions d\'Android et d\'Android Auto, les versions de MOTO-HUB installées et le journal de l\'application avec l\'erreur. Les mots de passe, les positions et les adresses matérielles n\'y figurent jamais.</string>
+    <string name="legacy_send_reports_automatically_from_now_on_7cdd2209">Envoyer les rapports automatiquement à partir de maintenant</string>
+    <string name="legacy_send_report_55908cac">Envoyer le rapport</string>
+    <string name="legacy_how_your_data_is_handled_ff77c87f">Comment vos données sont traitées</string>
+    <string name="legacy_not_now_e202d7e9">Pas maintenant</string>
+    <string name="legacy_help_improve_moto_hub_9bf5292c">Aidez à améliorer MOTO-HUB</string>
+    <string name="legacy_moto_hub_can_send_a_diagnostics_report_to_the_de_36cc6ba6">MOTO-HUB peut envoyer un rapport de diagnostic au développeur : le modèle du tableau de bord de votre moto, le modèle de votre téléphone, les versions d\'Android, d\'Android Auto et de MOTO-HUB installées, et le journal de l\'application. Les mots de passe, les positions et les adresses matérielles n\'y figurent jamais.</string>
+    <string name="legacy_reports_go_out_at_most_once_a_day_after_an_updat_6fc12b8d">Les rapports partent au maximum une fois par jour, après une mise à jour ou après un plantage, et uniquement via une connexion avec accès à Internet. Votre ID d\'assistance figure dans Réglages ▸ Diagnostic, où vous pouvez activer ou désactiver cela à tout moment.</string>
+    <string name="legacy_send_reports_5c810947">Envoyer les rapports</string>
+    <string name="legacy_diagnostics_privacy_notice_1f708f84">Avis de confidentialité des diagnostics</string>
+    <string name="legacy_support_id_5239972c">ID d\'assistance</string>
+    <string name="legacy_moto_hub_support_id_7149b87">ID d\'assistance MOTO-HUB</string>
+    <string name="legacy_tap_to_copy_quote_it_when_asking_for_help_it_ide_edc7231">Touchez pour copier. Mentionnez-le en demandant de l\'aide : il identifie ce téléphone et cette moto.</string>
+    <string name="legacy_support_id_copied_63da1e38">ID d\'assistance copié</string>
+    <string name="legacy_what_gets_sent_f4a13bbf">Ce qui est envoyé</string>
+    <string name="legacy_read_what_a_report_contains_then_choose_whether__e679dae">Lisez ce que contient un rapport, puis choisissez de les envoyer ou non</string>
+    <string name="legacy_who_holds_your_reports_how_long_they_are_kept_an_ea54a6b7">Qui conserve vos rapports, combien de temps ils sont gardés et comment les faire supprimer</string>
+    <string name="legacy_send_diagnostics_now_9368c9ea">Envoyer le diagnostic maintenant</string>
+    <string name="legacy_this_build_has_no_collector_configured_e224996">Cette version n\'a aucun collector configuré</string>
+    <string name="legacy_logging_is_off_the_log_would_end_at_1_s_c9d7198e">La journalisation est désactivée ; le journal s\'arrêterait à %1$s</string>
+    <string name="legacy_logging_is_off_there_is_no_log_to_send_eca8d32d">La journalisation est désactivée ; il n\'y a aucun journal à envoyer</string>
+    <string name="legacy_send_diagnostics_automatically_880f35b7">Envoyer le diagnostic automatiquement</string>
+    <string name="legacy_sends_the_report_above_to_the_developer_at_most__8689def0">Envoie le rapport ci-dessus au développeur au maximum une fois par jour, après une mise à jour ou après un plantage, et uniquement via une connexion avec accès à Internet. Modèles de tableau de bord et de téléphone, versions de l\'application et journal de l\'application ; jamais de mots de passe, de positions ni d\'adresses matérielles.</string>
+    <string name="legacy_logging_is_off_d9325d5a">JOURNALISATION DÉSACTIVÉE</string>
+    <string name="legacy_nothing_has_been_recorded_since_1_s_what_was_log_1be484ac">Plus rien n\'a été enregistré depuis %1$s. Ce qui a été journalisé avant est conservé : désactiver la journalisation arrête les nouvelles entrées, elle n\'efface jamais les anciennes.</string>
+    <string name="legacy_nothing_has_been_recorded_and_there_is_no_earlie_dd873fa0">Rien n\'a été enregistré, et il n\'existe pas non plus de journal antérieur.</string>
+    <string name="legacy_a_report_sent_now_carries_that_log_so_it_says_no_cb65d9dc">Un rapport envoyé maintenant contient ce journal-là, il ne dit donc rien de ce que fait l\'application aujourd\'hui. Pour signaler un problème, réactivez Activer la journalisation, reproduisez le problème, puis envoyez.</string>
+    <string name="legacy_that_worked_keep_it_b0100883">Ça a marché - on le garde ?</string>
+    <string name="legacy_your_dashboard_is_now_accepting_the_picture_on_t_a2e41389">Votre tableau de bord accepte maintenant l\'image avec le profil %1$s. Continuer à l\'utiliser pour cette moto ?</string>
+    <string name="legacy_you_have_just_found_out_something_moto_hub_could_5d173f67">Vous venez de découvrir quelque chose que MOTO-HUB ne pouvait pas déterminer seul : quel profil ce tableau de bord accepte réellement. Envoyer votre journal le partage, et le prochain motard avec votre moto tombera juste du premier coup.</string>
+    <string name="legacy_send_my_log_now_80f590fe">Envoyer mon journal maintenant</string>
+    <string name="legacy_send_logs_automatically_from_now_on_1efdfbe9">Envoyer les journaux automatiquement à partir de maintenant</string>
+    <string name="legacy_keep_it_318f8786">Le garder</string>
+    <string name="legacy_undo_284d04">Annuler</string>
+    <string name="legacy_try_another_profile_2632e907">Essayer un autre profil</string>
+    <string name="legacy_the_connection_to_your_motorcycle_is_fine_the_da_6a78bba4">La connexion à votre moto est bonne : le tableau de bord refuse simplement l\'image dans le format où elle est envoyée. Un autre profil change ce format. En choisir un reconnecte aussitôt, et si le tableau de bord se met à l\'afficher, MOTO-HUB vous demandera si vous voulez le garder.</string>
+    <string name="legacy_your_dashboard_is_not_showing_this_9765fbe3">VOTRE TABLEAU DE BORD NE L\'AFFICHE PAS</string>
+    <string name="legacy_connected_but_the_picture_is_being_refused_tap_t_b17b1097">Connecté, mais l\'image est refusée. Touchez pour essayer un autre profil.</string>
+    <string name="legacy_connected_not_displaying_53b322ca">CONNECTÉ, PAS D\'AFFICHAGE</string>
+    <string name="legacy_your_dashboard_refused_1_d_of_the_picture_it_was_beaebc06">Votre tableau de bord a refusé %1$d%% de l\'image envoyée (%2$d images sur %3$d).</string>
+    <string name="legacy_this_is_what_your_dashboard_reports_itself_to_be_8dfdffdd">C\'est ce que votre tableau de bord déclare être.</string>
+    <string name="legacy_speaks_the_same_protocol_your_motorcycle_is_alre_7a13c9ca">Parle le même protocole que celui déjà utilisé par votre moto.</string>
+    <string name="legacy_plain_settings_no_assumptions_a_good_thing_to_fa_3d3a2213">Réglages simples, aucune hypothèse - une bonne solution de repli.</string>
+    <string name="legacy_an_experiment_for_one_dashboard_s_open_question__1eafa773">Une expérience pour la question en suspens d\'un tableau de bord. Elle peut ne rien changer.</string>
+    <string name="legacy_navigation_active_on_tft_b6221bcf">Navigation active sur le TFT</string>
+    <string name="legacy_tft_is_receiving_your_screen_56fd381">Le TFT reçoit votre écran</string>
+    <string name="legacy_android_auto_is_waiting_for_one_step_from_you_31eacac3">Android Auto attend une action de votre part</string>
+    <string name="legacy_session_is_being_prepared_742c490a">Préparation de la session</string>
+    <string name="legacy_button_presses_are_off_2952e766">APPUIS DÉSACTIVÉS</string>
+    <string name="legacy_moto_hub_advanced_owns_this_setting_and_writes_i_b8e328f7">Ce réglage appartient à MOTO-HUB ADVANCED, qui écrit le sien par-dessus celui-ci : activez-le là-bas, pas ici.</string>
+    <string name="legacy_turn_presses_back_on_9d506146">Réactiver les appuis</string>
+    <string name="legacy_these_drive_the_ride_dashboard_so_they_do_nothin_d4d30d86">Celles-ci pilotent le Ride Dashboard : elles ne font rien tant qu\'il ne tourne pas - une session Android Auto seule ne suffit pas.</string>
+    <string name="legacy_show_button_presses_on_the_dashboard_4ed2cd5e">Afficher les appuis sur le tableau de bord</string>
+
+    <!-- Source: feature/controls — the handlebar page after the Bluetooth controller was removed -->
+    <string name="legacy_your_motorcycle_s_own_handlebar_drives_moto_hub__f19519f3">Le guidon de ta moto pilote MOTO-HUB. Apprends-le une fois, puis donne à chaque bouton l\'action que tu veux.</string>
+    <string name="legacy_presses_still_arrive_and_still_show_up_on_this_p_62dfa27d">Les appuis arrivent toujours et s\'affichent toujours sur cette page - simplement, rien n\'est exécuté.</string>
+    <string name="legacy_every_handlebar_press_432fb397">Chaque appui au guidon </string>
+    <!-- Home: MOTO-HUB ADVANCED promo card and dialog -->
+    <string name="legacy_couldn_t_open_moto_hub_advanced_89c059e1">Impossible d\'ouvrir MOTO-HUB ADVANCED.</string>
+    <string name="legacy_moto_hub_advanced_1cc3b73d">MOTO-HUB ADVANCED</string>
+    <string name="legacy_dashboard_navigation_and_trips_installed_on_this_7ffa5bb9">Tableau de bord, navigation et sorties - installé sur ce téléphone.</string>
+    <string name="legacy_free_companion_app_dashboard_navigation_trips_an_256e51cd">Application gratuite : tableau de bord, navigation, sorties et plus encore.</string>
+    <string name="legacy_open_259a6a">Ouvrir</string>
+    <string name="legacy_see_what_it_adds_c8867b38">Voir ce qu\'elle ajoute</string>
+    <string name="legacy_a_second_free_app_that_installs_next_to_moto_hub_96f5853f">Une seconde application gratuite qui s\'installe à côté de MOTO-HUB et transforme le même écran en véritable ordinateur de bord. Aucun matériel supplémentaire n\'est nécessaire.</string>
+    <string name="legacy_ride_dashboard_gps_speed_live_map_and_trip_stats_e664cbab">Ride Dashboard - vitesse GPS, carte en direct et données de sortie sur le TFT</string>
+    <string name="legacy_navigation_search_motorcycle_routing_and_route_p_269dbf5a">Navigation - recherche, itinéraires moto et aperçu du parcours</string>
+    <string name="legacy_on_the_route_weather_fuel_prices_and_speed_camer_1ec23092">Sur le parcours - météo, prix des carburants et radars</string>
+    <string name="legacy_trips_recording_replay_analysis_and_gpx_export_ec08e237">Sorties - enregistrement, relecture, analyse et export GPX</string>
+    <string name="legacy_ai_place_discovery_and_a_post_ride_riding_coach_34d4ea13">Découverte de lieux par IA et Riding Coach après la sortie</string>
+    <string name="legacy_group_intercom_rider_to_rider_voice_70e92f1a">Intercom de groupe - la voix entre motards</string>
+    <string name="legacy_moto_hub_stays_in_charge_of_the_motorcycle_pairi_6ccf9308">MOTO-HUB reste aux commandes de la moto : appairage, connexion et Android Auto continuent ici. Installe la même version des deux.</string>
+    <string name="legacy_download_advanced_66a9c89a">Télécharger ADVANCED</string>
+    <string name="legacy_resolution_177354cc">Résolution</string>
+    <string name="legacy_the_video_source_android_auto_sends_to_the_dashb_a90d80a4">La source vidéo qu\'Android Auto envoie au tableau de bord</string>
+    <string name="legacy_interface_size_7aea8aa8">Taille de l\'interface</string>
+    <string name="legacy_how_large_android_auto_draws_itself_on_that_sour_2161eca0">La taille à laquelle Android Auto se dessine sur cette source</string>
+    <string name="legacy_landscape_fb5e029b">PAYSAGE</string>
+    <string name="legacy_portrait_5a1dab9b">PORTRAIT</string>
+    <string name="legacy_experimental_f1ae3108">Expérimental</string>
+    <!-- Source: catalogue catch-up 2026-09-06 - handlebar profiles, companion display, Home Assistant Torque, trip phone health, and the reworded wire verdict -->
+    <string name="legacy_1_s_is_holding_the_dashboard_connection_f85acc07">%1$s occupe la connexion au tableau de bord</string>
+    <string name="legacy_another_app_is_holding_the_dashboard_connection_2f8f3870">Une autre application occupe la connexion au tableau de bord</string>
+    <string name="legacy_force_stop_your_motorcycle_s_own_companion_app_f_47bc5899">Forcez l\'arrêt de l\'application compagnon de votre moto depuis sa page Informations sur l\'appli, puis réessayez : Android ne laisse pas une application libérer la connexion d\'une autre.</string>
+    <string name="legacy_if_it_stayed_on_the_pairing_screen_moto_hub_keep_74219a6">S\'il est resté sur l\'écran d\'appairage, MOTO-HUB continue d\'essayer des formats vidéo jusqu\'à ce que l\'un d\'eux fonctionne. Si d\'autres motards avec le même tableau de bord ont déjà confirmé celui-ci, il vous le demande une fois de plus avant de passer au suivant.</string>
+    <string name="legacy_if_your_other_moto_hub_app_is_running_a_session__263cbf82">Si votre autre application MOTO-HUB a une session en cours sur ce téléphone, arrêtez celle-là.</string>
+    <string name="legacy_import_qr_from_an_image_65acae9a">Importer un QR depuis une image</string>
+    <string name="legacy_moto_hub_will_connect_on_its_own_when_the_dashbo_9f3fe52b">MOTO-HUB se connectera tout seul quand le tableau de bord s\'allumera.</string>
+    <string name="legacy_on_this_phone_that_is_almost_always_1_s_force_st_26b6b463">Sur ce téléphone c\'est presque toujours %1$s. Forcez son arrêt depuis sa page Informations sur l\'appli, puis réessayez : Android ne laisse pas une application libérer la connexion d\'une autre.</string>
+    <string name="legacy_shown_while_moto_hub_watches_for_the_motorcycle__5410550d">Affiché pendant que MOTO-HUB guette le Wi-Fi de la moto.</string>
+    <string name="legacy_the_three_local_ports_moto_hub_needs_for_the_das_ac32b51a">Les trois ports locaux dont MOTO-HUB a besoin pour le tableau de bord (%1$s) sont occupés en ce moment, la connexion échouerait.</string>
+    <string name="legacy_try_anyway_909523a8">Essayer quand même</string>
+    <string name="legacy_waiting_for_s_c5c92cf8">En attente de %s</string>
+    <string name="legacy_waiting_for_the_motorcycle_24d361aa">En attente de la moto</string>
+    <!-- Source: trips/TripAnalysisScreen.kt, home/HubHomeScreen.kt, companion, ai/AiPreset, and the service notifications - literals that reached a lookup indirectly, or were never wrapped -->
+    <string name="legacy_1_s_in_moto_hub_advanced_is_coming_soon_use_moto_6bcb37c0">%1$s arrive bientôt dans MOTO-HUB Advanced (utilisez MOTO-HUB Core pour l\'instant).</string>
+    <string name="legacy_import_qr_6b03505c">Importer un QR</string>
+    <string name="legacy_scan_new_qr_ed7e6784">Scanner un nouveau QR</string>
+    <!-- Source: feature/home - the secondary actions under the pairing and projection cards -->
+    <string name="legacy_how_to_start_android_auto_e44c5dd3">Comment démarrer Android Auto</string>
+    <string name="legacy_open_wi_fi_settings_299670db">Ouvrir les réglages Wi-Fi</string>
+    <string name="legacy_couldn_t_open_moto_hub_adv_solo_67eb730a">Impossible d\'ouvrir MOTO-HUB ADV-SOLO.</string>
+    <string name="legacy_moto_hub_adv_solo_1bac54f4">MOTO-HUB ADV-SOLO</string>
+    <string name="legacy_free_app_that_replaces_this_one_dashboard_naviga_f14ef8b3">App gratuite qui remplace celle-ci : tableau de bord, navigation, trajets et plus.</string>
+    <string name="legacy_installed_on_this_phone_136503e7">INSTALLÉE SUR CE TÉLÉPHONE</string>
+    <string name="legacy_free_app_d2eb824d">APP GRATUITE</string>
+    <string name="legacy_everything_moto_hub_does_and_a_full_riding_compu_5afce456">Tout ce que fait MOTO-HUB, et un véritable ordinateur de bord.</string>
+    <string name="legacy_moto_hub_adv_solo_is_a_free_app_that_replaces_th_9d1bc46c">MOTO-HUB ADV-SOLO est une app gratuite qui remplace celle-ci et transforme votre TFT en véritable ordinateur de bord : son propre tableau de bord, la navigation, les trajets enregistrés. Sans abonnement, sans compte et sans matériel supplémentaire - elle utilise la T-Box que vous avez déjà.</string>
+    <string name="legacy_what_it_adds_cdd0b86b">CE QU\'ELLE AJOUTE</string>
+    <string name="legacy_moving_to_adv_solo_21f5a90c">PASSER À ADV-SOLO</string>
+    <string name="legacy_adv_solo_connects_to_the_motorcycle_on_its_own_p_ad9d6a7e">ADV-SOLO se connecte seule à la moto : appairage, connexion Wi-Fi, boutons du guidon et Android Auto fonctionnent tous à l\'intérieur. Elle n\'a pas besoin de cette app.</string>
+    <string name="legacy_install_it_and_connect_your_motorcycle_there_the_526ab2e">Installez-la et connectez-y votre moto, puis supprimez MOTO-HUB - ADV-SOLO vous le propose. Les motos appairées ici ne sont pas transférées : appairez-les à nouveau dans ADV-SOLO.</string>
+    <string name="legacy_links_4515799">LIENS</string>
+    <string name="legacy_more_ways_to_start_dfa7360e">AUTRES FAÇONS DE COMMENCER</string>
+    <string name="legacy_one_step_is_waiting_for_you_ad249079">Une étape vous attend</string>
+    <string name="legacy_starting_android_auto_330884c0">DÉMARRAGE D\'ANDROID AUTO</string>
+    <string name="legacy_dashboard_navigation_and_trips_the_free_app_that_141e7bbe">Tableau de bord, navigation et trajets - l\'app gratuite qui remplace celle-ci</string>
+    <string name="legacy_less_8775b50b">Moins ▲</string>
+    <string name="legacy_details_1d7b33e">Détails ▼</string>
 </resources>
