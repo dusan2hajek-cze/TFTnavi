@@ -106,12 +106,6 @@ import io.motohub.android.feature.safety.SafetyDisclaimerDialog
 import io.motohub.android.feature.settings.AutostartService
 import io.motohub.android.feature.settings.MotoHubSettings
 import io.motohub.android.feature.settings.SettingsTabContent
-import io.motohub.android.feature.update.DownloadProgress
-import io.motohub.android.feature.update.GithubRelease
-import io.motohub.android.feature.update.GithubUpdateDialog
-import io.motohub.android.feature.update.GithubUpdateInstaller
-import io.motohub.android.feature.update.GithubUpdateRepository
-import io.motohub.android.feature.update.latestNewerApkRelease
 import io.motohub.android.session.ProjectionSessionService
 import io.motohub.android.feature.diagnostics.report.CrashDiagnosticsConsentDialog
 import io.motohub.android.feature.diagnostics.report.DiagnosticReportScheduler
@@ -329,13 +323,6 @@ class MainActivity : ComponentActivity() {
                 var showAndroidAutoPreview by rememberSaveable { mutableStateOf(launchedPhoneOnlyAa) }
                 var androidAutoPreviewIsPhoneOnly by rememberSaveable { mutableStateOf(launchedPhoneOnlyAa) }
                 var androidAutoPhoneOnlyLaunchedFromPro by rememberSaveable { mutableStateOf(launchedPhoneOnlyAa) }
-                var showUpdateDialog by rememberSaveable { mutableStateOf(false) }
-                var updateAutoCheckAttempted by rememberSaveable { mutableStateOf(false) }
-                var updateLoading by remember { mutableStateOf(false) }
-                var updateError by remember { mutableStateOf<String?>(null) }
-                var updateReleases by remember { mutableStateOf<List<GithubRelease>>(emptyList()) }
-                var installingUpdateTag by remember { mutableStateOf<String?>(null) }
-                var installingUpdateProgress by remember { mutableStateOf<DownloadProgress?>(null) }
                 var showQrImageSource by remember { mutableStateOf(false) }
                 var qrPhotoProcessing by remember { mutableStateOf(false) }
                 var qrPhotoProgress by remember { mutableStateOf(0 to 0) }
@@ -398,66 +385,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 var seamlessResumePermissionPending by remember { mutableStateOf(false) }
-                var unknownSourcesAllowed by remember {
-                    mutableStateOf(GithubUpdateInstaller.canInstallUnknownSources(this@MainActivity))
-                }
-                val updateRepository = remember { GithubUpdateRepository() }
                 val updateScope = rememberCoroutineScope()
-                fun checkForUpdates(openDialog: Boolean) {
-                    if (!openDialog) {
-                        // Automatic checks are throttled to once/24h so a rider who opens
-                        // MOTO-HUB many times a day doesn't hit GitHub's anonymous API rate
-                        // limit (60 req/h) on every launch; a manual tap always bypasses this.
-                        // A new CORE version also bypasses the throttle once, so the first
-                        // launch of the newly installed APK can discover its next update.
-                        val elapsed = System.currentTimeMillis() - MotoHubSettings.lastAutoUpdateCheckAtMillis(context)
-                        val appVersionChanged = MotoHubSettings.lastAutoUpdateCheckVersion(context) !=
-                                BuildConfig.VERSION_NAME
-                        if (elapsed < AUTO_UPDATE_CHECK_THROTTLE_MS && !appVersionChanged) {
-                            ProjectionEventLog.debug(
-                                "UPDATES",
-                                "Automatic GitHub check skipped; last check was ${elapsed / 60_000L} minute(s) ago."
-                            )
-                            return
-                        }
-                        MotoHubSettings.setLastAutoUpdateCheckAtMillis(context, System.currentTimeMillis())
-                        MotoHubSettings.setLastAutoUpdateCheckVersion(context, BuildConfig.VERSION_NAME)
-                    }
-                    if (openDialog) showUpdateDialog = true
-                    if (updateLoading) return
-                    updateLoading = true
-                    updateError = null
-                    updateScope.launch {
-                        val result = runCatching {
-                            // The dispatcher is chosen inside now, along with the network:
-                            // while a T-Box session is up this process is bound to the
-                            // motorcycle's Wi-Fi and GitHub is unreachable from it.
-                            updateRepository.fetchReleases(context)
-                        }
-                        updateLoading = false
-                        result.onSuccess { releases ->
-                            val skippedTag = MotoHubSettings.skippedUpdateTag(context)
-                            updateReleases = listOfNotNull(
-                                latestNewerApkRelease(
-                                    releases,
-                                    BuildConfig.VERSION_NAME,
-                                    BuildConfig.VERSION_CODE
-                                )
-                            ).filter { openDialog || it.tagName != skippedTag }
-                            if (!openDialog && updateReleases.isEmpty()) {
-                                ProjectionEventLog.debug(
-                                    "UPDATES",
-                                    "Automatic GitHub check found no newer, non-skipped APK release."
-                                )
-                            } else {
-                                showUpdateDialog = true
-                            }
-                        }.onFailure { failure ->
-                            updateError = "Unable to check GitHub releases: ${failure.message}"
-                            ProjectionEventLog.warning("UPDATES", updateError.orEmpty(), failure)
-                        }
-                    }
-                }
                 val displayModeStore = remember(context) { AndroidAutoDisplayModeStore(context) }
                 val displayGeometryStore = remember(context) { TBoxDisplayGeometryStore(context) }
                 val screenMarginsStore = remember(context) { TBoxScreenMarginsStore(context) }
@@ -872,22 +800,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                val unknownSourcesLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.StartActivityForResult()
-                ) {
-                    unknownSourcesAllowed = GithubUpdateInstaller.canInstallUnknownSources(context)
-                }
-                LaunchedEffect(showSafetyDisclaimer) {
-                    if (showSafetyDisclaimer) return@LaunchedEffect
-                    if (updateAutoCheckAttempted) return@LaunchedEffect
-                    updateAutoCheckAttempted = true
-                    if (!MotoHubSettings.autoUpdateChecks(context)) {
-                        ProjectionEventLog.debug("UPDATES", "Automatic GitHub update checks are disabled in General settings.")
-                        return@LaunchedEffect
-                    }
-                    delay(AUTO_UPDATE_CHECK_DELAY_MS)
-                    checkForUpdates(openDialog = false)
-                }
                 suspend fun attemptAutoConnect() {
                     if (!MotoHubSettings.autoConnect(context)) {
                         ProjectionEventLog.debug("AUTO_CONNECT", "Auto-connect on launch is disabled.")
@@ -1250,10 +1162,7 @@ class MainActivity : ComponentActivity() {
                                         ).show()
                                     }
                                 },
-                                onCheckUpdates = {
-                                    ProjectionEventLog.record("UPDATES", "Manual GitHub update check requested.")
-                                    checkForUpdates(openDialog = true)
-                                },
+                                onCheckUpdates = {},
                                 onBack = {
                                     ProjectionEventLog.record("UI", "About screen closed.")
                                     showAbout = false
@@ -1734,47 +1643,6 @@ class MainActivity : ComponentActivity() {
                             )
                     }
                 }
-                if (showUpdateDialog) {
-                    GithubUpdateDialog(
-                        releases = updateReleases,
-                        isLoading = updateLoading,
-                        error = updateError,
-                        installingTag = installingUpdateTag,
-                        installingProgress = installingUpdateProgress,
-                        canInstallUnknownSources = unknownSourcesAllowed,
-                        onDismiss = { showUpdateDialog = false },
-                        onRetry = { checkForUpdates(openDialog = true) },
-                        onSkip = { release ->
-                            MotoHubSettings.setSkippedUpdateTag(context, release.tagName)
-                            updateReleases = updateReleases.filterNot { it.tagName == release.tagName }
-                            ProjectionEventLog.record("UPDATES", "Skipped release ${release.versionName}.")
-                            if (updateReleases.isEmpty()) showUpdateDialog = false
-                        },
-                        onAllowUnknownSources = {
-                            unknownSourcesLauncher.launch(
-                                GithubUpdateInstaller.unknownSourcesSettingsIntent(context)
-                            )
-                        },
-                        onInstall = { release ->
-                            installingUpdateTag = release.tagName
-                            installingUpdateProgress = null
-                            updateError = null
-                            updateScope.launch {
-                                GithubUpdateInstaller.downloadAndInstall(
-                                    context,
-                                    release,
-                                    onProgress = { progress -> installingUpdateProgress = progress }
-                                ).onFailure { failure ->
-                                    updateError = "Unable to install ${release.versionName}: " +
-                                            (failure.message ?: "unknown error")
-                                    ProjectionEventLog.error("UPDATES", updateError.orEmpty(), failure)
-                                }
-                                installingUpdateTag = null
-                                installingUpdateProgress = null
-                            }
-                        }
-                    )
-                }
                 if (showQrImageSource) {
                     QrImageSourceDialog(
                         onDismiss = { showQrImageSource = false },
@@ -2090,8 +1958,6 @@ class MainActivity : ComponentActivity() {
         const val OFFICIAL_APP_CLOSE_RETRY_DELAY_MS = 1_500L
         const val FOREGROUND_SETTLE_TIMEOUT_MS = 1_000L
         const val FOREGROUND_SETTLE_POLL_MS = 50L
-        const val AUTO_UPDATE_CHECK_DELAY_MS = 1_200L
-        const val AUTO_UPDATE_CHECK_THROTTLE_MS = 24 * 60 * 60 * 1_000L
     }
 }
 
